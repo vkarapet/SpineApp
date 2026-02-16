@@ -43,11 +43,11 @@ export const gripModule: AssessmentModule = {
   getInstructions(): InstructionConfig {
     return {
       title: 'Grip & Release Test',
-      body: 'Grip the phone with 4 fingers touching the screen, then release. Repeat as fast as you can.',
+      body: 'Hold the phone sideways in your palm and grip with your fingers, then release. Repeat as fast as you can.',
       importantPoints: [
-        'Place the phone in your palm, screen facing up',
-        'Grip the phone with 4 fingers touching the screen, then release all fingers',
-        'A grip only counts when 4+ fingers touch at the same time',
+        'Rest the phone across your palm, screen facing up',
+        'Curl your fingers onto the screen, then release all at once',
+        'A grip counts when at least 3 fingers touch the screen at the same time',
         'The test lasts 10 seconds',
       ],
       showMeHow: true,

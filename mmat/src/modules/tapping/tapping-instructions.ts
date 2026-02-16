@@ -14,15 +14,15 @@ export function renderTappingInstructions(container: HTMLElement): void {
     return;
   }
 
-  const wrapper = createElement('main', { className: 'tapping-instructions' });
+  const wrapper = createElement('main', { className: 'assessment-instructions' });
   wrapper.setAttribute('role', 'main');
 
   const title = createElement('h1', { textContent: 'Rapid Tapping Task' });
 
-  const body = createElement('div', { className: 'tapping-instructions__body' });
+  const body = createElement('div', { className: 'assessment-instructions__body' });
   body.innerHTML = `
     <p>Tap the circle as fast as you can using one finger.</p>
-    <div class="tapping-instructions__important">
+    <div class="assessment-instructions__important">
       <strong>Important:</strong>
       <ul>
         <li>Lift your finger completely between each tap</li>
@@ -62,7 +62,7 @@ export function renderTappingInstructions(container: HTMLElement): void {
     },
   });
 
-  const actions = createElement('div', { className: 'tapping-instructions__actions' });
+  const actions = createElement('div', { className: 'assessment-instructions__actions' });
   actions.appendChild(demoBtn);
   actions.appendChild(readyBtn);
 
@@ -80,27 +80,27 @@ export function renderTappingInstructions(container: HTMLElement): void {
 }
 
 function showDemo(wrapper: HTMLElement): void {
-  const existing = wrapper.querySelector('.tapping-instructions__demo');
+  const existing = wrapper.querySelector('.assessment-instructions__demo');
   if (existing) {
     existing.remove();
     return;
   }
 
-  const demo = createElement('div', { className: 'tapping-instructions__demo' });
+  const demo = createElement('div', { className: 'assessment-instructions__demo' });
   demo.innerHTML = `
-    <div class="tapping-instructions__demo-circle">
-      <div class="tapping-instructions__demo-finger"></div>
+    <div class="assessment-instructions__demo-circle">
+      <div class="assessment-instructions__demo-finger"></div>
     </div>
     <p>Tap with one finger, lift completely, then tap again</p>
   `;
-  wrapper.insertBefore(demo, wrapper.querySelector('.tapping-instructions__actions'));
+  wrapper.insertBefore(demo, wrapper.querySelector('.assessment-instructions__actions'));
 }
 
 function renderScreenReaderGate(container: HTMLElement): void {
-  const wrapper = createElement('main', { className: 'tapping-instructions' });
+  const wrapper = createElement('main', { className: 'assessment-instructions' });
   wrapper.setAttribute('role', 'main');
 
-  const msg = createElement('div', { className: 'tapping-instructions__sr-gate' });
+  const msg = createElement('div', { className: 'assessment-instructions__sr-gate' });
   msg.innerHTML = `
     <h1>Accessibility Notice</h1>
     <p>This assessment requires tapping the screen with your finger and is not compatible
@@ -122,64 +122,21 @@ function renderScreenReaderGate(container: HTMLElement): void {
 
 const style = document.createElement('style');
 style.textContent = `
-  .tapping-instructions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-    padding: var(--space-6) var(--space-4);
-    padding-bottom: calc(var(--space-8) + var(--safe-area-bottom));
-    max-width: 28rem;
-    margin: 0 auto;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  .tapping-instructions h1 {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    text-align: center;
-  }
-  .tapping-instructions__body {
-    line-height: var(--line-height-relaxed);
-  }
-  .tapping-instructions__body p {
-    font-size: var(--font-size-lg);
-    text-align: center;
-    margin-bottom: var(--space-4);
-  }
-  .tapping-instructions__important {
-    background: var(--color-bg-secondary);
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-  }
-  .tapping-instructions__important ul {
-    padding-left: var(--space-6);
-    list-style: disc;
-    margin-top: var(--space-2);
-  }
-  .tapping-instructions__important li {
-    margin-bottom: var(--space-2);
-  }
-  .tapping-instructions__actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    margin-top: auto;
-  }
-  .tapping-instructions__demo {
+  .assessment-instructions__demo {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-6);
   }
-  .tapping-instructions__demo-circle {
+  .assessment-instructions__demo-circle {
     width: 120px;
     height: 120px;
     border-radius: 50%;
     background: var(--color-primary);
     position: relative;
   }
-  .tapping-instructions__demo-finger {
+  .assessment-instructions__demo-finger {
     position: absolute;
     width: 30px;
     height: 30px;
@@ -193,14 +150,6 @@ style.textContent = `
   @keyframes tap-demo {
     0%, 100% { transform: translate(-50%, -150%); opacity: 0; }
     30%, 60% { transform: translate(-50%, -50%); opacity: 1; }
-  }
-  .tapping-instructions__sr-gate {
-    text-align: center;
-    line-height: var(--line-height-relaxed);
-  }
-  .tapping-instructions__sr-gate p {
-    color: var(--color-text-secondary);
-    margin-top: var(--space-4);
   }
 `;
 document.head.appendChild(style);

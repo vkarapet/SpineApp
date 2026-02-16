@@ -8,7 +8,7 @@ import { router } from '../../main';
 export function renderGripCountdown(container: HTMLElement): void {
   clearContainer(container);
 
-  const wrapper = createElement('main', { className: 'tapping-countdown' });
+  const wrapper = createElement('main', { className: 'assessment-countdown' });
   wrapper.setAttribute('role', 'main');
 
   const cancelBtn = createButton({
@@ -19,10 +19,10 @@ export function renderGripCountdown(container: HTMLElement): void {
       router.navigate('#/assessment/grip_v1/instructions');
     },
   });
-  cancelBtn.className = 'tapping-countdown__cancel';
+  cancelBtn.className = 'assessment-countdown__cancel';
 
   const countdownDisplay = createElement('div', {
-    className: 'tapping-countdown__number',
+    className: 'assessment-countdown__number',
     'aria-live': 'assertive',
     'aria-atomic': 'true',
   });

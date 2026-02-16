@@ -8,15 +8,15 @@ import { router } from '../../main';
 export function renderGripPractice(container: HTMLElement): void {
   clearContainer(container);
 
-  const wrapper = createElement('main', { className: 'tapping-practice' });
+  const wrapper = createElement('main', { className: 'assessment-practice' });
   wrapper.setAttribute('role', 'main');
 
-  const intro = createElement('div', { className: 'tapping-practice__intro' });
+  const intro = createElement('div', { className: 'assessment-practice__intro' });
   intro.innerHTML = `
     <h1>Practice Round</h1>
     <p>Let's do a quick 5-second practice first. This won't be saved.</p>
     <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
-      Place the phone in your palm and grip with ${GRIP_MIN_FINGERS}+ fingers, then release.
+      Hold the phone sideways in your palm and grip with ${GRIP_MIN_FINGERS} fingers, then release.
     </p>
   `;
 
@@ -39,7 +39,7 @@ function runPractice(wrapper: HTMLElement): void {
 
   // Counter
   const counter = createElement('div', {
-    className: 'tapping-practice__counter',
+    className: 'assessment-practice__counter',
     textContent: '0',
   });
 
@@ -50,8 +50,8 @@ function runPractice(wrapper: HTMLElement): void {
   });
 
   // Progress bar
-  const progressBar = createElement('div', { className: 'tapping-practice__progress' });
-  const progressFill = createElement('div', { className: 'tapping-practice__progress-fill' });
+  const progressBar = createElement('div', { className: 'assessment-practice__progress' });
+  const progressFill = createElement('div', { className: 'assessment-practice__progress-fill' });
   progressBar.appendChild(progressFill);
 
   // Finger indicators container
@@ -60,13 +60,39 @@ function runPractice(wrapper: HTMLElement): void {
   // Finger count display
   const fingerCount = createElement('div', {
     className: 'grip-practice__finger-count',
-    textContent: 'Touch with 4+ fingers',
+    textContent: 'Touch with 4 fingers',
   });
 
   let gripCount = 0;
   let gripAchieved = false;
   let running = true;
-  const activePointers = new Map<number, { x: number; y: number; el: HTMLElement }>();
+  const activeTouches = new Map<number, HTMLElement>();
+  const cancelledIds = new Set<number>();
+
+  // Gesture prevention — set up before timer so cleanup can be referenced
+  practiceArea.style.touchAction = 'none';
+  practiceArea.style.userSelect = 'none';
+  (practiceArea.style as unknown as Record<string, string>)['-webkit-touch-callout'] = 'none';
+
+  // Prevent Safari multi-touch gesture interference (pinch/zoom cancels touches)
+  const preventGesture = (e: Event) => e.preventDefault();
+  practiceArea.addEventListener('gesturestart', preventGesture);
+  practiceArea.addEventListener('gesturechange', preventGesture);
+  document.addEventListener('gesturestart', preventGesture);
+  document.addEventListener('gesturechange', preventGesture);
+
+  // Lock touch-action on document during practice
+  const savedDocTouchAction = document.documentElement.style.touchAction;
+  const savedBodyTouchAction = document.body.style.touchAction;
+  document.documentElement.style.touchAction = 'none';
+  document.body.style.touchAction = 'none';
+
+  function cleanupPractice(): void {
+    document.removeEventListener('gesturestart', preventGesture);
+    document.removeEventListener('gesturechange', preventGesture);
+    document.documentElement.style.touchAction = savedDocTouchAction;
+    document.body.style.touchAction = savedBodyTouchAction;
+  }
 
   // Timer
   const startTime = performance.now();
@@ -78,50 +104,75 @@ function runPractice(wrapper: HTMLElement): void {
     if (elapsed >= GRIP_PRACTICE_DURATION_MS) {
       running = false;
       clearInterval(timerInterval);
+      cleanupPractice();
       showPracticeResults(wrapper, gripCount);
     }
   }, 50);
 
-  const onPointerDown = (e: PointerEvent) => {
-    if (!running) return;
-    e.preventDefault();
+  function clearAllCircles(): void {
+    for (const [, circle] of activeTouches) {
+      circle.remove();
+    }
+    activeTouches.clear();
+    cancelledIds.clear();
+    fingerCount.textContent = `Touch with ${GRIP_MIN_FINGERS} fingers`;
+  }
 
-    // Create indicator circle at touch position
-    const circle = createElement('div', { className: 'grip-practice__circle' });
-    circle.style.left = `${e.clientX - 20}px`;
-    circle.style.top = `${e.clientY - 20}px`;
-    indicatorContainer.appendChild(circle);
+  // Reconcile circle UI from e.touches — the authoritative list of
+  // active touches on screen. Creates circles for new touches, updates
+  // positions for existing ones. Cancelled circles persist until a
+  // full release or new grip attempt.
+  function reconcileCircles(touches: TouchList): void {
+    const currentIds = new Set<number>();
 
-    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, el: circle });
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+      currentIds.add(touch.identifier);
 
-    fingerCount.textContent = `${activePointers.size} finger${activePointers.size !== 1 ? 's' : ''}`;
+      let circle = activeTouches.get(touch.identifier);
+      if (!circle) {
+        circle = createElement('div', { className: 'grip-practice__circle' });
+        if (gripAchieved) circle.classList.add('grip-practice__circle--grip');
+        indicatorContainer.appendChild(circle);
+        activeTouches.set(touch.identifier, circle);
+      }
+      circle.style.left = `${touch.clientX}px`;
+      circle.style.top = `${touch.clientY}px`;
 
-    if (activePointers.size >= GRIP_MIN_FINGERS && !gripAchieved) {
+      cancelledIds.delete(touch.identifier);
+    }
+
+    // Remove circles for touches that are gone AND not cancelled
+    for (const [id, circle] of activeTouches) {
+      if (!currentIds.has(id) && !cancelledIds.has(id)) {
+        circle.remove();
+        activeTouches.delete(id);
+      }
+    }
+
+    // Update finger count
+    fingerCount.textContent = activeTouches.size > 0
+      ? `${activeTouches.size} finger${activeTouches.size !== 1 ? 's' : ''}`
+      : `Touch with ${GRIP_MIN_FINGERS} fingers`;
+
+    // Grip detection
+    if (activeTouches.size >= GRIP_MIN_FINGERS && !gripAchieved) {
       gripAchieved = true;
-      // Turn all circles green
-      activePointers.forEach(({ el }) => {
-        el.classList.add('grip-practice__circle--grip');
-      });
+      activeTouches.forEach((el) => el.classList.add('grip-practice__circle--grip'));
       feedback.textContent = 'Grip!';
       feedback.className = 'grip-practice__feedback grip-practice__feedback--grip';
       if (supportsVibration()) vibrate(10);
     }
-  };
+  }
 
-  const onPointerUp = (e: PointerEvent) => {
+  // Touch event handlers
+  const onTouchStart = (e: TouchEvent) => {
     if (!running) return;
+    e.preventDefault();
 
-    const pointer = activePointers.get(e.pointerId);
-    if (pointer) {
-      pointer.el.remove();
-      activePointers.delete(e.pointerId);
-    }
-
-    fingerCount.textContent = activePointers.size > 0
-      ? `${activePointers.size} finger${activePointers.size !== 1 ? 's' : ''}`
-      : `Touch with ${GRIP_MIN_FINGERS}+ fingers`;
-
-    if (activePointers.size === 0) {
+    // If all existing circles are orphans from a previous cancel,
+    // this is a new grip attempt — clean up before starting fresh
+    if (activeTouches.size > 0 && cancelledIds.size === activeTouches.size) {
       if (gripAchieved) {
         gripCount++;
         counter.textContent = String(gripCount);
@@ -129,21 +180,60 @@ function runPractice(wrapper: HTMLElement): void {
         feedback.className = 'grip-practice__feedback grip-practice__feedback--release';
       }
       gripAchieved = false;
+      clearAllCircles();
+    }
+
+    reconcileCircles(e.touches);
+  };
+
+  const onTouchEnd = (e: TouchEvent) => {
+    if (!running) return;
+
+    // Remove circles for lifted fingers
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const circle = activeTouches.get(touch.identifier);
+      if (circle) {
+        circle.remove();
+        activeTouches.delete(touch.identifier);
+      }
+      cancelledIds.delete(touch.identifier);
+    }
+
+    // Full release — no more active touches on screen
+    if (e.touches.length === 0) {
+      const wasGrip = gripAchieved;
+      clearAllCircles();
+      if (wasGrip) {
+        gripCount++;
+        counter.textContent = String(gripCount);
+        feedback.textContent = 'Release! Good!';
+        feedback.className = 'grip-practice__feedback grip-practice__feedback--release';
+      }
+      gripAchieved = false;
+    } else {
+      fingerCount.textContent = `${activeTouches.size} finger${activeTouches.size !== 1 ? 's' : ''}`;
     }
   };
 
-  const onPointerCancel = (e: PointerEvent) => {
-    onPointerUp(e);
+  const onTouchCancel = (e: TouchEvent) => {
+    if (!running) return;
+    // Mark as cancelled but keep circles — fingers are still on screen
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      cancelledIds.add(e.changedTouches[i].identifier);
+    }
   };
 
-  // Gesture prevention
-  practiceArea.style.touchAction = 'none';
-  practiceArea.style.userSelect = 'none';
-  (practiceArea.style as unknown as Record<string, string>)['-webkit-touch-callout'] = 'none';
+  const onTouchMove = (e: TouchEvent) => {
+    if (!running) return;
+    e.preventDefault();
+    reconcileCircles(e.touches);
+  };
 
-  practiceArea.addEventListener('pointerdown', onPointerDown);
-  practiceArea.addEventListener('pointerup', onPointerUp);
-  practiceArea.addEventListener('pointercancel', onPointerCancel);
+  practiceArea.addEventListener('touchstart', onTouchStart, { passive: false });
+  practiceArea.addEventListener('touchend', onTouchEnd, { passive: false });
+  practiceArea.addEventListener('touchcancel', onTouchCancel, { passive: false });
+  practiceArea.addEventListener('touchmove', onTouchMove, { passive: false });
 
   practiceArea.appendChild(progressBar);
   practiceArea.appendChild(counter);
@@ -156,7 +246,7 @@ function runPractice(wrapper: HTMLElement): void {
 function showPracticeResults(wrapper: HTMLElement, gripCount: number): void {
   clearContainer(wrapper);
 
-  const results = createElement('div', { className: 'tapping-practice__results' });
+  const results = createElement('div', { className: 'assessment-practice__results' });
   results.innerHTML = `
     <h2>Great!</h2>
     <p>You completed <strong>${gripCount}</strong> grip/release cycle${gripCount !== 1 ? 's' : ''}.</p>
@@ -205,22 +295,24 @@ style.textContent = `
     -webkit-touch-callout: none;
   }
   .grip-practice__indicators {
-    position: fixed;
+    position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 1;
   }
   .grip-practice__circle {
-    position: absolute;
-    width: 40px;
-    height: 40px;
+    position: fixed;
+    width: 20mm;
+    height: 20mm;
     border-radius: 50%;
-    background: var(--color-primary);
-    opacity: 0.7;
-    transition: background-color 100ms ease;
+    border: 3mm solid #E53935;
+    background: transparent;
+    box-sizing: content-box;
+    transform: translate(-50%, -50%);
+    transition: border-color 100ms ease;
   }
   .grip-practice__circle--grip {
-    background: var(--color-success);
+    border-color: var(--color-success);
   }
   .grip-practice__feedback {
     position: absolute;

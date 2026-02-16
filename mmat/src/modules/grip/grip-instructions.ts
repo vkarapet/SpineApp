@@ -2,7 +2,7 @@ import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { audioManager } from '../../utils/audio';
 import { getProfile } from '../../core/db';
-import { isScreenReaderActive } from '../../utils/device';
+import { isScreenReaderActive, getDeviceOS } from '../../utils/device';
 import { router } from '../../main';
 
 export function renderGripInstructions(container: HTMLElement): void {
@@ -13,47 +13,88 @@ export function renderGripInstructions(container: HTMLElement): void {
     return;
   }
 
-  const wrapper = createElement('main', { className: 'tapping-instructions' });
+  const wrapper = createElement('main', { className: 'assessment-instructions' });
   wrapper.setAttribute('role', 'main');
 
   const title = createElement('h1', { textContent: 'Grip & Release Test' });
 
-  const body = createElement('div', { className: 'tapping-instructions__body' });
+  const body = createElement('div', { className: 'assessment-instructions__body' });
   body.innerHTML = `
-    <p>Grip the phone with 4 fingers touching the screen, then release. Repeat as fast as you can.</p>
-    <div class="tapping-instructions__important">
+    <p>Hold the phone sideways in your palm and grip with your fingers, then release. Repeat as fast as you can.</p>
+    <div class="assessment-instructions__important">
       <strong>Important:</strong>
       <ul>
-        <li>Place the phone in your palm, screen facing up</li>
-        <li>Grip the phone with 4 fingers touching the screen, then release all fingers</li>
-        <li>A grip only counts when 4+ fingers touch at the same time</li>
+        <li>Rest the phone across your palm, screen facing up</li>
+        <li>Curl your fingers onto the screen, then release all at once</li>
+        <li>A grip counts when at least 3 fingers touch the screen at the same time</li>
         <li>The test lasts 10 seconds</li>
       </ul>
     </div>
+    <div class="assessment-instructions__setup">
+      <strong>Before you start:</strong>
+      <p>Lock your phone to this app to prevent system gestures (like screenshot or copy/paste) from interrupting the test.</p>
+      ${getDeviceOS() === 'Android' ? `
+      <ol>
+        <li>Go to <strong>Settings &gt; Security &gt; App pinning</strong> and turn it on</li>
+        <li>Open <strong>Recent Apps</strong>, tap the app icon above the preview, and select <strong>Pin</strong></li>
+      </ol>
+      <p>To unpin: swipe up and hold, or press Back + Home together.</p>
+      <p>Also disable any multi-finger gestures (e.g. three-finger screenshot) in <strong>Settings &gt; Advanced features</strong> or your manufacturer's gesture settings.</p>
+      ` : `
+      <ol>
+        <li>Go to <strong>Settings &gt; Accessibility &gt; Guided Access</strong> and turn it on</li>
+        <li>Return here, then <strong>triple-click the side button</strong> to activate</li>
+        <li>Tap <strong>Start</strong> in the top-right corner</li>
+      </ol>
+      <p>Triple-click again when finished to exit Guided Access.</p>
+      `}
+    </div>
   `;
 
-  // Hand position diagram
+  // Hand position diagram — phone sideways in palm, fingers curling onto screen
   const diagram = createElement('div', { className: 'grip-instructions__diagram' });
   diagram.innerHTML = `
-    <svg viewBox="0 0 200 260" width="200" height="260" aria-label="Hand position diagram showing phone in palm with 4 fingers curling up to touch screen">
-      <!-- Phone outline -->
-      <rect x="40" y="10" width="120" height="220" rx="16" ry="16"
-            fill="none" stroke="var(--color-text-secondary)" stroke-width="2"/>
-      <rect x="48" y="30" width="104" height="180" rx="4" ry="4"
+    <svg viewBox="0 0 260 220" width="260" height="220" aria-label="Diagram showing a hand holding the phone sideways in the palm with 4 fingers curling onto the screen">
+      <!-- Palm (back of hand, viewed from above) -->
+      <path d="M 48 180 C 30 170 18 130 20 100 C 22 75 30 60 45 52
+               L 50 40 C 52 28 58 20 65 22 C 72 24 72 36 70 48 L 68 56
+               L 80 26 C 82 14 90 6 97 10 C 104 14 102 28 98 42 L 92 60
+               L 108 22 C 112 10 120 4 127 8 C 134 13 131 28 126 44 L 118 64
+               L 132 32 C 136 20 144 16 150 22 C 156 28 152 42 146 56 L 130 86
+               C 148 76 158 78 160 90 C 162 102 152 112 140 116
+               L 140 130 C 138 160 120 178 90 184
+               Z"
+            fill="var(--color-bg-tertiary)" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+      <!-- Knuckle creases -->
+      <path d="M 56 68 Q 80 58 118 68" fill="none" stroke="var(--color-border)" stroke-width="1" opacity="0.6"/>
+      <path d="M 50 90 Q 85 78 130 88" fill="none" stroke="var(--color-border)" stroke-width="1" opacity="0.6"/>
+
+      <!-- Phone (sideways in palm — long axis across fingers) -->
+      <rect x="55" y="92" width="160" height="82" rx="10" ry="10"
+            fill="var(--color-bg)" stroke="var(--color-text-secondary)" stroke-width="2"/>
+      <!-- Screen -->
+      <rect x="68" y="98" width="134" height="70" rx="3" ry="3"
             fill="var(--color-bg-secondary)" stroke="var(--color-border)" stroke-width="1"/>
-      <!-- Screen label -->
-      <text x="100" y="120" text-anchor="middle" font-size="11" fill="var(--color-text-secondary)">Screen</text>
-      <!-- 4 finger contact points -->
-      <circle cx="68" cy="160" r="8" fill="var(--color-primary)" opacity="0.8"/>
-      <circle cx="88" cy="150" r="8" fill="var(--color-primary)" opacity="0.8"/>
-      <circle cx="112" cy="150" r="8" fill="var(--color-primary)" opacity="0.8"/>
-      <circle cx="132" cy="160" r="8" fill="var(--color-primary)" opacity="0.8"/>
-      <!-- Finger labels -->
-      <text x="100" y="185" text-anchor="middle" font-size="10" fill="var(--color-text-secondary)">4 fingers</text>
-      <!-- Hand arc below phone -->
-      <path d="M 30 240 Q 100 280 170 240" fill="none" stroke="var(--color-text-secondary)"
-            stroke-width="2" stroke-dasharray="4 4"/>
-      <text x="100" y="255" text-anchor="middle" font-size="10" fill="var(--color-text-secondary)">Palm (underneath)</text>
+      <text x="135" y="137" text-anchor="middle" font-size="10" fill="var(--color-text-secondary)">Screen</text>
+
+      <!-- 4 finger contact points on screen -->
+      <circle cx="90" cy="120" r="7" fill="var(--color-primary)" opacity="0.8"/>
+      <circle cx="115" cy="116" r="7" fill="var(--color-primary)" opacity="0.8"/>
+      <circle cx="140" cy="116" r="7" fill="var(--color-primary)" opacity="0.8"/>
+      <circle cx="165" cy="120" r="7" fill="var(--color-primary)" opacity="0.8"/>
+
+      <!-- Finger arcs curling over the top edge of the phone -->
+      <path d="M 90 92 C 88 82 86 76 82 72" fill="none" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 115 92 C 113 80 110 72 106 66" fill="none" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 140 92 C 138 80 134 72 128 68" fill="none" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 165 92 C 160 82 155 76 148 72" fill="none" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round"/>
+
+      <!-- Thumb on the side -->
+      <path d="M 48 130 C 38 125 34 118 38 110 C 42 102 50 100 55 104"
+            fill="var(--color-bg-tertiary)" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+
+      <!-- Label -->
+      <text x="135" y="152" text-anchor="middle" font-size="9" fill="var(--color-primary)" font-weight="600">3+ fingers</text>
     </svg>
   `;
 
@@ -85,7 +126,7 @@ export function renderGripInstructions(container: HTMLElement): void {
     },
   });
 
-  const actions = createElement('div', { className: 'tapping-instructions__actions' });
+  const actions = createElement('div', { className: 'assessment-instructions__actions' });
   actions.appendChild(demoBtn);
   actions.appendChild(readyBtn);
 
@@ -118,16 +159,16 @@ function showDemo(wrapper: HTMLElement): void {
       <div class="grip-instructions__demo-dot grip-instructions__demo-dot--3"></div>
       <div class="grip-instructions__demo-dot grip-instructions__demo-dot--4"></div>
     </div>
-    <p>4 fingers touch the screen, then all release together</p>
+    <p>Fingers touch the screen, then all release together</p>
   `;
-  wrapper.insertBefore(demo, wrapper.querySelector('.tapping-instructions__actions'));
+  wrapper.insertBefore(demo, wrapper.querySelector('.assessment-instructions__actions'));
 }
 
 function renderScreenReaderGate(container: HTMLElement): void {
-  const wrapper = createElement('main', { className: 'tapping-instructions' });
+  const wrapper = createElement('main', { className: 'assessment-instructions' });
   wrapper.setAttribute('role', 'main');
 
-  const msg = createElement('div', { className: 'tapping-instructions__sr-gate' });
+  const msg = createElement('div', { className: 'assessment-instructions__sr-gate' });
   msg.innerHTML = `
     <h1>Accessibility Notice</h1>
     <p>This assessment requires gripping the phone with multiple fingers and is not compatible
@@ -149,6 +190,26 @@ function renderScreenReaderGate(container: HTMLElement): void {
 
 const style = document.createElement('style');
 style.textContent = `
+  .assessment-instructions__setup {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+  }
+  .assessment-instructions__setup strong {
+    color: var(--color-text);
+  }
+  .assessment-instructions__setup ol {
+    padding-left: var(--space-5);
+    margin: var(--space-2) 0;
+  }
+  .assessment-instructions__setup ol li {
+    margin-bottom: var(--space-1);
+  }
+  .assessment-instructions__setup p {
+    margin: var(--space-2) 0;
+  }
   .grip-instructions__diagram {
     display: flex;
     justify-content: center;

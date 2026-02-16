@@ -27,13 +27,13 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   const wrapper = createElement('div', { className: 'grip-active' });
 
   // Progress bar
-  const progressBar = createElement('div', { className: 'tapping-active__progress' });
-  const progressFill = createElement('div', { className: 'tapping-active__progress-fill' });
+  const progressBar = createElement('div', { className: 'assessment-active__progress' });
+  const progressFill = createElement('div', { className: 'assessment-active__progress-fill' });
   progressBar.appendChild(progressFill);
 
   // GO signal
   const goSignal = createElement('div', {
-    className: 'tapping-active__go',
+    className: 'assessment-active__go',
     textContent: 'GO!',
     'aria-live': 'assertive',
   });
@@ -47,8 +47,9 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   const tapEvents: RawTapEvent[] = new Array(500);
   let tapIndex = 0;
 
-  // Grip state
-  const activePointers = new Map<number, { x: number; y: number; el: HTMLElement }>();
+  // Grip state — keyed by Touch.identifier
+  const activeTouches = new Map<number, HTMLElement>();
+  const cancelledIds = new Set<number>();
   let gripAchieved = false;
   let gripCycleCount = 0;
   let running = false;
@@ -77,9 +78,18 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   (wrapper.style as unknown as Record<string, string>)['-webkit-touch-callout'] = 'none';
   document.body.style.overscrollBehavior = 'none';
 
-  const preventMove = (e: Event) => e.preventDefault();
-  wrapper.addEventListener('touchmove', preventMove, { passive: false });
-  wrapper.addEventListener('pointermove', preventMove, { passive: false });
+  // Prevent Safari multi-touch gesture interference (pinch/zoom cancels touches)
+  const preventGesture = (e: Event) => e.preventDefault();
+  wrapper.addEventListener('gesturestart', preventGesture);
+  wrapper.addEventListener('gesturechange', preventGesture);
+  document.addEventListener('gesturestart', preventGesture);
+  document.addEventListener('gesturechange', preventGesture);
+
+  // Lock touch-action on document during test
+  const savedDocTouchAction = document.documentElement.style.touchAction;
+  const savedBodyTouchAction = document.body.style.touchAction;
+  document.documentElement.style.touchAction = 'none';
+  document.body.style.touchAction = 'none';
 
   // beforeunload handler
   const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -120,95 +130,130 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     tapIndex++;
   }
 
-  // Pointer event handlers
-  const onPointerDown = (e: PointerEvent) => {
+  function clearAllCircles(): void {
+    for (const [, circle] of activeTouches) {
+      circle.remove();
+    }
+    activeTouches.clear();
+    cancelledIds.clear();
+  }
+
+  // Reconcile circle UI from e.touches — the authoritative list of
+  // active touches on screen. Creates circles for new touches, updates
+  // positions for existing ones. Only removes circles for touches that
+  // have genuinely disappeared (not in e.touches AND not cancelled).
+  // Cancelled circles persist until a full release or new grip attempt.
+  function reconcileCircles(touches: TouchList): void {
+    const currentIds = new Set<number>();
+
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+      currentIds.add(touch.identifier);
+
+      let circle = activeTouches.get(touch.identifier);
+      if (!circle) {
+        circle = createElement('div', { className: 'grip-active__circle' });
+        if (gripAchieved) circle.classList.add('grip-active__circle--grip');
+        indicatorContainer.appendChild(circle);
+        activeTouches.set(touch.identifier, circle);
+      }
+      circle.style.left = `${touch.clientX}px`;
+      circle.style.top = `${touch.clientY}px`;
+
+      // If this touch was previously cancelled but reappears, un-cancel it
+      cancelledIds.delete(touch.identifier);
+    }
+
+    // Remove circles for touches that are gone AND not cancelled
+    for (const [id, circle] of activeTouches) {
+      if (!currentIds.has(id) && !cancelledIds.has(id)) {
+        circle.remove();
+        activeTouches.delete(id);
+      }
+    }
+
+    // Grip detection
+    if (activeTouches.size >= GRIP_MIN_FINGERS && !gripAchieved) {
+      gripAchieved = true;
+      activeTouches.forEach((el) => el.classList.add('grip-active__circle--grip'));
+
+      const hapticEnabled = profile?.preferences.haptic_enabled ?? true;
+      if (hapticEnabled && supportsVibration()) vibrate(10);
+
+      gripsSinceSave++;
+      if (gripsSinceSave >= INCREMENTAL_SAVE_GRIP_COUNT) doIncrementalSave();
+    }
+  }
+
+  // Touch event handlers
+  const onTouchStart = (e: TouchEvent) => {
     if (!running) return;
     e.preventDefault();
 
-    const now = performance.now() - startTime;
-
-    // Create indicator circle
-    const circle = createElement('div', { className: 'grip-active__circle' });
-    circle.style.left = `${e.clientX - 20}px`;
-    circle.style.top = `${e.clientY - 20}px`;
-    indicatorContainer.appendChild(circle);
-
-    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, el: circle });
-
-    // Record raw event
-    recordEvent(now, e.clientX, e.clientY, 'start', e.pointerId, false, null);
-
-    // Check for grip (4+ fingers)
-    if (activePointers.size >= GRIP_MIN_FINGERS && !gripAchieved) {
-      gripAchieved = true;
-
-      // Turn all circles green
-      activePointers.forEach(({ el }) => {
-        el.classList.add('grip-active__circle--grip');
-      });
-
-      // Haptic
-      const hapticEnabled = profile?.preferences.haptic_enabled ?? true;
-      if (hapticEnabled && supportsVibration()) {
-        vibrate(10);
-      }
-
-      gripsSinceSave++;
-
-      // Incremental save check
-      if (gripsSinceSave >= INCREMENTAL_SAVE_GRIP_COUNT) {
-        doIncrementalSave();
-      }
+    // If all existing circles are orphans from a previous cancel,
+    // this is a new grip attempt — clean up before starting fresh
+    if (activeTouches.size > 0 && cancelledIds.size === activeTouches.size) {
+      if (gripAchieved) gripCycleCount++;
+      gripAchieved = false;
+      clearAllCircles();
     }
+
+    const now = performance.now() - startTime;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      recordEvent(now, touch.clientX, touch.clientY, 'start', touch.identifier, false, null);
+    }
+    reconcileCircles(e.touches);
   };
 
-  const onPointerUp = (e: PointerEvent) => {
+  const onTouchEnd = (e: TouchEvent) => {
     if (!running) return;
 
     const now = performance.now() - startTime;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      recordEvent(now, touch.clientX, touch.clientY, 'end', touch.identifier, false, null);
 
-    const pointer = activePointers.get(e.pointerId);
-    if (pointer) {
-      pointer.el.remove();
-      activePointers.delete(e.pointerId);
+      // Remove circle for this lifted finger
+      const circle = activeTouches.get(touch.identifier);
+      if (circle) {
+        circle.remove();
+        activeTouches.delete(touch.identifier);
+      }
+      cancelledIds.delete(touch.identifier);
     }
 
-    recordEvent(now, e.clientX, e.clientY, 'end', e.pointerId, false, null);
-
-    if (activePointers.size === 0) {
-      if (gripAchieved) {
-        gripCycleCount++;
-      }
+    // Full release — no more active touches on screen
+    if (e.touches.length === 0) {
+      const wasGrip = gripAchieved;
+      clearAllCircles();
+      if (wasGrip) gripCycleCount++;
       gripAchieved = false;
-      // Clear any remaining circle indicators
-      indicatorContainer.innerHTML = '';
     }
   };
 
-  const onPointerCancel = (e: PointerEvent) => {
+  const onTouchCancel = (e: TouchEvent) => {
     if (!running) return;
+
     const now = performance.now() - startTime;
-
-    const pointer = activePointers.get(e.pointerId);
-    if (pointer) {
-      pointer.el.remove();
-      activePointers.delete(e.pointerId);
-    }
-
-    recordEvent(now, 0, 0, 'end', e.pointerId, false, null);
-
-    if (activePointers.size === 0) {
-      if (gripAchieved) {
-        gripCycleCount++;
-      }
-      gripAchieved = false;
-      indicatorContainer.innerHTML = '';
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      recordEvent(now, 0, 0, 'end', touch.identifier, false, null);
+      // Mark as cancelled but keep the circle — finger is still on screen
+      cancelledIds.add(touch.identifier);
     }
   };
 
-  wrapper.addEventListener('pointerdown', onPointerDown);
-  wrapper.addEventListener('pointerup', onPointerUp);
-  wrapper.addEventListener('pointercancel', onPointerCancel);
+  const onTouchMove = (e: TouchEvent) => {
+    if (!running) return;
+    e.preventDefault();
+    reconcileCircles(e.touches);
+  };
+
+  wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
+  wrapper.addEventListener('touchend', onTouchEnd, { passive: false });
+  wrapper.addEventListener('touchcancel', onTouchCancel, { passive: false });
+  wrapper.addEventListener('touchmove', onTouchMove, { passive: false });
 
   // Incremental save
   async function doIncrementalSave(): Promise<void> {
@@ -248,6 +293,10 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     window.removeEventListener('beforeunload', onBeforeUnload);
     removeGuard();
     document.body.style.overscrollBehavior = '';
+    document.removeEventListener('gesturestart', preventGesture);
+    document.removeEventListener('gesturechange', preventGesture);
+    document.documentElement.style.touchAction = savedDocTouchAction;
+    document.body.style.touchAction = savedBodyTouchAction;
   }
 
   // End assessment
@@ -259,7 +308,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (supportsVibration()) vibrate(50);
 
     goSignal.textContent = "Time's Up!";
-    goSignal.className = 'tapping-active__go tapping-active__go--end';
+    goSignal.className = 'assessment-active__go assessment-active__go--end';
     goSignal.style.display = 'flex';
     indicatorContainer.style.display = 'none';
 
@@ -331,6 +380,8 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
   setTimeout(() => {
     goSignal.style.display = 'none';
+    // Force layout flush so first touch coordinates are accurate
+    void wrapper.offsetHeight;
     running = true;
     startTime = performance.now();
     lastSaveTime = startTime;
@@ -376,24 +427,25 @@ style.textContent = `
     -webkit-touch-callout: none;
   }
   .grip-active__indicators {
-    position: fixed;
+    position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 1;
   }
   .grip-active__circle {
-    position: absolute;
-    width: 40px;
-    height: 40px;
+    position: fixed;
+    width: 20mm;
+    height: 20mm;
     border-radius: 50%;
-    background: var(--color-primary);
-    opacity: 0.7;
-    transition: background-color 100ms ease;
+    border: 3mm solid #E53935;
+    background: transparent;
+    box-sizing: content-box;
+    transform: translate(-50%, -50%);
+    transition: border-color 100ms ease;
     pointer-events: none;
   }
   .grip-active__circle--grip {
-    background: var(--color-success);
-    opacity: 0.9;
+    border-color: var(--color-success);
   }
 `;
 document.head.appendChild(style);

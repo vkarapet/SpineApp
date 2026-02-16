@@ -16,17 +16,17 @@ export async function renderTappingResults(container: HTMLElement): Promise<void
   const result = lastAssessmentResult;
   const m = result.computed_metrics;
 
-  const wrapper = createElement('main', { className: 'tapping-results' });
+  const wrapper = createElement('main', { className: 'assessment-results' });
   wrapper.setAttribute('role', 'main');
 
   // Header
   const header = createElement('h1', {
-    className: 'tapping-results__header',
+    className: 'assessment-results__header',
     textContent: 'Test Complete!',
   });
 
   // Metrics
-  const metricsSection = createElement('section', { className: 'tapping-results__metrics' });
+  const metricsSection = createElement('section', { className: 'assessment-results__metrics' });
 
   // Tap count and frequency
   metricsSection.appendChild(
@@ -74,14 +74,14 @@ export async function renderTappingResults(container: HTMLElement): Promise<void
       comparisonText = `That's ${Math.abs(change).toFixed(0)}% slower than last time`;
     }
 
-    const comparison = createElement('div', { className: 'tapping-results__comparison' });
+    const comparison = createElement('div', { className: 'assessment-results__comparison' });
     comparison.textContent = comparisonText;
     metricsSection.appendChild(comparison);
   }
 
   // Sync status
   const syncStatus = createElement('div', {
-    className: 'tapping-results__sync',
+    className: 'assessment-results__sync',
     'aria-live': 'polite',
   });
   syncStatus.textContent = result.synced
@@ -133,65 +133,8 @@ export async function renderTappingResults(container: HTMLElement): Promise<void
 }
 
 function createMetricCard(label: string, value: string): HTMLElement {
-  const card = createElement('div', { className: 'tapping-results__metric-card' });
-  card.appendChild(createElement('span', { className: 'tapping-results__metric-label', textContent: label }));
-  card.appendChild(createElement('span', { className: 'tapping-results__metric-value', textContent: value }));
+  const card = createElement('div', { className: 'assessment-results__metric-card' });
+  card.appendChild(createElement('span', { className: 'assessment-results__metric-label', textContent: label }));
+  card.appendChild(createElement('span', { className: 'assessment-results__metric-value', textContent: value }));
   return card;
 }
-
-const style = document.createElement('style');
-style.textContent = `
-  .tapping-results {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-    padding: var(--space-6) var(--space-4);
-    padding-bottom: calc(var(--space-8) + var(--safe-area-bottom));
-    max-width: 28rem;
-    margin: 0 auto;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  .tapping-results__header {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    text-align: center;
-    color: var(--color-success);
-  }
-  .tapping-results__metrics {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  .tapping-results__metric-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-4);
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-lg);
-  }
-  .tapping-results__metric-label {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-  }
-  .tapping-results__metric-value {
-    font-size: var(--font-size-lg);
-    color: var(--color-primary);
-    font-weight: var(--font-weight-bold);
-  }
-  .tapping-results__comparison {
-    padding: var(--space-3) var(--space-4);
-    background: #E8F5E9;
-    border-radius: var(--radius-md);
-    text-align: center;
-    color: #2E7D32;
-    font-weight: var(--font-weight-medium);
-  }
-  .tapping-results__sync {
-    text-align: center;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-`;
-document.head.appendChild(style);

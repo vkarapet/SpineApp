@@ -27,13 +27,13 @@ export async function renderTappingActive(container: HTMLElement): Promise<void>
   const wrapper = createElement('div', { className: 'tapping-active' });
 
   // Progress bar
-  const progressBar = createElement('div', { className: 'tapping-active__progress' });
-  const progressFill = createElement('div', { className: 'tapping-active__progress-fill' });
+  const progressBar = createElement('div', { className: 'assessment-active__progress' });
+  const progressFill = createElement('div', { className: 'assessment-active__progress-fill' });
   progressBar.appendChild(progressFill);
 
   // GO signal
   const goSignal = createElement('div', {
-    className: 'tapping-active__go',
+    className: 'assessment-active__go',
     textContent: 'GO!',
     'aria-live': 'assertive',
   });
@@ -270,7 +270,7 @@ export async function renderTappingActive(container: HTMLElement): Promise<void>
 
     // Show time's up
     goSignal.textContent = "Time's Up!";
-    goSignal.className = 'tapping-active__go tapping-active__go--end';
+    goSignal.className = 'assessment-active__go assessment-active__go--end';
     goSignal.style.display = 'flex';
     target.style.display = 'none';
 
@@ -394,37 +394,6 @@ style.textContent = `
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-  }
-  .tapping-active__progress {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--color-bg-tertiary);
-    z-index: 10;
-  }
-  .tapping-active__progress-fill {
-    height: 100%;
-    background: var(--color-primary);
-    width: 0%;
-    transition: width 50ms linear;
-  }
-  .tapping-active__go {
-    display: none;
-    position: absolute;
-    inset: 0;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--font-size-3xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-success);
-    background: rgba(52, 168, 83, 0.1);
-    z-index: 5;
-  }
-  .tapping-active__go--end {
-    color: var(--color-text);
-    background: rgba(0, 0, 0, 0.05);
   }
   .tapping-active__target {
     position: absolute;

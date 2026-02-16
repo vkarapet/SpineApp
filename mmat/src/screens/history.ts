@@ -1,13 +1,11 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createHeader } from '../components/header';
-import { createDeviceFilter } from '../components/device-filter';
 import { getAllResults, getProfile, saveResult, addAuditEntry } from '../core/db';
 import { formatDateTime } from '../utils/date';
 import type { AssessmentResult } from '../types/db-schemas';
 import { router, moduleRegistry } from '../main';
 
-let currentFilter: 'all' | 'this' = 'all';
-let currentModuleTab: string = 'all';
+let currentModuleTab: string = '';
 
 export async function renderHistory(container: HTMLElement): Promise<void> {
   clearContainer(container);
@@ -30,26 +28,21 @@ export async function renderHistory(container: HTMLElement): Promise<void> {
   // Module tabs
   const modules = moduleRegistry.getAllModules();
   if (modules.length > 0) {
+    // Default to first module if no tab selected yet
+    if (!currentModuleTab) {
+      currentModuleTab = modules[0].id.replace(/_v\d+$/, '');
+    }
+
     const tabBar = createElement('div', { className: 'history-screen__tabs' });
     tabBar.setAttribute('role', 'tablist');
 
-    // "All" tab
-    const allTab = createTab('All', 'all', currentModuleTab === 'all');
-    allTab.addEventListener('click', async () => {
-      currentModuleTab = 'all';
-      updateActiveTab(tabBar);
-      await renderList(main, profile.device_id);
-    });
-    tabBar.appendChild(allTab);
-
-    // One tab per module
     for (const mod of modules) {
       const prefix = mod.id.replace(/_v\d+$/, '');
       const tab = createTab(mod.name, prefix, currentModuleTab === prefix);
       tab.addEventListener('click', async () => {
         currentModuleTab = prefix;
         updateActiveTab(tabBar);
-        await renderList(main, profile.device_id);
+        await renderList(main);
       });
       tabBar.appendChild(tab);
     }
@@ -57,15 +50,7 @@ export async function renderHistory(container: HTMLElement): Promise<void> {
     main.appendChild(tabBar);
   }
 
-  // Device filter
-  const filter = createDeviceFilter(currentFilter, async (f) => {
-    currentFilter = f;
-    await renderList(main, profile.device_id);
-  });
-
-  main.appendChild(filter);
-
-  await renderList(main, profile.device_id);
+  await renderList(main);
 
   container.appendChild(header);
   container.appendChild(main);
@@ -92,7 +77,7 @@ function updateActiveTab(tabBar: HTMLElement): void {
   });
 }
 
-async function renderList(main: HTMLElement, deviceId: string): Promise<void> {
+async function renderList(main: HTMLElement): Promise<void> {
   // Remove existing list if any
   const existing = main.querySelector('.history-screen__list');
   if (existing) existing.remove();
@@ -100,13 +85,8 @@ async function renderList(main: HTMLElement, deviceId: string): Promise<void> {
   let results = await getAllResults();
 
   // Filter by module tab
-  if (currentModuleTab !== 'all') {
+  if (currentModuleTab) {
     results = results.filter((r) => r.task_type.startsWith(currentModuleTab));
-  }
-
-  // Filter by device
-  if (currentFilter === 'this') {
-    results = results.filter((r) => r.device_id === deviceId);
   }
 
   results.sort(
@@ -119,9 +99,7 @@ async function renderList(main: HTMLElement, deviceId: string): Promise<void> {
   if (results.length === 0) {
     const empty = createElement('p', {
       className: 'history-screen__empty',
-      textContent: currentModuleTab === 'all'
-        ? 'No assessment history yet.'
-        : 'No sessions for this module yet.',
+      textContent: 'No sessions for this module yet.',
     });
     list.appendChild(empty);
   } else {
@@ -240,6 +218,7 @@ style.textContent = `
     padding-bottom: calc(var(--space-8) + var(--safe-area-bottom));
     max-width: 40rem;
     margin: 0 auto;
+    overflow: hidden;
   }
   .history-screen__tabs {
     display: flex;
@@ -248,6 +227,7 @@ style.textContent = `
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     padding-bottom: var(--space-1);
+    min-width: 0;
   }
   .history-screen__tabs::-webkit-scrollbar {
     display: none;

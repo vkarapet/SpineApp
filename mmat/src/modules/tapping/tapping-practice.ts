@@ -8,10 +8,10 @@ import { router } from '../../main';
 export function renderTappingPractice(container: HTMLElement): void {
   clearContainer(container);
 
-  const wrapper = createElement('main', { className: 'tapping-practice' });
+  const wrapper = createElement('main', { className: 'assessment-practice' });
   wrapper.setAttribute('role', 'main');
 
-  const intro = createElement('div', { className: 'tapping-practice__intro' });
+  const intro = createElement('div', { className: 'assessment-practice__intro' });
   intro.innerHTML = `
     <h1>Practice Round</h1>
     <p>Let's do a quick 5-second practice first. This won't be saved.</p>
@@ -32,27 +32,27 @@ export function renderTappingPractice(container: HTMLElement): void {
 function runPractice(wrapper: HTMLElement): void {
   clearContainer(wrapper);
 
-  const practiceArea = createElement('div', { className: 'tapping-practice__area' });
+  const practiceArea = createElement('div', { className: 'assessment-practice__area' });
 
   // Counter
   const counter = createElement('div', {
-    className: 'tapping-practice__counter',
+    className: 'assessment-practice__counter',
     textContent: '0',
   });
 
   // Feedback text
   const feedback = createElement('div', {
-    className: 'tapping-practice__feedback',
+    className: 'assessment-practice__feedback',
     'aria-live': 'polite',
   });
 
   // Progress bar
-  const progressBar = createElement('div', { className: 'tapping-practice__progress' });
-  const progressFill = createElement('div', { className: 'tapping-practice__progress-fill' });
+  const progressBar = createElement('div', { className: 'assessment-practice__progress' });
+  const progressFill = createElement('div', { className: 'assessment-practice__progress-fill' });
   progressBar.appendChild(progressFill);
 
   // Target
-  const target = createElement('div', { className: 'tapping-practice__target' });
+  const target = createElement('div', { className: 'assessment-practice__target' });
   target.setAttribute('role', 'button');
   target.setAttribute('aria-label', 'Tap target');
 
@@ -81,10 +81,10 @@ function runPractice(wrapper: HTMLElement): void {
 
     if (activeTouchId !== null) {
       // Multi-touch — show rejection feedback
-      target.classList.add('tapping-practice__target--invalid');
+      target.classList.add('assessment-practice__target--invalid');
       feedback.textContent = 'Lift your finger first!';
       setTimeout(() => {
-        target.classList.remove('tapping-practice__target--invalid');
+        target.classList.remove('assessment-practice__target--invalid');
       }, 200);
       return;
     }
@@ -94,12 +94,12 @@ function runPractice(wrapper: HTMLElement): void {
     counter.textContent = String(tapCount);
 
     // Valid tap feedback
-    target.classList.add('tapping-practice__target--valid');
+    target.classList.add('assessment-practice__target--valid');
     feedback.textContent = '';
     if (supportsVibration()) vibrate(10);
 
     setTimeout(() => {
-      target.classList.remove('tapping-practice__target--valid');
+      target.classList.remove('assessment-practice__target--valid');
     }, 100);
   };
 
@@ -134,7 +134,7 @@ function runPractice(wrapper: HTMLElement): void {
 function showPracticeResults(wrapper: HTMLElement, tapCount: number): void {
   clearContainer(wrapper);
 
-  const results = createElement('div', { className: 'tapping-practice__results' });
+  const results = createElement('div', { className: 'assessment-practice__results' });
   results.innerHTML = `
     <h2>Great!</h2>
     <p>You tapped <strong>${tapCount}</strong> times.</p>
@@ -170,27 +170,7 @@ function showPracticeResults(wrapper: HTMLElement, tapCount: number): void {
 
 const style = document.createElement('style');
 style.textContent = `
-  .tapping-practice {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  .tapping-practice__intro {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-4);
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    flex: 1;
-  }
-  .tapping-practice__intro h1 {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-  }
-  .tapping-practice__area {
+  .assessment-practice__area {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -201,27 +181,7 @@ style.textContent = `
     padding-bottom: calc(var(--space-12) + var(--safe-area-bottom));
     position: relative;
   }
-  .tapping-practice__progress {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--color-bg-tertiary);
-  }
-  .tapping-practice__progress-fill {
-    height: 100%;
-    background: var(--color-primary);
-    transition: width 50ms linear;
-  }
-  .tapping-practice__counter {
-    position: absolute;
-    top: var(--space-8);
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-secondary);
-  }
-  .tapping-practice__feedback {
+  .assessment-practice__feedback {
     position: absolute;
     top: 40%;
     font-size: var(--font-size-base);
@@ -229,7 +189,7 @@ style.textContent = `
     font-weight: var(--font-weight-semibold);
     min-height: 1.5rem;
   }
-  .tapping-practice__target {
+  .assessment-practice__target {
     width: 140px;
     height: 140px;
     border-radius: 50%;
@@ -239,29 +199,13 @@ style.textContent = `
     transition: transform 50ms ease;
     margin-bottom: var(--space-8);
   }
-  .tapping-practice__target--valid {
+  .assessment-practice__target--valid {
     background: var(--color-primary-light);
     transform: scale(0.95);
   }
-  .tapping-practice__target--invalid {
+  .assessment-practice__target--invalid {
     background: var(--color-error);
     border-color: #C62828;
-  }
-  .tapping-practice__results {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-4);
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    flex: 1;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  .tapping-practice__results h2 {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
   }
 `;
 document.head.appendChild(style);

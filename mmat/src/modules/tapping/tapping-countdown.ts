@@ -8,7 +8,7 @@ import { router } from '../../main';
 export function renderTappingCountdown(container: HTMLElement): void {
   clearContainer(container);
 
-  const wrapper = createElement('main', { className: 'tapping-countdown' });
+  const wrapper = createElement('main', { className: 'assessment-countdown' });
   wrapper.setAttribute('role', 'main');
 
   // Cancel button
@@ -20,10 +20,10 @@ export function renderTappingCountdown(container: HTMLElement): void {
       router.navigate('#/assessment/tapping_v1/instructions');
     },
   });
-  cancelBtn.className = 'tapping-countdown__cancel';
+  cancelBtn.className = 'assessment-countdown__cancel';
 
   const countdownDisplay = createElement('div', {
-    className: 'tapping-countdown__number',
+    className: 'assessment-countdown__number',
     'aria-live': 'assertive',
     'aria-atomic': 'true',
   });
@@ -64,35 +64,3 @@ export function renderTappingCountdown(container: HTMLElement): void {
 
   setTimeout(showCount, 300);
 }
-
-const style = document.createElement('style');
-style.textContent = `
-  .tapping-countdown {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    min-height: 100dvh;
-    background: var(--color-bg);
-    position: relative;
-  }
-  .tapping-countdown__cancel {
-    position: absolute;
-    top: calc(var(--space-4) + var(--safe-area-top));
-    right: var(--space-4);
-    z-index: 10;
-  }
-  .tapping-countdown__number {
-    font-size: var(--font-size-4xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-primary);
-    animation: countdown-pulse 1s infinite;
-  }
-  @keyframes countdown-pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); opacity: 0.8; }
-  }
-`;
-document.head.appendChild(style);

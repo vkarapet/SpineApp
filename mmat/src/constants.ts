@@ -22,7 +22,7 @@ export const PRACTICE_DURATION_MS = 5_000;
 export const INCREMENTAL_SAVE_INTERVAL_MS = 2_000;
 export const INCREMENTAL_SAVE_TAP_COUNT = 10;
 export const GRIP_DURATION_MS = 10_000;
-export const GRIP_MIN_FINGERS = 4;
+export const GRIP_MIN_FINGERS = 3;
 export const GRIP_PRACTICE_DURATION_MS = 5_000;
 export const INCREMENTAL_SAVE_GRIP_COUNT = 5;
 

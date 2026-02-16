@@ -16,15 +16,15 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
   const result = lastGripResult;
   const m = result.computed_metrics;
 
-  const wrapper = createElement('main', { className: 'tapping-results' });
+  const wrapper = createElement('main', { className: 'assessment-results' });
   wrapper.setAttribute('role', 'main');
 
   const header = createElement('h1', {
-    className: 'tapping-results__header',
+    className: 'assessment-results__header',
     textContent: 'Test Complete!',
   });
 
-  const metricsSection = createElement('section', { className: 'tapping-results__metrics' });
+  const metricsSection = createElement('section', { className: 'assessment-results__metrics' });
 
   // Grip count and frequency
   metricsSection.appendChild(
@@ -73,14 +73,14 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
       comparisonText = `That's ${Math.abs(change).toFixed(0)}% slower than last time`;
     }
 
-    const comparison = createElement('div', { className: 'tapping-results__comparison' });
+    const comparison = createElement('div', { className: 'assessment-results__comparison' });
     comparison.textContent = comparisonText;
     metricsSection.appendChild(comparison);
   }
 
   // Sync status
   const syncStatus = createElement('div', {
-    className: 'tapping-results__sync',
+    className: 'assessment-results__sync',
     'aria-live': 'polite',
   });
   syncStatus.textContent = result.synced
@@ -129,8 +129,8 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
 }
 
 function createMetricCard(label: string, value: string): HTMLElement {
-  const card = createElement('div', { className: 'tapping-results__metric-card' });
-  card.appendChild(createElement('span', { className: 'tapping-results__metric-label', textContent: label }));
-  card.appendChild(createElement('span', { className: 'tapping-results__metric-value', textContent: value }));
+  const card = createElement('div', { className: 'assessment-results__metric-card' });
+  card.appendChild(createElement('span', { className: 'assessment-results__metric-label', textContent: label }));
+  card.appendChild(createElement('span', { className: 'assessment-results__metric-value', textContent: value }));
   return card;
 }
