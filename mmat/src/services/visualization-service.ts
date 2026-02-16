@@ -37,17 +37,14 @@ export async function getChartData(
 function getMetricValue(result: AssessmentResult, key: string): number {
   const m = result.computed_metrics;
 
-  switch (key) {
-    case 'frequency_hz':
-      return m.frequency_hz;
-    case 'rhythm_cv':
-      // Invert so higher = more consistent (display as 0-100 scale)
-      return Math.round((1 - m.rhythm_cv) * 100);
-    case 'accuracy_pct_in_target':
-      return m.accuracy_pct_in_target;
-    default:
-      return 0;
+  // Special transformations
+  if (key === 'rhythm_cv') {
+    return Math.round((1 - (m.rhythm_cv ?? 0)) * 100);
   }
+
+  // Generic fallback: look up by key
+  const val = m[key];
+  return typeof val === 'number' ? val : 0;
 }
 
 export async function getSessionCount(): Promise<number> {

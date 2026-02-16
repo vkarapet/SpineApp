@@ -1,4 +1,4 @@
-type Migration = (db: IDBDatabase) => void;
+type Migration = (db: IDBDatabase, transaction: IDBTransaction) => void;
 
 const migrations: Record<number, Migration> = {
   1: (db) => {
@@ -37,13 +37,26 @@ const migrations: Record<number, Migration> = {
       auditLog.createIndex('by_action', 'action');
     }
   },
+
+  2: (_db, transaction) => {
+    // Add session_group_id index for multi-trial TUG support
+    const store = transaction.objectStore('assessment_results');
+    if (!store.indexNames.contains('by_group')) {
+      store.createIndex('by_group', 'session_group_id');
+    }
+  },
 };
 
-export function runMigrations(db: IDBDatabase, oldVersion: number, newVersion: number): void {
+export function runMigrations(
+  db: IDBDatabase,
+  oldVersion: number,
+  newVersion: number,
+  transaction: IDBTransaction,
+): void {
   for (let v = oldVersion + 1; v <= newVersion; v++) {
     const migration = migrations[v];
     if (migration) {
-      migration(db);
+      migration(db, transaction);
     }
   }
 }

@@ -41,16 +41,20 @@ export async function exportDataAsCSV(): Promise<void> {
   const profile = await getProfile();
   const results = await getAllResults();
 
+  // Collect all unique metric keys across all results
+  const metricKeys = new Set<string>();
+  for (const r of results) {
+    for (const key of Object.keys(r.computed_metrics)) {
+      metricKeys.add(key);
+    }
+  }
+  const sortedMetricKeys = Array.from(metricKeys).sort();
+
   const headers = [
     'date',
     'task_type',
     'hand',
-    'tap_count',
-    'frequency_hz',
-    'rhythm_cv',
-    'accuracy_mean_dist_px',
-    'accuracy_pct_in_target',
-    'duration_ms',
+    ...sortedMetricKeys,
     'flagged',
     'flag_reason',
     'synced',
@@ -60,12 +64,7 @@ export async function exportDataAsCSV(): Promise<void> {
     r.timestamp_start,
     r.task_type,
     r.session_metadata.hand_used,
-    r.computed_metrics.tap_count,
-    r.computed_metrics.frequency_hz,
-    r.computed_metrics.rhythm_cv,
-    r.computed_metrics.accuracy_mean_dist_px,
-    r.computed_metrics.accuracy_pct_in_target,
-    r.computed_metrics.duration_actual_ms,
+    ...sortedMetricKeys.map((key) => r.computed_metrics[key] ?? ''),
     r.flagged,
     r.flag_reason ?? '',
     r.synced,

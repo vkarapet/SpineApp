@@ -1,4 +1,5 @@
-import type { RawTapEvent, ComputedMetrics } from '../../types/assessment';
+import type { RawTapEvent, RawSessionData, ComputedMetrics } from '../../types/assessment';
+import { isTapEvent } from '../../types/assessment';
 import { GRIP_MIN_FINGERS } from '../../constants';
 
 interface ReconstructedCycle {
@@ -7,11 +8,12 @@ interface ReconstructedCycle {
 }
 
 export function computeGripMetrics(
-  rawData: RawTapEvent[],
+  rawData: RawSessionData,
   durationMs: number,
 ): ComputedMetrics {
-  // Reconstruct grip cycles from raw pointer events
-  const cycles = reconstructCycles(rawData);
+  // Filter to tap events, then reconstruct grip cycles
+  const tapEvents = rawData.filter(isTapEvent);
+  const cycles = reconstructCycles(tapEvents);
 
   const gripCount = cycles.length;
   const durationSec = durationMs / 1000;

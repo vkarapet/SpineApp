@@ -122,11 +122,13 @@ function createHistoryRow(result: AssessmentResult): HTMLElement {
     className: 'history-screen__date',
     textContent: formatDateTime(result.timestamp_start),
   }));
-  const isGrip = result.task_type.startsWith('grip');
-  const countLabel = isGrip ? 'grips' : 'taps';
+  const prefix = result.task_type.replace(/_v\d+$/, '');
+  const mods = moduleRegistry.getModulesByPrefix(prefix);
+  const mod = mods[0];
+  const summary = mod ? mod.getHistorySummary(result) : `${result.task_type}`;
   left.appendChild(createElement('span', {
     className: 'history-screen__metrics',
-    textContent: `${result.computed_metrics.tap_count} ${countLabel} \u2022 ${result.computed_metrics.frequency_hz.toFixed(1)} Hz \u2022 ${result.session_metadata.hand_used}`,
+    textContent: summary,
   }));
   if (result.flagged) {
     left.appendChild(createElement('span', {
@@ -164,21 +166,30 @@ function createHistoryRow(result: AssessmentResult): HTMLElement {
 
 function showSessionDetail(result: AssessmentResult): void {
   const m = result.computed_metrics;
-  const isGrip = result.task_type.startsWith('grip');
-  const unitLabel = isGrip ? 'grips' : 'taps';
-  const countLabel = isGrip ? 'Grips' : 'Taps';
-  const accuracyLine = isGrip
-    ? ''
-    : `Accuracy: ${m.accuracy_pct_in_target.toFixed(1)}% in target\n`;
+  const prefix = result.task_type.replace(/_v\d+$/, '');
+  const mods = moduleRegistry.getModulesByPrefix(prefix);
+  const mod = mods[0];
+
+  // Build metric lines from module's metric config
+  const metricLines = mod
+    ? mod.metrics.map((metric) => {
+        const val = m[metric.key];
+        if (val === undefined) return '';
+        // Special display for rhythm_cv: show as percentage
+        if (metric.key === 'rhythm_cv') return `${metric.label}: ${(val as number).toFixed(4)}`;
+        return `${metric.label}: ${(val as number).toFixed(2)} ${metric.unit}`;
+      }).filter(Boolean).join('\n')
+    : '';
+
+  const hand = result.session_metadata.hand_used !== 'n/a'
+    ? `Hand: ${result.session_metadata.hand_used}\n`
+    : '';
 
   alert(
     `Session Details\n\n` +
     `Date: ${formatDateTime(result.timestamp_start)}\n` +
-    `Hand: ${result.session_metadata.hand_used}\n` +
-    `${countLabel}: ${m.tap_count}\n` +
-    `Speed: ${m.frequency_hz.toFixed(2)} ${unitLabel}/sec\n` +
-    `Rhythm CV: ${m.rhythm_cv.toFixed(4)}\n` +
-    accuracyLine +
+    hand +
+    metricLines + '\n' +
     `Duration: ${(m.duration_actual_ms / 1000).toFixed(1)}s\n` +
     `Synced: ${result.synced ? 'Yes' : 'No'}\n` +
     `Device: ${result.device_id.slice(0, 8)}...`,

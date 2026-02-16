@@ -78,22 +78,12 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   const modulesSection = createElement('section', { className: 'menu-screen__modules' });
   modulesSection.setAttribute('aria-label', 'Available assessments');
 
+  // Modules are registered in bootstrap (main.ts) before routing starts
   const modules = moduleRegistry.getAllModules();
-  if (modules.length === 0) {
-    // Register default modules if not yet registered
-    try {
-      const [tapping, grip] = await Promise.all([
-        import('../modules/tapping/index'),
-        import('../modules/grip/index'),
-      ]);
-      moduleRegistry.register(tapping.tappingModule);
-      moduleRegistry.register(grip.gripModule);
-      await addModuleCards(modulesSection);
-    } catch {
-      await addDefaultCard(modulesSection);
-    }
-  } else {
+  if (modules.length > 0) {
     await addModuleCards(modulesSection);
+  } else {
+    await addDefaultCard(modulesSection);
   }
 
   // View History link
@@ -126,7 +116,7 @@ async function addModuleCards(
       .filter((r) => r.status === 'complete' && !r.flagged)
       .sort((a, b) => new Date(a.timestamp_start).getTime() - new Date(b.timestamp_start).getTime());
 
-    const sparklineValues = sorted.map((r) => r.computed_metrics.frequency_hz);
+    const sparklineValues = sorted.map((r) => mod.getSparklineValue(r));
     const lastForModule = sorted[sorted.length - 1];
 
     const card = createModuleCard({
@@ -148,7 +138,7 @@ async function addDefaultCard(
     .filter((r) => r.status === 'complete' && !r.flagged)
     .sort((a, b) => new Date(a.timestamp_start).getTime() - new Date(b.timestamp_start).getTime());
 
-  const sparklineValues = sorted.map((r) => r.computed_metrics.frequency_hz);
+  const sparklineValues = sorted.map((r) => r.computed_metrics.frequency_hz ?? 0);
   const lastForModule = sorted[sorted.length - 1];
 
   const card = createModuleCard({

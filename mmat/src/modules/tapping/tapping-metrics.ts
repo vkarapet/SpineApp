@@ -1,14 +1,16 @@
-import type { RawTapEvent, ComputedMetrics } from '../../types/assessment';
+import type { RawSessionData, ComputedMetrics } from '../../types/assessment';
+import { isTapEvent } from '../../types/assessment';
 
 export function computeTappingMetrics(
-  rawData: RawTapEvent[],
+  rawData: RawSessionData,
   targetCenterX: number,
   targetCenterY: number,
   targetRadius: number,
   durationMs: number,
 ): ComputedMetrics {
-  // Filter valid touchstart events
-  const validStarts = rawData.filter((e) => e.type === 'start' && !e.rejected);
+  // Filter to tap events only, then valid touchstart events
+  const tapEvents = rawData.filter(isTapEvent);
+  const validStarts = tapEvents.filter((e) => e.type === 'start' && !e.rejected);
 
   const tapCount = validStarts.length;
 

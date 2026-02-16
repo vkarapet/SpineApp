@@ -2,7 +2,7 @@ export const APP_VERSION = '1.0.0';
 export const STUDY_SALT = 'mmat-study-2026';
 export const CONSENT_VERSION = '1.0';
 export const DB_NAME = 'mmat';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const PROXY_URL = '/api/proxy';
 export const HEALTH_URL = '/api/health';
 export const ANALYTICS_URL = '/api/analytics';
@@ -25,6 +25,9 @@ export const GRIP_DURATION_MS = 10_000;
 export const GRIP_MIN_FINGERS = 3;
 export const GRIP_PRACTICE_DURATION_MS = 5_000;
 export const INCREMENTAL_SAVE_GRIP_COUNT = 5;
+export const TUG_NORMAL_THRESHOLD_S = 10;
+export const TUG_HIGH_RISK_THRESHOLD_S = 13.5;
+export const TUG_MAX_DURATION_MS = 120_000;
 
 export const INTENDED_USE_STATEMENT =
   'MMAT is a research data collection tool intended for use in IRB-approved studies. ' +

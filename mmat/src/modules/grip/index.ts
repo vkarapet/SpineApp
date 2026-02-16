@@ -1,4 +1,5 @@
 import type { AssessmentModule, RawSessionData, ComputedMetrics, InstructionConfig, PracticeConfig, MetadataField } from '../../types/assessment';
+import type { AssessmentResult } from '../../types/db-schemas';
 import { computeGripMetrics } from './grip-metrics';
 import { GRIP_PRACTICE_DURATION_MS, GRIP_DURATION_MS } from '../../constants';
 
@@ -94,5 +95,18 @@ export const gripModule: AssessmentModule = {
         max: 5,
       },
     ];
+  },
+
+  getPrimaryMetric() {
+    return { key: 'frequency_hz', label: 'Grips per second', unit: 'Hz', higherIsBetter: true };
+  },
+
+  getHistorySummary(result: AssessmentResult): string {
+    const m = result.computed_metrics;
+    return `${m.tap_count ?? 0} grips \u2022 ${(m.frequency_hz ?? 0).toFixed(1)} Hz \u2022 ${result.session_metadata.hand_used}`;
+  },
+
+  getSparklineValue(result: AssessmentResult): number {
+    return result.computed_metrics.frequency_hz ?? 0;
   },
 };

@@ -1,4 +1,4 @@
-import type { ComputedMetrics, RawTapEvent } from './assessment';
+import type { ComputedMetrics, RawEvent } from './assessment';
 
 export interface UserPreferences {
   audio_enabled: boolean;
@@ -30,7 +30,7 @@ export interface UserProfile {
 }
 
 export interface SessionMetadata {
-  hand_used: 'left' | 'right';
+  hand_used: 'left' | 'right' | 'n/a';
   fatigue_rating: number | null;
   medication_taken: boolean | null;
   screen_width_px: number;
@@ -39,6 +39,8 @@ export interface SessionMetadata {
   device_os: string;
   browser: string;
   app_version: string;
+  walking_aid?: 'none' | 'cane' | 'walker' | 'other';
+  test_mode?: 'helper' | 'pocket';
 }
 
 export interface AssessmentResult {
@@ -49,13 +51,14 @@ export interface AssessmentResult {
   task_type: string;
   status: 'in_progress' | 'complete' | 'flagged';
   session_metadata: SessionMetadata;
-  raw_data: RawTapEvent[];
+  raw_data: RawEvent[];
   computed_metrics: ComputedMetrics;
   flagged: boolean;
   flag_reason: string | null;
   synced: boolean;
   sync_attempts: number;
   checksum: string;
+  session_group_id?: string;
 }
 
 export interface SyncQueueEntry {

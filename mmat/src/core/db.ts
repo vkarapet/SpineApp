@@ -23,8 +23,9 @@ export async function initDB(): Promise<IDBDatabase> {
 
       request.onupgradeneeded = (event) => {
         const database = (event.target as IDBOpenDBRequest).result;
+        const transaction = (event.target as IDBOpenDBRequest).transaction!;
         const oldVersion = event.oldVersion;
-        runMigrations(database, oldVersion, DB_VERSION);
+        runMigrations(database, oldVersion, DB_VERSION, transaction);
       };
 
       request.onsuccess = (event) => {
