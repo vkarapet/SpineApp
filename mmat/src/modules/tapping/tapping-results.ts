@@ -94,10 +94,19 @@ export async function renderTappingResults(container: HTMLElement): Promise<void
   if (navigator.onLine) {
     import('../../services/sync-service')
       .then((m) => m.triggerSync())
-      .then(() => {
-        syncStatus.textContent = 'Synced!';
+      .then(async () => {
+        // Re-check if this specific result was actually synced
+        const { getResult } = await import('../../core/db');
+        const updated = await getResult(result.local_uuid);
+        if (updated?.synced) {
+          syncStatus.textContent = 'Synced!';
+        } else {
+          syncStatus.textContent = 'Saved locally. Sync pending.';
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        syncStatus.textContent = 'Saved locally. Sync pending.';
+      });
   }
 
   // Actions

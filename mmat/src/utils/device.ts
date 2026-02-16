@@ -44,19 +44,11 @@ export function getBrowserInfo(): string {
 }
 
 export function isScreenReaderActive(): boolean {
-  // Heuristic detection — not 100% reliable
-  // Check for reduced motion as a proxy, or use ARIA live region timing
-  const el = document.createElement('div');
-  el.setAttribute('role', 'alert');
-  el.setAttribute('aria-live', 'assertive');
-  el.style.position = 'absolute';
-  el.style.left = '-10000px';
-  document.body.appendChild(el);
-  const isActive = el.offsetHeight === 0; // Very rough heuristic
-  document.body.removeChild(el);
-
-  // Also check for forced-colors or high-contrast mode as potential indicators
-  return isActive || window.matchMedia('(forced-colors: active)').matches;
+  // There is no reliable way to detect screen readers from JavaScript.
+  // Previous heuristics (offsetHeight, forced-colors) produced false positives
+  // on normal mobile browsers. Return false and rely on the screen reader user
+  // self-identifying via an accessible opt-out if needed.
+  return false;
 }
 
 export function supportsVibration(): boolean {

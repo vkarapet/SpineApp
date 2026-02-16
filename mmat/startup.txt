@@ -1,0 +1,39 @@
+MMAT Development Startup
+========================
+
+Prerequisites: Node.js installed, dependencies installed (npm install in both mmat/ and mmat/server/).
+
+Starting Up
+-----------
+
+1. Start the proxy stub (in one terminal):
+
+   cd mmat/server
+   npm start
+
+   You should see: "MMAT Proxy Stub running on http://localhost:3001"
+
+2. Start the dev server (in a second terminal):
+
+   cd mmat
+   npm run dev
+
+   You should see:
+     Local:   http://localhost:5173/
+     Network: http://192.168.x.x:5173/
+
+3. Open the app:
+   - On your laptop: http://localhost:5173
+   - On your phone (same WiFi): use the Network URL printed above
+
+Shutting Down
+-------------
+
+Press Ctrl+C in each terminal window to stop the respective server.
+
+Notes
+-----
+
+- The proxy stub uses an in-memory store. All data is lost when it stops.
+- The Vite dev server proxies /api/* requests to the proxy stub automatically.
+- Phone access requires both devices on the same WiFi network.
