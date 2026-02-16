@@ -68,48 +68,86 @@ async function bootstrap() {
   });
 
   router.register('#/assessment/:moduleId/setup', async (container, params) => {
-    const mod = moduleRegistry.getModule(params?.moduleId ?? '');
+    const moduleId = params?.moduleId ?? '';
+    const mod = moduleRegistry.getModule(moduleId);
     if (!mod) {
       router.navigate('#/menu');
       return;
     }
-    const { renderTappingSetup } = await import('./modules/tapping/tapping-setup');
-    renderTappingSetup(container);
+    if (moduleId.startsWith('grip')) {
+      const { renderGripSetup } = await import('./modules/grip/grip-setup');
+      renderGripSetup(container);
+    } else {
+      const { renderTappingSetup } = await import('./modules/tapping/tapping-setup');
+      renderTappingSetup(container);
+    }
   });
 
-  router.register('#/assessment/:moduleId/instructions', async (container, _params) => {
-    const { renderTappingInstructions } = await import('./modules/tapping/tapping-instructions');
-    renderTappingInstructions(container);
+  router.register('#/assessment/:moduleId/instructions', async (container, params) => {
+    const moduleId = params?.moduleId ?? '';
+    if (moduleId.startsWith('grip')) {
+      const { renderGripInstructions } = await import('./modules/grip/grip-instructions');
+      renderGripInstructions(container);
+    } else {
+      const { renderTappingInstructions } = await import('./modules/tapping/tapping-instructions');
+      renderTappingInstructions(container);
+    }
   });
 
-  router.register('#/assessment/:moduleId/practice', async (container, _params) => {
-    const { renderTappingPractice } = await import('./modules/tapping/tapping-practice');
-    renderTappingPractice(container);
+  router.register('#/assessment/:moduleId/practice', async (container, params) => {
+    const moduleId = params?.moduleId ?? '';
+    if (moduleId.startsWith('grip')) {
+      const { renderGripPractice } = await import('./modules/grip/grip-practice');
+      renderGripPractice(container);
+    } else {
+      const { renderTappingPractice } = await import('./modules/tapping/tapping-practice');
+      renderTappingPractice(container);
+    }
   });
 
-  router.register('#/assessment/:moduleId/countdown', async (container, _params) => {
-    const { renderTappingCountdown } = await import('./modules/tapping/tapping-countdown');
-    renderTappingCountdown(container);
+  router.register('#/assessment/:moduleId/countdown', async (container, params) => {
+    const moduleId = params?.moduleId ?? '';
+    if (moduleId.startsWith('grip')) {
+      const { renderGripCountdown } = await import('./modules/grip/grip-countdown');
+      renderGripCountdown(container);
+    } else {
+      const { renderTappingCountdown } = await import('./modules/tapping/tapping-countdown');
+      renderTappingCountdown(container);
+    }
   });
 
-  router.register('#/assessment/:moduleId/active', async (container, _params) => {
-    const { renderTappingActive } = await import('./modules/tapping/tapping-active');
-    renderTappingActive(container);
+  router.register('#/assessment/:moduleId/active', async (container, params) => {
+    const moduleId = params?.moduleId ?? '';
+    if (moduleId.startsWith('grip')) {
+      const { renderGripActive } = await import('./modules/grip/grip-active');
+      renderGripActive(container);
+    } else {
+      const { renderTappingActive } = await import('./modules/tapping/tapping-active');
+      renderTappingActive(container);
+    }
   });
 
-  router.register('#/assessment/:moduleId/results', async (container, _params) => {
-    const { renderTappingResults } = await import('./modules/tapping/tapping-results');
-    renderTappingResults(container);
+  router.register('#/assessment/:moduleId/results', async (container, params) => {
+    const moduleId = params?.moduleId ?? '';
+    if (moduleId.startsWith('grip')) {
+      const { renderGripResults } = await import('./modules/grip/grip-results');
+      renderGripResults(container);
+    } else {
+      const { renderTappingResults } = await import('./modules/tapping/tapping-results');
+      renderTappingResults(container);
+    }
   });
 
   // Set app container and start router
   router.setContainer(app);
-  router.start();
 
-  // If no hash, go to splash
-  if (!window.location.hash || window.location.hash === '#/') {
-    router.navigate('#/splash');
-  }
+  // Always start at splash on fresh page load — splash handles routing
+  // to menu (if profile exists) or consent (if new user).
+  // This prevents stale hash fragments (e.g. #/help) from persisting
+  // when the app is launched from a home screen shortcut.
+  window.location.hash = '#/splash';
+
+  router.start();
 
   // Register service worker
   if ('serviceWorker' in navigator) {

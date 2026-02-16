@@ -3,8 +3,7 @@ import { createHeader } from '../components/header';
 import { createProfileWidget } from '../components/profile-widget';
 import { createSyncStatus } from '../components/sync-status';
 import { createModuleCard } from '../components/module-card';
-import { createGraphWidget } from '../components/graph-widget';
-import { getProfile, getUnsyncedResults, getAllResults } from '../core/db';
+import { getProfile, getUnsyncedResults, getAllResults, getResultsByTaskPrefix } from '../core/db';
 import { formatDate } from '../utils/date';
 import { initConnectivityMonitor } from '../components/connectivity-indicator';
 import { router, moduleRegistry } from '../main';
@@ -19,6 +18,7 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   }
 
   const header = createHeader({
+    title: 'Mobile Modular Assessment Tool',
     showSettings: true,
     showHelp: true,
     onSettings: () => router.navigate('#/settings'),
@@ -36,14 +36,30 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
 
   // Sync status
   const unsyncedResults = await getUnsyncedResults();
-  const syncStatus = createSyncStatus({
+  let syncStatusEl = createSyncStatus({
     pendingCount: unsyncedResults.length,
     lastSyncedAt: profile.last_synced_at ?? null,
-    onSyncNow: () => {
-      // Sync trigger — will be implemented in Phase 7
-      import('../services/sync-service').then((m) => m.triggerSync()).catch(() => {});
-    },
+    onSyncNow: handleSyncNow,
   });
+
+  async function handleSyncNow(): Promise<void> {
+    try {
+      const { triggerSync } = await import('../services/sync-service');
+      await triggerSync();
+    } catch {
+      // sync errors handled internally
+    }
+    // Refresh the sync status widget in place
+    const freshUnsynced = await getUnsyncedResults();
+    const freshProfile = await getProfile();
+    const newSyncStatus = createSyncStatus({
+      pendingCount: freshUnsynced.length,
+      lastSyncedAt: freshProfile?.last_synced_at ?? null,
+      onSyncNow: handleSyncNow,
+    });
+    syncStatusEl.replaceWith(newSyncStatus);
+    syncStatusEl = newSyncStatus;
+  }
 
   // Last assessed
   const allResults = await getAllResults();
@@ -58,24 +74,26 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
       : "You haven't completed an assessment yet.",
   });
 
-  // Graph widget
-  const graphWidget = createGraphWidget();
-
   // Module cards
   const modulesSection = createElement('section', { className: 'menu-screen__modules' });
   modulesSection.setAttribute('aria-label', 'Available assessments');
 
   const modules = moduleRegistry.getAllModules();
   if (modules.length === 0) {
-    // Register default tapping module if not yet registered
-    import('../modules/tapping/index').then((m) => {
-      moduleRegistry.register(m.tappingModule);
-      addModuleCards(modulesSection, lastResult);
-    }).catch(() => {
-      addDefaultCard(modulesSection, lastResult);
-    });
+    // Register default modules if not yet registered
+    try {
+      const [tapping, grip] = await Promise.all([
+        import('../modules/tapping/index'),
+        import('../modules/grip/index'),
+      ]);
+      moduleRegistry.register(tapping.tappingModule);
+      moduleRegistry.register(grip.gripModule);
+      await addModuleCards(modulesSection);
+    } catch {
+      await addDefaultCard(modulesSection);
+    }
   } else {
-    addModuleCards(modulesSection, lastResult);
+    await addModuleCards(modulesSection);
   }
 
   // View History link
@@ -87,9 +105,8 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   historyLink.addEventListener('click', () => router.navigate('#/history'));
 
   main.appendChild(profileWidget);
-  main.appendChild(syncStatus);
+  main.appendChild(syncStatusEl);
   main.appendChild(lastAssessed);
-  main.appendChild(graphWidget);
   main.appendChild(modulesSection);
   main.appendChild(historyLink);
 
@@ -99,32 +116,46 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   initConnectivityMonitor();
 }
 
-function addModuleCards(
+async function addModuleCards(
   section: HTMLElement,
-  lastResult: { timestamp_start: string; task_type: string } | undefined,
-): void {
+): Promise<void> {
   const modules = moduleRegistry.getAllModules();
   for (const mod of modules) {
+    const moduleResults = await getResultsByTaskPrefix(mod.id.replace(/_v\d+$/, ''));
+    const sorted = moduleResults
+      .filter((r) => r.status === 'complete' && !r.flagged)
+      .sort((a, b) => new Date(a.timestamp_start).getTime() - new Date(b.timestamp_start).getTime());
+
+    const sparklineValues = sorted.map((r) => r.computed_metrics.frequency_hz);
+    const lastForModule = sorted[sorted.length - 1];
+
     const card = createModuleCard({
       name: mod.name,
       description: mod.description,
-      lastCompleted:
-        lastResult?.task_type === mod.id ? lastResult.timestamp_start : null,
+      lastCompleted: lastForModule?.timestamp_start ?? null,
+      sparklineValues,
       onClick: () => router.navigate(`#/assessment/${mod.id}/setup`),
     });
     section.appendChild(card);
   }
 }
 
-function addDefaultCard(
+async function addDefaultCard(
   section: HTMLElement,
-  lastResult: { timestamp_start: string; task_type: string } | undefined,
-): void {
+): Promise<void> {
+  const moduleResults = await getResultsByTaskPrefix('tapping');
+  const sorted = moduleResults
+    .filter((r) => r.status === 'complete' && !r.flagged)
+    .sort((a, b) => new Date(a.timestamp_start).getTime() - new Date(b.timestamp_start).getTime());
+
+  const sparklineValues = sorted.map((r) => r.computed_metrics.frequency_hz);
+  const lastForModule = sorted[sorted.length - 1];
+
   const card = createModuleCard({
     name: 'Rapid Tapping Task',
     description: 'Measure motor speed, rhythm, and accuracy',
-    lastCompleted:
-      lastResult?.task_type?.startsWith('tapping') ? lastResult.timestamp_start : null,
+    lastCompleted: lastForModule?.timestamp_start ?? null,
+    sparklineValues,
     onClick: () => router.navigate('#/assessment/tapping_v1/setup'),
   });
   section.appendChild(card);

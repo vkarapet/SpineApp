@@ -46,6 +46,7 @@ export interface ComputedMetrics {
   accuracy_mean_dist_px: number;
   accuracy_pct_in_target: number;
   duration_actual_ms: number;
+  [key: string]: number;
 }
 
 export interface RedcapMapping {
