@@ -16,8 +16,6 @@ export const gripModule: AssessmentModule = {
       'computed_metrics.duration_actual_ms': 'grip_duration',
       'computed_metrics.tap_count': 'grip_count',
       'computed_metrics.frequency_hz': 'grip_freq',
-      'computed_metrics.accuracy_mean_dist_px': 'grip_spatial_variance',
-      'computed_metrics.accuracy_pct_in_target': 'grip_valid_pct',
       'computed_metrics.rhythm_cv': 'grip_regularity',
       'session_metadata.hand_used': 'grip_hand',
       'session_metadata.fatigue_rating': 'grip_fatigue',
@@ -37,7 +35,6 @@ export const gripModule: AssessmentModule = {
   metrics: [
     { key: 'frequency_hz', label: 'Grips per second', unit: 'Hz', higherIsBetter: true },
     { key: 'rhythm_cv', label: 'Consistency score', unit: '%', higherIsBetter: true },
-    { key: 'spatial_variance_px', label: 'Spatial consistency', unit: 'px', higherIsBetter: false },
   ],
 
   getInstructions(): InstructionConfig {

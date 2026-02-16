@@ -167,8 +167,8 @@ function showSessionDetail(result: AssessmentResult): void {
   const isGrip = result.task_type.startsWith('grip');
   const unitLabel = isGrip ? 'grips' : 'taps';
   const countLabel = isGrip ? 'Grips' : 'Taps';
-  const spatialLine = isGrip && m.spatial_variance_px !== undefined
-    ? `Spatial variance: ${m.spatial_variance_px.toFixed(1)}px\n`
+  const accuracyLine = isGrip
+    ? ''
     : `Accuracy: ${m.accuracy_pct_in_target.toFixed(1)}% in target\n`;
 
   alert(
@@ -178,7 +178,7 @@ function showSessionDetail(result: AssessmentResult): void {
     `${countLabel}: ${m.tap_count}\n` +
     `Speed: ${m.frequency_hz.toFixed(2)} ${unitLabel}/sec\n` +
     `Rhythm CV: ${m.rhythm_cv.toFixed(4)}\n` +
-    spatialLine +
+    accuracyLine +
     `Duration: ${(m.duration_actual_ms / 1000).toFixed(1)}s\n` +
     `Synced: ${result.synced ? 'Yes' : 'No'}\n` +
     `Device: ${result.device_id.slice(0, 8)}...`,

@@ -201,7 +201,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     const now = performance.now() - startTime;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      recordEvent(now, touch.clientX, touch.clientY, 'start', touch.identifier, false, null);
+      recordEvent(now, 0, 0, 'start', touch.identifier, false, null);
     }
     reconcileCircles(e.touches);
   };
@@ -212,7 +212,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     const now = performance.now() - startTime;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      recordEvent(now, touch.clientX, touch.clientY, 'end', touch.identifier, false, null);
+      recordEvent(now, 0, 0, 'end', touch.identifier, false, null);
 
       // Remove circle for this lifted finger
       const circle = activeTouches.get(touch.identifier);

@@ -1,7 +1,7 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { getAllResults } from '../../core/db';
-import { getRhythmLabel, getSpatialLabel } from './grip-metrics';
+import { getRhythmLabel } from './grip-metrics';
 import { lastGripResult } from './grip-active';
 import { router } from '../../main';
 
@@ -37,13 +37,6 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
   // Rhythm
   const rhythmLabel = getRhythmLabel(m.rhythm_cv);
   metricsSection.appendChild(createMetricCard('Rhythm consistency', rhythmLabel));
-
-  // Spatial consistency
-  const spatialVariance = m.spatial_variance_px ?? m.accuracy_mean_dist_px;
-  const spatialLabel = getSpatialLabel(spatialVariance);
-  metricsSection.appendChild(
-    createMetricCard('Spatial consistency', `${spatialLabel} (${spatialVariance.toFixed(1)}px variance)`),
-  );
 
   // Comparison with previous grip sessions
   const allResults = await getAllResults();
