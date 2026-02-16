@@ -20,14 +20,14 @@ export async function renderDataRestore(container: HTMLElement): Promise<void> {
 
     const offlineMsg = createElement('div', { className: 'data-restore-screen__message' });
     offlineMsg.innerHTML = `
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <svg width="48" height="48" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <line x1="1" y1="1" x2="23" y2="23"/>
         <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
         <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
         <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
         <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
         <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-        <line x1="12" y1="20" x2="12.01" y2="20"/>
+        <circle cx="12" cy="20" r=".5" fill="currentColor"/>
       </svg>
       <h2>You're offline</h2>
       <p>Your historical data will be restored when you connect to the internet.</p>
@@ -83,7 +83,7 @@ export async function renderDataRestore(container: HTMLElement): Promise<void> {
 
         const successMsg = createElement('div', { className: 'data-restore-screen__message' });
         successMsg.innerHTML = `
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#34A853" stroke-width="2" aria-hidden="true">
+          <svg width="48" height="48" viewBox="-1 -1 26 26" fill="none" stroke="#34A853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
@@ -95,7 +95,7 @@ export async function renderDataRestore(container: HTMLElement): Promise<void> {
       } else {
         const noDataMsg = createElement('div', { className: 'data-restore-screen__message' });
         noDataMsg.innerHTML = `
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1A73E8" stroke-width="2" aria-hidden="true">
+          <svg width="48" height="48" viewBox="-1 -1 26 26" fill="none" stroke="#1A73E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
           </svg>
@@ -127,10 +127,10 @@ export async function renderDataRestore(container: HTMLElement): Promise<void> {
 function showFetchError(wrapper: HTMLElement): void {
   const errorMsg = createElement('div', { className: 'data-restore-screen__message' });
   errorMsg.innerHTML = `
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF6D00" stroke-width="2" aria-hidden="true">
+    <svg width="48" height="48" viewBox="-1 -1 26 26" fill="none" stroke="#FF6D00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="10"/>
       <line x1="12" y1="8" x2="12" y2="12"/>
-      <line x1="12" y1="16" x2="12.01" y2="16"/>
+      <circle cx="12" cy="16" r=".5" fill="#FF6D00"/>
     </svg>
     <h2>Couldn't reach the server</h2>
     <p>Your historical data will be loaded when you connect.</p>

@@ -5,9 +5,9 @@ export function createStorageWarning(percent: number): HTMLElement {
   warning.setAttribute('role', 'alert');
 
   warning.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E65100" stroke-width="2" aria-hidden="true">
+    <svg width="20" height="20" viewBox="-1 -1 26 26" fill="none" stroke="#E65100" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      <line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="#E65100"/>
     </svg>
     <span>Storage is ${Math.round(percent * 100)}% full. Sync your data and consider freeing space.</span>
     <button class="storage-warning__dismiss" aria-label="Dismiss">\u00D7</button>

@@ -10,21 +10,22 @@ export function renderSplash(container: HTMLElement): void {
   wrapper.setAttribute('role', 'main');
 
   const logo = createElement('div', { className: 'splash-screen__logo' });
-  logo.innerHTML = `
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-      <circle cx="32" cy="32" r="30" stroke="#1A73E8" stroke-width="4"/>
-      <circle cx="32" cy="32" r="12" fill="#1A73E8"/>
-    </svg>
-  `;
+  const logoImg = createElement('img') as HTMLImageElement;
+  logoImg.src = '/icons/icon-192.png';
+  logoImg.width = 96;
+  logoImg.height = 96;
+  logoImg.alt = '';
+  logoImg.setAttribute('aria-hidden', 'true');
+  logo.appendChild(logoImg);
 
   const title = createElement('h1', {
     className: 'splash-screen__title',
-    textContent: 'MMAT',
+    textContent: 'Mobile Modular Assessment Tool',
   });
 
   const subtitle = createElement('p', {
     className: 'splash-screen__subtitle',
-    textContent: 'Mobile Modular Assessment Tool',
+    textContent: 'MMAT',
   });
 
   const spinner = createElement('div', { className: 'spinner' });

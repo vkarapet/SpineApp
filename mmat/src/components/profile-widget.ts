@@ -12,7 +12,7 @@ export function createProfileWidget(
   widget.innerHTML = `
     <div class="profile-widget__avatar">${name.charAt(0).toUpperCase()}</div>
     <span class="profile-widget__name">Hi, ${escapeHtml(name)}</span>
-    <svg class="profile-widget__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    <svg class="profile-widget__chevron" width="16" height="16" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
   `;
 
   widget.addEventListener('click', onClick);
