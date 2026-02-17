@@ -40,7 +40,6 @@ export interface SessionMetadata {
   browser: string;
   app_version: string;
   walking_aid?: 'none' | 'cane' | 'walker' | 'other';
-  test_mode?: 'helper' | 'pocket';
 }
 
 export interface AssessmentResult {

@@ -2,6 +2,7 @@ import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { getAllResults } from '../../core/db';
 import { getClinicalBand, getClinicalLabel } from './tug-metrics';
+import { TUG_PHASE_LABELS } from './tug-types';
 import { lastTugResult } from './tug-active';
 import { router } from '../../main';
 
@@ -83,6 +84,103 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     const flagCard = createElement('div', { className: 'tug-results__flag-warning' });
     flagCard.textContent = result.flag_reason ?? 'This result has been flagged';
     metricsSection.appendChild(flagCard);
+  }
+
+  // ─── Phase Breakdown ────────────────────────────────────────
+  if (m.phases_completed > 0) {
+    const phaseSection = createElement('section', { className: 'tug-results__phase-section' });
+    phaseSection.appendChild(
+      createElement('h2', {
+        className: 'tug-results__section-title',
+        textContent: 'Phase Breakdown',
+      }),
+    );
+
+    const phaseTable = createElement('div', { className: 'tug-results__phase-table' });
+
+    const phases: { key: string; label: string; durationKey: string }[] = [
+      { key: 'standing_up', label: TUG_PHASE_LABELS.standing_up, durationKey: 'standup_duration_ms' },
+      { key: 'walking_out', label: TUG_PHASE_LABELS.walking_out, durationKey: 'walk_out_duration_ms' },
+      { key: 'turning_out', label: TUG_PHASE_LABELS.turning_out, durationKey: 'turn_out_duration_ms' },
+      { key: 'walking_back', label: TUG_PHASE_LABELS.walking_back, durationKey: 'walk_back_duration_ms' },
+      { key: 'turning_sit', label: 'Turn (return)', durationKey: 'turn_sit_duration_ms' },
+      { key: 'sitting_down', label: TUG_PHASE_LABELS.sitting_down, durationKey: 'sitdown_duration_ms' },
+    ];
+
+    for (const phase of phases) {
+      const durationMs = m[phase.durationKey] ?? 0;
+      if (durationMs === 0) continue;
+      const row = createElement('div', { className: 'tug-results__phase-row' });
+      row.appendChild(createElement('span', { textContent: phase.label }));
+      row.appendChild(createElement('span', {
+        className: 'tug-results__phase-duration',
+        textContent: `${(durationMs / 1000).toFixed(1)}s`,
+      }));
+      phaseTable.appendChild(row);
+    }
+
+    phaseSection.appendChild(phaseTable);
+    metricsSection.appendChild(phaseSection);
+
+    // ─── Gait Analysis ───────────────────────────────────────────
+    const gaitSection = createElement('section', { className: 'tug-results__phase-section' });
+    gaitSection.appendChild(
+      createElement('h2', {
+        className: 'tug-results__section-title',
+        textContent: 'Gait Analysis',
+      }),
+    );
+
+    const gaitGrid = createElement('div', { className: 'tug-results__gait-grid' });
+    gaitGrid.appendChild(createMetricCard('Total steps', String(m.total_steps ?? 0)));
+    gaitGrid.appendChild(createMetricCard('Total distance', `${(m.total_distance_m ?? 0).toFixed(1)}m`));
+    gaitGrid.appendChild(createMetricCard('Avg stride', `${(m.avg_stride_length_m ?? 0).toFixed(2)}m`));
+    gaitSection.appendChild(gaitGrid);
+    metricsSection.appendChild(gaitSection);
+
+    // ─── Outbound vs Return ──────────────────────────────────────
+    if ((m.walk_out_steps ?? 0) > 0 || (m.walk_back_steps ?? 0) > 0) {
+      const compareSection = createElement('section', { className: 'tug-results__phase-section' });
+      compareSection.appendChild(
+        createElement('h2', {
+          className: 'tug-results__section-title',
+          textContent: 'Outbound vs Return',
+        }),
+      );
+
+      const compareTable = createElement('div', { className: 'tug-results__compare-table' });
+
+      // Header row
+      const headerRow = createElement('div', { className: 'tug-results__compare-row tug-results__compare-header' });
+      headerRow.appendChild(createElement('span', { textContent: '' }));
+      headerRow.appendChild(createElement('span', { textContent: 'Outbound' }));
+      headerRow.appendChild(createElement('span', { textContent: 'Return' }));
+      compareTable.appendChild(headerRow);
+
+      // Steps row
+      const stepsRow = createElement('div', { className: 'tug-results__compare-row' });
+      stepsRow.appendChild(createElement('span', { textContent: 'Steps' }));
+      stepsRow.appendChild(createElement('span', { textContent: String(m.walk_out_steps ?? 0) }));
+      stepsRow.appendChild(createElement('span', { textContent: String(m.walk_back_steps ?? 0) }));
+      compareTable.appendChild(stepsRow);
+
+      // Distance row
+      const distRow = createElement('div', { className: 'tug-results__compare-row' });
+      distRow.appendChild(createElement('span', { textContent: 'Distance' }));
+      distRow.appendChild(createElement('span', { textContent: `${(m.walk_out_distance_m ?? 0).toFixed(1)}m` }));
+      distRow.appendChild(createElement('span', { textContent: `${(m.walk_back_distance_m ?? 0).toFixed(1)}m` }));
+      compareTable.appendChild(distRow);
+
+      // Duration row
+      const durRow = createElement('div', { className: 'tug-results__compare-row' });
+      durRow.appendChild(createElement('span', { textContent: 'Duration' }));
+      durRow.appendChild(createElement('span', { textContent: `${((m.walk_out_duration_ms ?? 0) / 1000).toFixed(1)}s` }));
+      durRow.appendChild(createElement('span', { textContent: `${((m.walk_back_duration_ms ?? 0) / 1000).toFixed(1)}s` }));
+      compareTable.appendChild(durRow);
+
+      compareSection.appendChild(compareTable);
+      metricsSection.appendChild(compareSection);
+    }
   }
 
   // Comparison with previous TUG sessions
@@ -187,6 +285,69 @@ style.textContent = `
     color: #E65100;
     font-weight: var(--font-weight-medium);
     font-size: var(--font-size-sm);
+  }
+  .tug-results__phase-section {
+    margin-top: var(--space-4);
+  }
+  .tug-results__section-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    margin: 0 0 var(--space-2) 0;
+  }
+  .tug-results__phase-table {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+  }
+  .tug-results__phase-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+    padding: var(--space-1) 0;
+  }
+  .tug-results__phase-duration {
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+  .tug-results__gait-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+  }
+  .tug-results__gait-grid .assessment-results__metric-card {
+    padding: var(--space-2) var(--space-3);
+  }
+  .tug-results__gait-grid .assessment-results__metric-value {
+    font-size: var(--font-size-base);
+  }
+  .tug-results__compare-table {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+  }
+  .tug-results__compare-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    font-size: var(--font-size-sm);
+    padding: var(--space-1) 0;
+    text-align: center;
+  }
+  .tug-results__compare-row span:first-child {
+    text-align: left;
+    font-weight: var(--font-weight-medium);
+  }
+  .tug-results__compare-header {
+    font-weight: var(--font-weight-semibold);
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-1);
   }
 `;
 document.head.appendChild(style);

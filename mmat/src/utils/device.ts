@@ -60,3 +60,7 @@ export function vibrate(duration: number): void {
     navigator.vibrate(duration);
   }
 }
+
+export function supportsDeviceMotion(): boolean {
+  return typeof DeviceMotionEvent !== 'undefined';
+}

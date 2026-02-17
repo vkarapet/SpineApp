@@ -8,7 +8,6 @@ export let tugSessionSetup: TugSessionSetup = {
   walkingAid: 'none',
   fatigue: null,
   medication: null,
-  testMode: 'helper',
 };
 
 export function renderTugSetup(container: HTMLElement): void {
@@ -145,7 +144,6 @@ export function renderTugSetup(container: HTMLElement): void {
         walkingAid: selectedAid,
         fatigue: selectedFatigue,
         medication: selectedMed,
-        testMode: 'helper',
       };
       router.navigate('#/assessment/tug_v1/instructions');
     },

@@ -13,26 +13,23 @@ export function renderTugInstructions(container: HTMLElement): void {
   const title = createElement('h1', { textContent: 'Timed Up & Go' });
 
   const body = createElement('div', { className: 'assessment-instructions__body' });
-  body.innerHTML = `
-    <p>A helper will time you as you complete the following steps:</p>
-  `;
+  body.innerHTML = `<p>The phone will go in your pocket and automatically detect each phase:</p>`;
 
   const steps = createElement('div', { className: 'assessment-instructions__important' });
   steps.innerHTML = `
     <ol class="tug-instructions__steps">
+      <li>Place the phone in your front trouser pocket</li>
       <li>Sit in a chair with your back against the chair</li>
-      <li>On "Go", stand up from the chair</li>
-      <li>Walk to the marker (3 meters away)</li>
-      <li>Turn around at the marker</li>
-      <li>Walk back to the chair</li>
-      <li>Sit down</li>
+      <li>Sit still &mdash; the test starts automatically after 3 seconds</li>
+      <li>When you hear the start tone, stand up and walk forward</li>
+      <li>You will hear a beep at 3 meters &mdash; turn around at the marker</li>
+      <li>Walk back &mdash; another beep at 3 meters</li>
+      <li>Sit down &mdash; the test ends automatically</li>
     </ol>
   `;
 
   const helperNote = createElement('div', { className: 'tug-instructions__helper-note' });
-  helperNote.innerHTML = `
-    <p><strong>Helper:</strong> Hold the phone and tap <em>Start</em> when the patient begins to stand, then tap <em>Stop</em> when they sit back down.</p>
-  `;
+  helperNote.innerHTML = `<p><strong>Note:</strong> Make sure the phone is secure in your pocket. An emergency stop button is always available on screen.</p>`;
 
   const readyBtn = createButton({
     text: "I'm Ready",
