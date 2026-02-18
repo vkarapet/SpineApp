@@ -19,7 +19,6 @@ import {
   SYNC_MAX_ATTEMPTS,
   CLOCK_DRIFT_THRESHOLD_MS,
   BATCH_THRESHOLD,
-  ANALYTICS_URL,
 } from '../constants';
 import { eventBus } from '../main';
 import type { AssessmentResult } from '../types/db-schemas';
@@ -55,9 +54,6 @@ export async function triggerSync(): Promise<void> {
 
     // 5. Update last synced timestamp
     await setLastSyncedAt(new Date().toISOString());
-
-    // 6. Send analytics
-    await sendAnalytics();
 
     eventBus.emit('sync-status', 'idle');
   } catch (err) {
@@ -257,19 +253,3 @@ async function checkClockDrift(serverTimestamp: number): Promise<void> {
   }
 }
 
-async function sendAnalytics(): Promise<void> {
-  try {
-    const unsyncedResults = await getUnsyncedResults();
-    await fetch(ANALYTICS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        assessment_count: unsyncedResults.length,
-        sync_success: true,
-        timestamp: new Date().toISOString(),
-      }),
-    });
-  } catch {
-    // Analytics failures are non-critical
-  }
-}

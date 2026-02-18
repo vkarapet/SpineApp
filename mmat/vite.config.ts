@@ -62,22 +62,10 @@ export default defineConfig({
   server: {
     host: true,
     https: https,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-    },
   },
   preview: {
     host: true,
     port: 4173,
     https: https,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-    },
   },
 });

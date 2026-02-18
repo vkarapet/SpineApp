@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, StaleWhileRevalidate, NetworkOnly } from 'workbox-strategies';
-import { BackgroundSyncPlugin } from 'workbox-background-sync';
+import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { handleProxyRequest } from './mock-proxy';
 
 declare let self: ServiceWorkerGlobalScope;
 
@@ -36,24 +36,12 @@ registerRoute(
   }),
 );
 
-// Network-Only for API calls with background sync
-const bgSyncPlugin = new BackgroundSyncPlugin('upload-results', {
-  maxRetentionTime: 24 * 60, // 24 hours
-});
-
+// Mock proxy for API calls — intercept POST /api/proxy in the SW
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
-  new NetworkOnly({
-    plugins: [bgSyncPlugin],
-  }),
+  ({ url, request }) =>
+    request.method === 'POST' && url.pathname.includes('/api/proxy'),
+  async ({ request }) => handleProxyRequest(request),
   'POST',
-);
-
-// Network-Only for GET API calls (no caching)
-registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
-  new NetworkOnly(),
-  'GET',
 );
 
 // Skip waiting control — do NOT auto-skip
