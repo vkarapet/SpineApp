@@ -1,5 +1,5 @@
 import { clearContainer, createElement } from '../utils/dom';
-import { createFormField, type FormFieldRef } from '../components/form-field';
+import { createFormField } from '../components/form-field';
 import { createButton } from '../components/button';
 import { validateParticipantId } from '../utils/validation';
 import { createProfile } from '../services/profile-service';
@@ -57,11 +57,48 @@ export function renderProfileSetup(container: HTMLElement): void {
     placeholder: 'Your name (local only)',
   });
 
-  const fields: FormFieldRef[] = [participantIdField, nameField];
+  form.appendChild(participantIdField.container);
+  form.appendChild(nameField.container);
 
-  for (const field of fields) {
-    form.appendChild(field.container);
+  // Dominant hand selector
+  let selectedHand: 'left' | 'right' = 'right';
+
+  const handLabel = createElement('label', {
+    className: 'profile-setup-screen__label',
+    textContent: 'Dominant Hand',
+  });
+
+  const handGroup = createElement('div', { className: 'profile-setup-screen__hand-group' });
+  handGroup.setAttribute('role', 'radiogroup');
+  handGroup.setAttribute('aria-label', 'Dominant hand');
+
+  const leftBtn = createElement('button', {
+    className: 'profile-setup-screen__hand-btn',
+    textContent: 'Left',
+    'aria-pressed': 'false',
+  });
+
+  const rightBtn = createElement('button', {
+    className: 'profile-setup-screen__hand-btn profile-setup-screen__hand-btn--active',
+    textContent: 'Right',
+    'aria-pressed': 'true',
+  });
+
+  function updateHandSelection(): void {
+    leftBtn.classList.toggle('profile-setup-screen__hand-btn--active', selectedHand === 'left');
+    leftBtn.setAttribute('aria-pressed', String(selectedHand === 'left'));
+    rightBtn.classList.toggle('profile-setup-screen__hand-btn--active', selectedHand === 'right');
+    rightBtn.setAttribute('aria-pressed', String(selectedHand === 'right'));
   }
+
+  leftBtn.addEventListener('click', () => { selectedHand = 'left'; updateHandSelection(); });
+  rightBtn.addEventListener('click', () => { selectedHand = 'right'; updateHandSelection(); });
+
+  handGroup.appendChild(leftBtn);
+  handGroup.appendChild(rightBtn);
+
+  form.appendChild(handLabel);
+  form.appendChild(handGroup);
 
   const submitBtn = createButton({
     text: 'Continue',
@@ -78,6 +115,7 @@ export function renderProfileSetup(container: HTMLElement): void {
         await createProfile({
           participantId: participantIdField.getValue(),
           name: nameField.getValue() || undefined,
+          dominantHand: selectedHand,
         });
         router.navigate('#/data-restore');
       } catch (err) {
@@ -127,6 +165,34 @@ style.textContent = `
   }
   .profile-setup-screen__form {
     flex: 1;
+  }
+  .profile-setup-screen__label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+    margin-top: var(--space-4);
+  }
+  .profile-setup-screen__hand-group {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .profile-setup-screen__hand-btn {
+    flex: 1;
+    min-height: var(--tap-target-min);
+    padding: var(--space-3);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-base);
+    cursor: pointer;
+  }
+  .profile-setup-screen__hand-btn--active {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
   }
   .profile-setup-screen__actions {
     padding-top: var(--space-6);

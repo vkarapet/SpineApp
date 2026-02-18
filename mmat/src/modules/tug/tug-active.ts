@@ -44,6 +44,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
 
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',
+    dominant_hand: profile.preferences.dominant_hand,
     fatigue_rating: tugSessionSetup.fatigue,
     medication_taken: tugSessionSetup.medication,
     screen_width_px: viewport.width,

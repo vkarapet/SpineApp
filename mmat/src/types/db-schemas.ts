@@ -28,6 +28,7 @@ export interface UserProfile {
 
 export interface SessionMetadata {
   hand_used: 'left' | 'right' | 'n/a';
+  dominant_hand: 'left' | 'right';
   fatigue_rating: number | null;
   medication_taken: boolean | null;
   screen_width_px: number;

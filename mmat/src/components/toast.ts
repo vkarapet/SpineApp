@@ -15,6 +15,7 @@ function ensureContainer(): HTMLDivElement {
 export function showToast(
   message: string,
   type: 'info' | 'success' | 'error' = 'info',
+  autoDismiss = true,
 ): HTMLDivElement {
   const container = ensureContainer();
 
@@ -33,7 +34,10 @@ export function showToast(
 
   container.appendChild(toast);
 
-  // Persist until dismissed (PRD §9.5 — no time-limited UI)
+  if (autoDismiss) {
+    setTimeout(() => toast.remove(), 2000);
+  }
+
   return toast;
 }
 

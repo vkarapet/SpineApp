@@ -209,7 +209,7 @@ async function bootstrap() {
           // New SW installed and waiting — prompt user to update
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             import('./components/toast').then(({ showToast }) => {
-              const toast = showToast('New version available — tap to update', 'info');
+              const toast = showToast('New version available — tap to update', 'info', false);
               toast.style.cursor = 'pointer';
               toast.addEventListener('click', () => {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });

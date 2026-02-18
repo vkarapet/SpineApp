@@ -70,6 +70,7 @@ export async function renderTappingActive(container: HTMLElement): Promise<void>
 
   const sessionMetadata: SessionMetadata = {
     hand_used: sessionSetup.hand,
+    dominant_hand: profile.preferences.dominant_hand,
     fatigue_rating: sessionSetup.fatigue,
     medication_taken: sessionSetup.medication,
     screen_width_px: viewport.width,

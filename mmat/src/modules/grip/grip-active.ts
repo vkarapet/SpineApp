@@ -62,6 +62,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
   const sessionMetadata: SessionMetadata = {
     hand_used: gripSessionSetup.hand,
+    dominant_hand: profile.preferences.dominant_hand,
     fatigue_rating: gripSessionSetup.fatigue,
     medication_taken: gripSessionSetup.medication,
     screen_width_px: viewport.width,

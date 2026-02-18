@@ -29,13 +29,6 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
     return;
   }
 
-  // Audio toggle
-  main.appendChild(
-    createToggleRow('Audio', 'Countdown beeps and GO tone', prefs.audio_enabled, async (val) => {
-      await updatePreference('audio_enabled', val);
-    }),
-  );
-
   // Haptic toggle — hidden on iOS
   if (supportsVibration()) {
     main.appendChild(
@@ -69,31 +62,6 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
     handGroup.appendChild(btn);
   }
   main.appendChild(handGroup);
-
-  // Reminders
-  main.appendChild(createSectionHeader('Assessment Reminders'));
-  const reminderSelect = createElement('select', {
-    className: 'settings-screen__select',
-    'aria-label': 'Reminder frequency',
-  });
-  for (const opt of [
-    { value: 'off', label: 'Off' },
-    { value: 'daily', label: 'Daily' },
-    { value: 'every_2_days', label: 'Every 2 days' },
-    { value: 'weekly', label: 'Weekly' },
-  ]) {
-    const option = createElement('option', { textContent: opt.label });
-    option.value = opt.value;
-    if (prefs.reminder_frequency === opt.value) option.selected = true;
-    reminderSelect.appendChild(option);
-  }
-  reminderSelect.addEventListener('change', async () => {
-    await updatePreference(
-      'reminder_frequency',
-      reminderSelect.value as 'daily' | 'every_2_days' | 'weekly' | 'off',
-    );
-  });
-  main.appendChild(reminderSelect);
 
   // Data Management
   main.appendChild(createSectionHeader('Data Management'));
