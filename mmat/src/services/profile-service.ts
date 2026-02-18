@@ -1,4 +1,4 @@
-import { getProfile, saveProfile, deleteProfile, addAuditEntry, clearAllData } from '../core/db';
+import { getProfile, saveProfile, deleteProfile, addAuditEntry } from '../core/db';
 import { generateUUID } from '../utils/uuid';
 import { CONSENT_VERSION, APP_VERSION } from '../constants';
 import type { UserProfile, UserPreferences } from '../types/db-schemas';
@@ -113,7 +113,7 @@ export async function signOut(): Promise<void> {
       details: {},
     });
   }
-  await clearAllData();
+  await deleteProfile();
 }
 
 export { deleteProfile };

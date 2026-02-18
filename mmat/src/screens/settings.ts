@@ -102,7 +102,8 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
         if (!ok) return;
         const result = await deleteAllData();
         if (result.success) {
-          router.navigate('#/splash', true);
+          showToast('Device data deleted', 'success');
+          renderSettings(container);
         } else {
           showToast(result.error ?? 'Failed to delete data', 'error');
         }

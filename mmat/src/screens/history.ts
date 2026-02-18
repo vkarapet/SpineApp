@@ -2,7 +2,9 @@ import { clearContainer, createElement } from '../utils/dom';
 import { createHeader } from '../components/header';
 import { getAllResults, getProfile, saveResult, addAuditEntry } from '../core/db';
 import { formatDateTime } from '../utils/date';
+import { showDetail, showPrompt } from '../components/confirm-dialog';
 import type { AssessmentResult } from '../types/db-schemas';
+import type { DetailRow } from '../components/confirm-dialog';
 import { router, moduleRegistry } from '../main';
 
 let currentModuleTab: string = '';
@@ -170,51 +172,57 @@ function showSessionDetail(result: AssessmentResult): void {
   const mods = moduleRegistry.getModulesByPrefix(prefix);
   const mod = mods[0];
 
-  // Build metric lines from module's metric config
-  const metricLines = mod
-    ? mod.metrics.map((metric) => {
-        const val = m[metric.key];
-        if (val === undefined) return '';
-        // Special display for rhythm_cv: show as percentage
-        if (metric.key === 'rhythm_cv') return `${metric.label}: ${(val as number).toFixed(4)}`;
-        return `${metric.label}: ${(val as number).toFixed(2)} ${metric.unit}`;
-      }).filter(Boolean).join('\n')
-    : '';
+  const rows: DetailRow[] = [
+    { label: 'Date', value: formatDateTime(result.timestamp_start) },
+  ];
 
-  const hand = result.session_metadata.hand_used !== 'n/a'
-    ? `Hand: ${result.session_metadata.hand_used}\n`
-    : '';
+  if (result.session_metadata.hand_used !== 'n/a') {
+    rows.push({ label: 'Hand', value: result.session_metadata.hand_used });
+  }
 
-  alert(
-    `Session Details\n\n` +
-    `Date: ${formatDateTime(result.timestamp_start)}\n` +
-    hand +
-    metricLines + '\n' +
-    `Duration: ${(m.duration_actual_ms / 1000).toFixed(1)}s\n` +
-    `Synced: ${result.synced ? 'Yes' : 'No'}\n` +
-    `Device: ${result.device_id.slice(0, 8)}...`,
+  if (mod) {
+    for (const metric of mod.metrics) {
+      const val = m[metric.key];
+      if (val === undefined) continue;
+      const formatted = metric.key === 'rhythm_cv'
+        ? (val as number).toFixed(4)
+        : `${(val as number).toFixed(2)} ${metric.unit}`;
+      rows.push({ label: metric.label, value: formatted });
+    }
+  }
+
+  rows.push(
+    { label: 'Duration', value: `${(m.duration_actual_ms / 1000).toFixed(1)}s` },
+    { label: 'Synced', value: result.synced ? 'Yes' : 'No' },
+    { label: 'Device', value: `${result.device_id.slice(0, 8)}...` },
   );
+
+  showDetail('Session Details', rows);
 }
 
-function showFlagDialog(result: AssessmentResult): void {
-  const reason = prompt(
-    'Mark this session as not representative?\n\nOptional reason (e.g., "phone slipped", "was distracted"):',
+async function showFlagDialog(result: AssessmentResult): Promise<void> {
+  const reason = await showPrompt(
+    'Mark this session as not representative?',
+    {
+      title: 'Flag Session',
+      placeholder: 'e.g. "phone slipped", "was distracted"',
+      confirmText: 'Flag',
+    },
   );
 
-  if (reason === null) return; // cancelled
+  if (reason === null) return;
 
   result.flagged = true;
   result.flag_reason = reason || 'Not representative';
   result.status = 'flagged';
 
-  saveResult(result);
-  addAuditEntry({
+  await saveResult(result);
+  await addAuditEntry({
     action: 'assessment_flagged',
     entity_id: result.local_uuid,
     details: { reason: result.flag_reason },
   });
 
-  // Re-render
   const container = document.getElementById('app');
   if (container) renderHistory(container);
 }

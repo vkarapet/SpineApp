@@ -139,11 +139,16 @@ export async function getResult(localUuid: string): Promise<AssessmentResult | u
 
 export async function getAllResults(): Promise<AssessmentResult[]> {
   try {
+    const profile = await getProfile();
+    if (!profile) return [];
+
     const database = getDB();
     const tx = database.transaction('assessment_results', 'readonly');
     const store = tx.objectStore('assessment_results');
     const results: AssessmentResult[] = await promisifyRequest(store.getAll());
-    return results.filter((r) => r.status !== 'in_progress');
+    return results.filter(
+      (r) => r.participant_id === profile.participant_id && r.status !== 'in_progress',
+    );
   } catch (err) {
     console.error('getAllResults error:', err);
     return [];
@@ -152,12 +157,17 @@ export async function getAllResults(): Promise<AssessmentResult[]> {
 
 export async function getResultsByTask(taskType: string): Promise<AssessmentResult[]> {
   try {
+    const profile = await getProfile();
+    if (!profile) return [];
+
     const database = getDB();
     const tx = database.transaction('assessment_results', 'readonly');
     const store = tx.objectStore('assessment_results');
     const index = store.index('by_task');
     const results: AssessmentResult[] = await promisifyRequest(index.getAll(taskType));
-    return results.filter((r) => r.status !== 'in_progress');
+    return results.filter(
+      (r) => r.participant_id === profile.participant_id && r.status !== 'in_progress',
+    );
   } catch (err) {
     console.error('getResultsByTask error:', err);
     return [];
@@ -176,13 +186,16 @@ export async function getResultsByTaskPrefix(prefix: string): Promise<Assessment
 
 export async function getUnsyncedResults(): Promise<AssessmentResult[]> {
   try {
+    const profile = await getProfile();
+    if (!profile) return [];
+
     const database = getDB();
     const tx = database.transaction('assessment_results', 'readonly');
     const store = tx.objectStore('assessment_results');
-    // IndexedDB can't index booleans, so get all and filter
     const allResults: AssessmentResult[] = await promisifyRequest(store.getAll());
-    const results = allResults.filter((r) => !r.synced);
-    return results.filter((r) => r.status === 'complete');
+    return allResults.filter(
+      (r) => r.participant_id === profile.participant_id && !r.synced && r.status === 'complete',
+    );
   } catch (err) {
     console.error('getUnsyncedResults error:', err);
     return [];
@@ -367,12 +380,12 @@ export async function pruneAuditLog(maxEntries: number = MAX_AUDIT_ENTRIES): Pro
   }
 }
 
-// ── Clear all data ──
+// ── Clear data ──
 
-export async function clearAllData(): Promise<void> {
+export async function clearAssessmentData(): Promise<void> {
   try {
     const database = getDB();
-    const stores = ['user_profile', 'assessment_results', 'sync_queue', 'audit_log'];
+    const stores = ['assessment_results', 'sync_queue', 'audit_log'];
 
     for (const storeName of stores) {
       const tx = database.transaction(storeName, 'readwrite');
@@ -380,7 +393,7 @@ export async function clearAllData(): Promise<void> {
       await promisifyTransaction(tx);
     }
   } catch (err) {
-    console.error('clearAllData error:', err);
+    console.error('clearAssessmentData error:', err);
     throw err;
   }
 }

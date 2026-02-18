@@ -1,4 +1,4 @@
-import { getProfile, clearAllData, addAuditEntry } from '../core/db';
+import { getProfile, clearAssessmentData, addAuditEntry } from '../core/db';
 
 export async function deleteAllData(): Promise<{ success: boolean; error?: string }> {
   const profile = await getProfile();
@@ -11,7 +11,7 @@ export async function deleteAllData(): Promise<{ success: boolean; error?: strin
       details: {},
     });
 
-    await clearAllData();
+    await clearAssessmentData();
     return { success: true };
   } catch (err) {
     return { success: false, error: String(err) };
