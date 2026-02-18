@@ -55,10 +55,11 @@ export class AudioManager {
   }
 
   async preloadAll(): Promise<void> {
+    const base = import.meta.env.BASE_URL;
     await Promise.all([
-      this.loadSound('beep', '/audio/beep.mp3'),
-      this.loadSound('go', '/audio/go.mp3'),
-      this.loadSound('end', '/audio/end.mp3'),
+      this.loadSound('beep', base + 'audio/beep.mp3'),
+      this.loadSound('go', base + 'audio/go.mp3'),
+      this.loadSound('end', base + 'audio/end.mp3'),
     ]);
   }
 

@@ -11,7 +11,7 @@ export function renderSplash(container: HTMLElement): void {
 
   const logo = createElement('div', { className: 'splash-screen__logo' });
   const logoImg = createElement('img') as HTMLImageElement;
-  logoImg.src = '/icons/icon-192.png';
+  logoImg.src = import.meta.env.BASE_URL + 'icons/icon-192.png';
   logoImg.width = 96;
   logoImg.height = 96;
   logoImg.alt = '';

@@ -31,14 +31,15 @@ export function renderGripInstructions(container: HTMLElement): void {
   // Animated diagram — alternates between open and grip images every 1s
   const diagram = createElement('div', { className: 'grip-instructions__diagram' });
   diagram.setAttribute('aria-label', 'Animation showing a hand gripping and releasing a phone');
+  const base = import.meta.env.BASE_URL;
   diagram.innerHTML = `
     <div class="grip-instructions__img-container">
       <img class="grip-instructions__img grip-instructions__img--open"
-           src="/images/grip-open.png"
+           src="${base}images/grip-open.png"
            alt="Hand open with fingers extended above phone"
            width="256" height="256" />
       <img class="grip-instructions__img grip-instructions__img--grip"
-           src="/images/grip-closed.png"
+           src="${base}images/grip-closed.png"
            alt="Hand gripping phone with fingers curled onto screen"
            width="256" height="256" />
     </div>
