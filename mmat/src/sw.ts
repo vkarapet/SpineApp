@@ -13,7 +13,8 @@ cleanupOutdatedCaches();
 // SPA navigation fallback — serve index.html for all navigation requests
 // This ensures offline navigation works (e.g. start_url with query params,
 // hash-based routes, deep links)
-const navigationHandler = createHandlerBoundToURL('/index.html');
+const base = import.meta.env.BASE_URL || '/';
+const navigationHandler = createHandlerBoundToURL(base + 'index.html');
 registerRoute(new NavigationRoute(navigationHandler));
 
 // Cache-First for static assets (icons, fonts, audio)

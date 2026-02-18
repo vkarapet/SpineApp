@@ -26,6 +26,7 @@ function loadCerts() {
 const https = loadCerts();
 
 export default defineConfig({
+  base: process.env.GITHUB_ACTIONS ? '/SpineApp/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
