@@ -1,7 +1,7 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { audioManager } from '../../utils/audio';
-import { getProfile, getResultsByTaskPrefix } from '../../core/db';
+import { getProfile } from '../../core/db';
 import { router } from '../../main';
 
 export async function renderTugInstructions(container: HTMLElement): Promise<void> {
@@ -56,9 +56,9 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
     onClick: () => router.navigate('#/assessment/tug_v1/practice'),
   });
 
-  // Auto-navigate to sensor check on first run
-  const tugResults = await getResultsByTaskPrefix('tug');
-  if (tugResults.length === 0) {
+  // Auto-navigate to sensor check on first run (if never calibrated)
+  const profile = await getProfile();
+  if (!profile?.practice_completed) {
     router.navigate('#/assessment/tug_v1/practice');
     return;
   }
