@@ -2,7 +2,7 @@ import { createElement } from '../utils/dom';
 
 export interface ButtonConfig {
   text: string;
-  variant?: 'primary' | 'secondary' | 'danger' | 'text';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'text';
   fullWidth?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
@@ -76,6 +76,11 @@ style.textContent = `
   }
   .btn--danger:active {
     opacity: 0.8;
+  }
+  .btn--success {
+    background-color: transparent;
+    color: var(--color-success, #34A853);
+    border: 2px solid var(--color-success, #34A853);
   }
   .btn--text {
     background: none;

@@ -1,8 +1,10 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createHeader } from '../components/header';
+import { createButton } from '../components/button';
 import { APP_VERSION, INTENDED_USE_STATEMENT } from '../constants';
 import { getProfile } from '../core/db';
-import { getDeviceOS, getBrowserInfo } from '../utils/device';
+import { getDeviceOS, getBrowserInfo, isStandalone } from '../utils/device';
+import { showInstallPrompt } from '../services/install-service';
 import { router } from '../main';
 
 export async function renderHelp(container: HTMLElement): Promise<void> {
@@ -17,14 +19,34 @@ export async function renderHelp(container: HTMLElement): Promise<void> {
   const main = createElement('main', { className: 'help-screen' });
   main.setAttribute('role', 'main');
 
+  // Install
+  main.appendChild(createElement('h2', { textContent: 'Install' }));
+
+  if (isStandalone()) {
+    main.appendChild(
+      createButton({
+        text: 'App Installed',
+        variant: 'success',
+        fullWidth: true,
+        disabled: true,
+        onClick: () => {},
+      }),
+    );
+  } else {
+    main.appendChild(
+      createButton({
+        text: 'Install this App',
+        variant: 'primary',
+        fullWidth: true,
+        onClick: () => showInstallPrompt(),
+      }),
+    );
+  }
+
   // FAQ
   main.appendChild(createElement('h2', { textContent: 'Frequently Asked Questions' }));
 
   const faqs = [
-    {
-      q: 'How do I install this app?',
-      a: 'On Android: Tap the browser menu and select "Add to Home Screen." On iPhone/iPad: Tap the Share button (square with arrow), scroll down, and tap "Add to Home Screen." The app will launch in standalone mode and work fully offline.',
-    },
     {
       q: 'Why aren\'t my taps counting?',
       a: 'Make sure you lift your finger completely between each tap. Using two fingers or holding your finger down will not count. Each tap must be a single finger touch.',

@@ -3,7 +3,6 @@ import { createButton } from './button';
 import { isIOS } from '../utils/device';
 
 export function createInstallPrompt(
-  onInstall: () => void,
   onDismiss: () => void,
 ): HTMLElement {
   const overlay = createElement('div', { className: 'install-prompt-overlay' });
@@ -33,31 +32,31 @@ export function createInstallPrompt(
     `;
   } else {
     prompt.innerHTML = `
-      <h2>Install MMAT</h2>
-      <p>Add MMAT to your home screen for the best experience.</p>
+      <h2>Add MMAT to your Home Screen</h2>
+      <p>For the best experience, install MMAT as an app:</p>
+      <ol class="install-prompt__steps">
+        <li>
+          <span class="install-prompt__step-icon">1</span>
+          Tap the browser menu <strong>\u22EE</strong>
+        </li>
+        <li>
+          <span class="install-prompt__step-icon">2</span>
+          Tap "Add to Home Screen" or "Install App"
+        </li>
+        <li>
+          <span class="install-prompt__step-icon">3</span>
+          Tap "Add" or "Install"
+        </li>
+      </ol>
     `;
   }
 
   const actions = createElement('div', { className: 'install-prompt__actions' });
 
-  if (!isIOS()) {
-    actions.appendChild(
-      createButton({
-        text: 'Install',
-        variant: 'primary',
-        fullWidth: true,
-        onClick: () => {
-          onInstall();
-          overlay.remove();
-        },
-      }),
-    );
-  }
-
   actions.appendChild(
     createButton({
-      text: 'Not Now',
-      variant: 'text',
+      text: 'OK',
+      variant: 'primary',
       fullWidth: true,
       onClick: () => {
         onDismiss();

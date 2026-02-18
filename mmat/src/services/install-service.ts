@@ -1,7 +1,7 @@
-import { isIOS, isStandalone } from '../utils/device';
+import { isStandalone } from '../utils/device';
 import { getProfile, saveProfile } from '../core/db';
 import { INSTALL_PROMPT_DELAY_DAYS } from '../constants';
-import { eventBus } from '../main';
+import { createInstallPrompt } from '../components/install-prompt';
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
@@ -11,13 +11,16 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function initInstallService(): void {
-  if (isStandalone()) return; // Already installed
+  if (isStandalone()) return;
 
-  // Android: capture beforeinstallprompt
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e as BeforeInstallPromptEvent;
   });
+}
+
+export function hasDeferredPrompt(): boolean {
+  return deferredPrompt !== null;
 }
 
 export async function shouldShowInstallPrompt(): Promise<boolean> {
@@ -26,10 +29,8 @@ export async function shouldShowInstallPrompt(): Promise<boolean> {
   const profile = await getProfile();
   if (!profile) return false;
 
-  // Only show after first assessment
   if (!profile.first_assessment_completed) return false;
 
-  // Check if dismissed recently
   if (profile.install_prompt_dismissed_at) {
     const dismissedAt = new Date(profile.install_prompt_dismissed_at).getTime();
     const daysSince = (Date.now() - dismissedAt) / (1000 * 60 * 60 * 24);
@@ -40,15 +41,19 @@ export async function shouldShowInstallPrompt(): Promise<boolean> {
 }
 
 export async function showInstallPrompt(): Promise<void> {
-  if (isIOS()) {
-    eventBus.emit('show-ios-install-prompt');
-  } else if (deferredPrompt) {
+  if (deferredPrompt) {
     await deferredPrompt.prompt();
     const result = await deferredPrompt.userChoice;
     if (result.outcome === 'dismissed') {
       await dismissInstallPrompt();
     }
     deferredPrompt = null;
+  } else {
+    // iOS or browser without beforeinstallprompt — show manual instructions
+    const overlay = createInstallPrompt(
+      () => dismissInstallPrompt(),
+    );
+    document.body.appendChild(overlay);
   }
 }
 

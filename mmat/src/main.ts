@@ -3,6 +3,7 @@ import { initDB } from './core/db';
 import { EventBus } from './core/event-bus';
 import { ModuleRegistry } from './core/module-registry';
 import { initConnectivityService } from './services/connectivity-service';
+import { initInstallService } from './services/install-service';
 import { renderSplash } from './screens/splash';
 
 export const router = new Router();
@@ -180,6 +181,9 @@ async function bootstrap() {
 
   // Start connectivity monitoring (auto-syncs when coming back online)
   initConnectivityService();
+
+  // Capture install prompt for PWA install button
+  initInstallService();
 
   // Set app container and start router
   router.setContainer(app);
