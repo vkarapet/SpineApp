@@ -178,6 +178,7 @@ style.textContent = `
     gap: var(--space-4);
     padding: var(--space-4);
     padding-bottom: calc(var(--space-8) + var(--safe-area-bottom));
+    width: 100%;
     max-width: 28rem;
     margin: 0 auto;
   }

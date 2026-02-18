@@ -113,8 +113,8 @@ style.textContent = `
     color: var(--color-primary);
   }
   .app-header__logo {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-sm);
   }
   .app-header__btn {
