@@ -1,10 +1,10 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { audioManager } from '../../utils/audio';
-import { getProfile } from '../../core/db';
+import { getProfile, getResultsByTaskPrefix } from '../../core/db';
 import { router } from '../../main';
 
-export function renderTugInstructions(container: HTMLElement): void {
+export async function renderTugInstructions(container: HTMLElement): Promise<void> {
   clearContainer(container);
 
   const wrapper = createElement('main', { className: 'assessment-instructions' });
@@ -18,12 +18,12 @@ export function renderTugInstructions(container: HTMLElement): void {
   const steps = createElement('div', { className: 'assessment-instructions__important' });
   steps.innerHTML = `
     <ol class="tug-instructions__steps">
-      <li>Place the phone in your front trouser pocket</li>
+      <li><strong>Do not turn off the screen</strong> &mdash; place the phone in your front trouser pocket with the screen on</li>
       <li>Sit in a chair with your back against the chair</li>
       <li>Sit still &mdash; the test starts automatically after 3 seconds</li>
       <li>When you hear the start tone, stand up and walk forward</li>
       <li>You will hear a beep at 3 meters &mdash; turn around and walk back to the chair</li>
-      <li>Sit down &mdash; the test ends automatically</li>
+      <li>Sit down and remain still &mdash; an end tone will mark the end of the test</li>
     </ol>
   `;
 
@@ -48,6 +48,21 @@ export function renderTugInstructions(container: HTMLElement): void {
   });
   soundNote.appendChild(testSoundBtn);
 
+  // Sensor calibration
+  const calibrateBtn = createButton({
+    text: 'Sensor Calibration',
+    variant: 'secondary',
+    fullWidth: true,
+    onClick: () => router.navigate('#/assessment/tug_v1/practice'),
+  });
+
+  // Auto-navigate to sensor check on first run
+  const tugResults = await getResultsByTaskPrefix('tug');
+  if (tugResults.length === 0) {
+    router.navigate('#/assessment/tug_v1/practice');
+    return;
+  }
+
   const readyBtn = createButton({
     text: "I'm Ready",
     variant: 'primary',
@@ -58,13 +73,7 @@ export function renderTugInstructions(container: HTMLElement): void {
       const audioEnabled = profile?.preferences.audio_enabled ?? true;
       audioManager.setEnabled(audioEnabled);
       await audioManager.preloadAll();
-
-      const needsPractice = profile && !profile.practice_completed;
-      if (needsPractice) {
-        router.navigate('#/assessment/tug_v1/practice');
-      } else {
-        router.navigate('#/assessment/tug_v1/countdown');
-      }
+      router.navigate('#/assessment/tug_v1/countdown');
     },
   });
 
@@ -82,6 +91,7 @@ export function renderTugInstructions(container: HTMLElement): void {
   wrapper.appendChild(steps);
   wrapper.appendChild(helperNote);
   wrapper.appendChild(soundNote);
+  wrapper.appendChild(calibrateBtn);
   wrapper.appendChild(actions);
   wrapper.appendChild(cancelBtn);
   container.appendChild(wrapper);

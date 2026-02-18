@@ -31,33 +31,34 @@ export function renderConsent(container: HTMLElement): void {
     <p class="consent-screen__highlight">${INTENDED_USE_STATEMENT}</p>
 
     <h3>Purpose</h3>
-    <p>This application is designed to collect longitudinal motor and cognitive assessment data
+    <p>This application is designed to collect longitudinal motor assessment data
     for research purposes. Your participation helps researchers understand patterns of motor
     function over time.</p>
 
     <h3>Procedures</h3>
-    <p>You will be asked to complete brief motor assessments (such as tapping tasks) at regular
-    intervals. Each assessment takes approximately 30 seconds. Your results are stored securely
-    on your device and synchronized with a research database.</p>
+    <p>You will be asked to complete brief motor assessments at regular intervals. These include
+    a rapid tapping task, a grip &amp; release test, and a timed up &amp; go walking test.
+    Each assessment takes under a minute. Your results are stored on your device and
+    synchronized with a research database when online.</p>
 
     <h3>Data Handling</h3>
     <p>Your data is identified by a pre-assigned participant ID provided by the research team.
     No personal information (such as email or date of birth) is collected. An optional display
-    name is stored locally on your device only and is never transmitted. All data transmission
-    is encrypted.</p>
+    name is stored locally on your device only and is never transmitted.</p>
 
     <h3>Risks &amp; Benefits</h3>
     <p>There are no known physical risks. The primary risk is potential loss of privacy, which
-    is mitigated by the hashing and encryption described above. You may not receive direct
+    is mitigated by the use of pseudonymous participant IDs. You may not receive direct
     benefit, but your participation contributes to research understanding.</p>
 
     <h3>Right to Withdraw</h3>
-    <p>You may withdraw at any time by using the "Delete My Data" option in Settings.
-    This will remove your data from both the device and the research server.</p>
+    <p>You may withdraw at any time by using the "Delete Device Data" option in Settings.
+    This will permanently remove all data from your device. To request deletion of previously
+    synced data from the research database, contact the research team.</p>
 
     <h3>Contact</h3>
-    <p>For questions about this research, please contact the research team at the email
-    provided in the app's Help section.</p>
+    <p>For questions about this research, please contact the research team using the
+    information provided in the app's Help section.</p>
   `;
 
   const checkboxContainer = createElement('div', { className: 'consent-screen__checkbox' });

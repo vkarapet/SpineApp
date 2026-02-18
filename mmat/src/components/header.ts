@@ -2,6 +2,7 @@ import { createElement } from '../utils/dom';
 
 export interface HeaderConfig {
   title?: string;
+  showLogo?: boolean;
   showSettings?: boolean;
   showHelp?: boolean;
   showBack?: boolean;
@@ -13,6 +14,7 @@ export interface HeaderConfig {
 export function createHeader(config: HeaderConfig): HTMLElement {
   const {
     title = 'MMAT',
+    showLogo = false,
     showSettings = false,
     showHelp = false,
     showBack = false,
@@ -33,6 +35,15 @@ export function createHeader(config: HeaderConfig): HTMLElement {
     backBtn.innerHTML = `<svg width="24" height="24" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
     backBtn.addEventListener('click', onBack);
     left.appendChild(backBtn);
+  } else if (showLogo) {
+    const base = import.meta.env.BASE_URL || '/';
+    const logo = createElement('img', {
+      className: 'app-header__logo',
+      'aria-hidden': 'true',
+    }) as HTMLImageElement;
+    logo.src = `${base}icons/icon-192.png`;
+    logo.alt = '';
+    left.appendChild(logo);
   }
 
   const titleEl = createElement('h1', {
@@ -100,6 +111,11 @@ style.textContent = `
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     color: var(--color-primary);
+  }
+  .app-header__logo {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
   }
   .app-header__btn {
     display: flex;

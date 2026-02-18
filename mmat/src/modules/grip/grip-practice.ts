@@ -1,7 +1,6 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { vibrate, supportsVibration } from '../../utils/device';
-import { getProfile, saveProfile } from '../../core/db';
 import { GRIP_PRACTICE_DURATION_MS, GRIP_MIN_FINGERS } from '../../constants';
 import { router } from '../../main';
 
@@ -260,22 +259,15 @@ function showPracticeResults(wrapper: HTMLElement, gripCount: number): void {
     onClick: () => renderGripPractice(wrapper.parentElement ?? wrapper),
   });
 
-  const startBtn = createButton({
-    text: 'Start Real Test',
+  const backBtn = createButton({
+    text: 'Back to Instructions',
     variant: 'primary',
     fullWidth: true,
-    onClick: async () => {
-      const profile = await getProfile();
-      if (profile) {
-        profile.practice_completed = true;
-        await saveProfile(profile);
-      }
-      router.navigate('#/assessment/grip_v1/countdown');
-    },
+    onClick: () => router.navigate('#/assessment/grip_v1/instructions'),
   });
 
   results.appendChild(practiceAgainBtn);
-  results.appendChild(startBtn);
+  results.appendChild(backBtn);
   wrapper.appendChild(results);
 }
 

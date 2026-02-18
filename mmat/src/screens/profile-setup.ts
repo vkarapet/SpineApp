@@ -117,7 +117,7 @@ export function renderProfileSetup(container: HTMLElement): void {
           name: nameField.getValue() || undefined,
           dominantHand: selectedHand,
         });
-        router.navigate('#/data-restore');
+        router.navigate('#/menu');
       } catch (err) {
         console.error('Failed to create profile:', err);
         submitBtn.disabled = false;
@@ -134,8 +134,6 @@ export function renderProfileSetup(container: HTMLElement): void {
   wrapper.appendChild(actions);
   container.appendChild(wrapper);
 
-  // Focus first field
-  setTimeout(() => participantIdField.input.focus(), 100);
 }
 
 // Styles
@@ -144,8 +142,6 @@ style.textContent = `
   .profile-setup-screen {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
     padding: var(--space-6) var(--space-4) calc(var(--space-8) + var(--safe-area-bottom));
     max-width: 28rem;
     margin: 0 auto;
@@ -164,7 +160,6 @@ style.textContent = `
     margin-top: var(--space-2);
   }
   .profile-setup-screen__form {
-    flex: 1;
   }
   .profile-setup-screen__label {
     display: block;

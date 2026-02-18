@@ -1,5 +1,6 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createHeader } from '../components/header';
+import { createButton } from '../components/button';
 import { createProfileWidget } from '../components/profile-widget';
 import { createSyncStatus } from '../components/sync-status';
 import { createModuleCard } from '../components/module-card';
@@ -19,6 +20,7 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
 
   const header = createHeader({
     title: 'Mobile Modular Assessment Tool',
+    showLogo: true,
     showSettings: true,
     showHelp: true,
     onSettings: () => router.navigate('#/settings'),
@@ -86,19 +88,19 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
     await addDefaultCard(modulesSection);
   }
 
-  // View History link
-  const historyLink = createElement('button', {
-    className: 'menu-screen__history-link',
-    textContent: 'View History',
-    'aria-label': 'View assessment history',
+  // View History button
+  const historyBtn = createButton({
+    text: 'View History',
+    variant: 'secondary',
+    fullWidth: true,
+    onClick: () => router.navigate('#/history'),
   });
-  historyLink.addEventListener('click', () => router.navigate('#/history'));
 
   main.appendChild(profileWidget);
   main.appendChild(syncStatusEl);
   main.appendChild(lastAssessed);
   main.appendChild(modulesSection);
-  main.appendChild(historyLink);
+  main.appendChild(historyBtn);
 
   container.appendChild(header);
   container.appendChild(main);

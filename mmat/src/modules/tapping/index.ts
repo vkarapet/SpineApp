@@ -7,7 +7,7 @@ export const tappingModule: AssessmentModule = {
   id: 'tapping_v1',
   name: 'Rapid Tapping Task',
   version: '1.0.0',
-  description: 'Measure motor speed, rhythm, and spatial accuracy over 15 seconds',
+  description: 'Measure motor speed, rhythm, and spatial accuracy over 10 seconds',
 
   redcap: {
     instrument: 'tapping_task',
@@ -49,7 +49,7 @@ export const tappingModule: AssessmentModule = {
       importantPoints: [
         'Lift your finger completely between each tap',
         'Using two fingers or holding your finger down will not count',
-        'The test lasts 15 seconds',
+        'The test lasts 10 seconds',
       ],
       showMeHow: true,
     };

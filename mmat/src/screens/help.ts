@@ -22,20 +22,24 @@ export async function renderHelp(container: HTMLElement): Promise<void> {
 
   const faqs = [
     {
+      q: 'How do I install this app?',
+      a: 'On Android: Tap the browser menu and select "Add to Home Screen." On iPhone/iPad: Tap the Share button (square with arrow), scroll down, and tap "Add to Home Screen." The app will launch in standalone mode and work fully offline.',
+    },
+    {
       q: 'Why aren\'t my taps counting?',
       a: 'Make sure you lift your finger completely between each tap. Using two fingers or holding your finger down will not count. Each tap must be a single finger touch.',
     },
     {
+      q: 'Why aren\'t my grips counting?',
+      a: 'You need to place 3 or more fingers on the screen at once to register a grip. Open your fingers completely between each grip so the phone detects a full release before the next one.',
+    },
+    {
+      q: 'The TUG test isn\'t detecting my movements. What should I do?',
+      a: 'Make sure the phone is placed securely in your front trouser pocket with the screen on. Do not turn off the screen during the test. Run the Sensor Calibration from the instructions page to verify your sensors are working.',
+    },
+    {
       q: 'My data isn\'t syncing. What should I do?',
       a: 'Check your internet connection. If you\'re online and data still isn\'t syncing, try the "Sync Now" button on the main screen. If the problem persists, contact the research team.',
-    },
-    {
-      q: 'How do I install this app?',
-      a: 'On Android: Tap the browser menu and select "Add to Home Screen." On iPhone/iPad: Tap the Share button (square with arrow), scroll down, and tap "Add to Home Screen."',
-    },
-    {
-      q: 'How do I interpret my results?',
-      a: 'Your results show tapping speed (taps per second), rhythm consistency, and accuracy. Higher speed and consistency scores generally indicate better motor function. Track your trends over time on the main screen graph.',
     },
   ];
 
@@ -52,16 +56,30 @@ export async function renderHelp(container: HTMLElement): Promise<void> {
   main.appendChild(createElement('h2', { textContent: 'Test Instructions' }));
   const instructions = createElement('div', { className: 'help-screen__section' });
   instructions.innerHTML = `
-    <p><strong>Rapid Tapping Task</strong></p>
+    <p><strong>Rapid Tapping Task</strong> (10 seconds)</p>
     <p>Tap the circle as fast as you can using one finger.</p>
     <ul>
       <li>Lift your finger completely between each tap</li>
       <li>Using two fingers or holding your finger down will not count</li>
-      <li>The test lasts 15 seconds</li>
     </ul>
-    <p><strong>The lift-off rule:</strong> To ensure accurate measurements, each tap must be a distinct
-    touch-and-release action. If you press a second finger before lifting the first, that touch
-    won't be counted toward your score (but is still recorded in the raw data).</p>
+
+    <p><strong>Grip &amp; Release Test</strong> (10 seconds)</p>
+    <p>Grip the phone with 3+ fingers, release fully, and repeat as fast as you can.</p>
+    <ul>
+      <li>Rest the phone in your palm, screen up, hand on a flat surface</li>
+      <li>Curl your fingers onto the screen to grip</li>
+      <li>Open your fingers completely before each new grip</li>
+    </ul>
+
+    <p><strong>Timed Up &amp; Go</strong></p>
+    <p>A sensor-based walking test with the phone in your pocket.</p>
+    <ul>
+      <li>Do not turn off the screen during the test</li>
+      <li>Place the phone in your front trouser pocket</li>
+      <li>Sit in a chair, sit still, and the test starts automatically</li>
+      <li>Stand up, walk 3 meters, turn around, walk back, and sit down</li>
+      <li>Remain still after sitting &mdash; an end tone marks the end of the test</li>
+    </ul>
   `;
   main.appendChild(instructions);
 
@@ -79,20 +97,15 @@ export async function renderHelp(container: HTMLElement): Promise<void> {
   reportBtn.setAttribute('href', `mailto:support@example.com?${mailtoParams.toString()}`);
   main.appendChild(reportBtn);
 
-  // Intended Use
-  main.appendChild(createElement('h2', { textContent: 'Intended Use' }));
-  const intended = createElement('p', {
-    className: 'help-screen__intended',
-    textContent: INTENDED_USE_STATEMENT,
-  });
-  main.appendChild(intended);
-
-  // Version
-  const version = createElement('p', {
-    className: 'help-screen__version',
-    textContent: `Version ${APP_VERSION}`,
-  });
-  main.appendChild(version);
+  // About
+  main.appendChild(createElement('h2', { textContent: 'About' }));
+  const aboutSection = createElement('div', { className: 'help-screen__about' });
+  aboutSection.innerHTML = `
+    <p><strong>MMAT</strong> v${APP_VERSION}</p>
+    <p class="help-screen__intended">${INTENDED_USE_STATEMENT}</p>
+    <p class="help-screen__contact">For support, contact the research team.</p>
+  `;
+  main.appendChild(aboutSection);
 
   container.appendChild(header);
   container.appendChild(main);
@@ -159,19 +172,22 @@ style.textContent = `
     font-weight: var(--font-weight-semibold);
     text-decoration: none;
   }
-  .help-screen__intended {
+  .help-screen__about {
     padding: var(--space-4);
     background: var(--color-bg-secondary);
     border-radius: var(--radius-md);
-    font-style: italic;
-    color: var(--color-text-secondary);
-    border-left: 4px solid var(--color-primary);
   }
-  .help-screen__version {
-    text-align: center;
-    color: var(--color-text-disabled);
+  .help-screen__about p {
+    margin-bottom: var(--space-2);
+  }
+  .help-screen__intended {
     font-size: var(--font-size-sm);
-    margin-top: var(--space-8);
+    color: var(--color-text-secondary);
+    font-style: italic;
+  }
+  .help-screen__contact {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
   }
 `;
 document.head.appendChild(style);

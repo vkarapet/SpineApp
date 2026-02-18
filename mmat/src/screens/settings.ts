@@ -8,7 +8,7 @@ import { deleteAllData } from '../services/data-deletion-service';
 import { getStorageEstimate } from '../utils/storage';
 import { supportsVibration } from '../utils/device';
 import { showToast } from '../components/toast';
-import { APP_VERSION, INTENDED_USE_STATEMENT } from '../constants';
+import { showConfirm } from '../components/confirm-dialog';
 import { router } from '../main';
 
 export async function renderSettings(container: HTMLElement): Promise<void> {
@@ -77,13 +77,35 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
 
   main.appendChild(
     createButton({
-      text: 'Export My Data',
+      text: 'Export Device Data',
       variant: 'secondary',
       fullWidth: true,
       onClick: async () => {
         const { exportDataAsJSON } = await import('../services/export-service');
         await exportDataAsJSON();
         showToast('Data exported', 'success');
+      },
+    }),
+  );
+
+  // Delete Device Data
+  main.appendChild(
+    createButton({
+      text: 'Delete Device Data',
+      variant: 'danger',
+      fullWidth: true,
+      onClick: async () => {
+        const ok = await showConfirm(
+          'This will permanently delete all your data from this device. This action cannot be undone.',
+          { confirmText: 'Delete', variant: 'danger' },
+        );
+        if (!ok) return;
+        const result = await deleteAllData();
+        if (result.success) {
+          router.navigate('#/splash', true);
+        } else {
+          showToast(result.error ?? 'Failed to delete data', 'error');
+        }
       },
     }),
   );
@@ -97,53 +119,16 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
       onClick: async () => {
         const unsynced = await getUnsyncedResults();
         if (unsynced.length > 0) {
-          if (
-            !confirm(
-              `You have ${unsynced.length} unsynced session(s). Signing out will not delete this data, but it won't sync until you sign back in. Continue?`,
-            )
-          ) {
-            return;
-          }
+          const ok = await showConfirm(
+            `You have ${unsynced.length} unsynced session(s). Signing out will not delete this data, but it won't sync until you sign back in. Continue?`,
+          );
+          if (!ok) return;
         }
         await signOut();
         router.navigate('#/splash', true);
       },
     }),
   );
-
-  // Delete My Data
-  main.appendChild(
-    createButton({
-      text: 'Delete My Data',
-      variant: 'danger',
-      fullWidth: true,
-      onClick: async () => {
-        if (
-          !confirm(
-            'This will permanently delete all your data from this device and the server. This action cannot be undone. Continue?',
-          )
-        ) {
-          return;
-        }
-        const result = await deleteAllData();
-        if (result.success) {
-          router.navigate('#/splash', true);
-        } else {
-          showToast(result.error ?? 'Failed to delete data', 'error');
-        }
-      },
-    }),
-  );
-
-  // About
-  main.appendChild(createSectionHeader('About'));
-  const aboutSection = createElement('div', { className: 'settings-screen__about' });
-  aboutSection.innerHTML = `
-    <p><strong>MMAT</strong> v${APP_VERSION}</p>
-    <p class="settings-screen__intended-use">${INTENDED_USE_STATEMENT}</p>
-    <p class="settings-screen__contact">For support, contact the research team.</p>
-  `;
-  main.appendChild(aboutSection);
 
   container.appendChild(header);
   container.appendChild(main);
@@ -259,23 +244,6 @@ style.textContent = `
     cursor: pointer;
   }
   .settings-screen__info {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-  .settings-screen__about {
-    padding: var(--space-4);
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-md);
-  }
-  .settings-screen__about p {
-    margin-bottom: var(--space-2);
-  }
-  .settings-screen__intended-use {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    font-style: italic;
-  }
-  .settings-screen__contact {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
   }

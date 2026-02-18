@@ -45,6 +45,20 @@ export function renderGripInstructions(container: HTMLElement): void {
     </div>
   `;
 
+  const practiceBtn = createButton({
+    text: 'Practice',
+    variant: 'secondary',
+    fullWidth: true,
+    onClick: async () => {
+      audioManager.initOnGesture();
+      const profile = await getProfile();
+      const audioEnabled = profile?.preferences.audio_enabled ?? true;
+      audioManager.setEnabled(audioEnabled);
+      await audioManager.preloadAll();
+      router.navigate('#/assessment/grip_v1/practice');
+    },
+  });
+
   const readyBtn = createButton({
     text: "I'm Ready",
     variant: 'primary',
@@ -55,17 +69,12 @@ export function renderGripInstructions(container: HTMLElement): void {
       const audioEnabled = profile?.preferences.audio_enabled ?? true;
       audioManager.setEnabled(audioEnabled);
       await audioManager.preloadAll();
-
-      const needsPractice = profile && !profile.practice_completed;
-      if (needsPractice) {
-        router.navigate('#/assessment/grip_v1/practice');
-      } else {
-        router.navigate('#/assessment/grip_v1/countdown');
-      }
+      router.navigate('#/assessment/grip_v1/countdown');
     },
   });
 
   const actions = createElement('div', { className: 'assessment-instructions__actions' });
+  actions.appendChild(practiceBtn);
   actions.appendChild(readyBtn);
 
   const cancelBtn = createButton({

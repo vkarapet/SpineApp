@@ -27,17 +27,32 @@ export function renderTappingInstructions(container: HTMLElement): void {
       <ul>
         <li>Lift your finger completely between each tap</li>
         <li>Using two fingers or holding your finger down will not count</li>
-        <li>The test lasts 15 seconds</li>
+        <li>The test lasts 10 seconds</li>
       </ul>
     </div>
   `;
 
-  // Show Me How animation
-  const demoBtn = createButton({
-    text: 'Show Me How',
+  // Demo animation
+  const demo = createElement('div', { className: 'assessment-instructions__demo' });
+  demo.innerHTML = `
+    <div class="assessment-instructions__demo-circle">
+      <div class="assessment-instructions__demo-finger"></div>
+    </div>
+    <p>Tap with one finger, lift completely, then tap again</p>
+  `;
+
+  const practiceBtn = createButton({
+    text: 'Practice',
     variant: 'secondary',
     fullWidth: true,
-    onClick: () => showDemo(wrapper),
+    onClick: async () => {
+      audioManager.initOnGesture();
+      const profile = await getProfile();
+      const audioEnabled = profile?.preferences.audio_enabled ?? true;
+      audioManager.setEnabled(audioEnabled);
+      await audioManager.preloadAll();
+      router.navigate('#/assessment/tapping_v1/practice');
+    },
   });
 
   const readyBtn = createButton({
@@ -45,25 +60,17 @@ export function renderTappingInstructions(container: HTMLElement): void {
     variant: 'primary',
     fullWidth: true,
     onClick: async () => {
-      // Initialize audio context on this gesture (iOS requirement)
       audioManager.initOnGesture();
       const profile = await getProfile();
       const audioEnabled = profile?.preferences.audio_enabled ?? true;
       audioManager.setEnabled(audioEnabled);
       await audioManager.preloadAll();
-
-      // Check if practice needed (first time only)
-      const needsPractice = profile && !profile.practice_completed;
-      if (needsPractice) {
-        router.navigate('#/assessment/tapping_v1/practice');
-      } else {
-        router.navigate('#/assessment/tapping_v1/countdown');
-      }
+      router.navigate('#/assessment/tapping_v1/countdown');
     },
   });
 
   const actions = createElement('div', { className: 'assessment-instructions__actions' });
-  actions.appendChild(demoBtn);
+  actions.appendChild(practiceBtn);
   actions.appendChild(readyBtn);
 
   const cancelBtn = createButton({
@@ -74,26 +81,10 @@ export function renderTappingInstructions(container: HTMLElement): void {
 
   wrapper.appendChild(title);
   wrapper.appendChild(body);
+  wrapper.appendChild(demo);
   wrapper.appendChild(actions);
   wrapper.appendChild(cancelBtn);
   container.appendChild(wrapper);
-}
-
-function showDemo(wrapper: HTMLElement): void {
-  const existing = wrapper.querySelector('.assessment-instructions__demo');
-  if (existing) {
-    existing.remove();
-    return;
-  }
-
-  const demo = createElement('div', { className: 'assessment-instructions__demo' });
-  demo.innerHTML = `
-    <div class="assessment-instructions__demo-circle">
-      <div class="assessment-instructions__demo-finger"></div>
-    </div>
-    <p>Tap with one finger, lift completely, then tap again</p>
-  `;
-  wrapper.insertBefore(demo, wrapper.querySelector('.assessment-instructions__actions'));
 }
 
 function renderScreenReaderGate(container: HTMLElement): void {

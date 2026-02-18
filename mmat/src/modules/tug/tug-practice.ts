@@ -190,7 +190,7 @@ function showCalibrationResults(
   }
 
   const backBtn = createButton({
-    text: 'Back to Setup',
+    text: 'Back to Instructions',
     variant: 'primary',
     fullWidth: true,
     onClick: async () => {
@@ -199,7 +199,7 @@ function showCalibrationResults(
         profile.practice_completed = true;
         await saveProfile(profile);
       }
-      router.navigate('#/assessment/tug_v1/setup');
+      router.navigate('#/assessment/tug_v1/instructions');
     },
   });
 

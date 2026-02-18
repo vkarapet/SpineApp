@@ -149,26 +149,10 @@ export function renderTugSetup(container: HTMLElement): void {
     },
   });
 
-  // Sensor calibration button
-  const calibrateBtn = createButton({
-    text: 'Sensor Calibration',
-    variant: 'secondary',
-    fullWidth: true,
-    onClick: () => {
-      tugSessionSetup = {
-        walkingAid: selectedAid,
-        fatigue: selectedFatigue,
-        medication: selectedMed,
-      };
-      router.navigate('#/assessment/tug_v1/practice');
-    },
-  });
-
   main.appendChild(aidSection);
   main.appendChild(fatigueSection);
   main.appendChild(medSection);
   main.appendChild(continueBtn);
-  main.appendChild(calibrateBtn);
 
   container.appendChild(header);
   container.appendChild(main);
