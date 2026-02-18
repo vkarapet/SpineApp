@@ -78,17 +78,18 @@ style.textContent = `
     inset: 0;
     background: rgba(0,0,0,0.5);
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     z-index: var(--z-modal);
     padding: var(--space-4);
   }
   .install-prompt {
     background: var(--color-bg);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-radius: var(--radius-lg);
     padding: var(--space-6);
     width: 100%;
     max-width: 24rem;
+    box-shadow: var(--shadow-lg);
   }
   .install-prompt h2 {
     font-size: var(--font-size-lg);

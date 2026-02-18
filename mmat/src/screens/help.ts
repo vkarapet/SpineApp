@@ -43,6 +43,15 @@ export async function renderHelp(container: HTMLElement): Promise<void> {
     );
   }
 
+  // Uninstall
+  main.appendChild(createElement('h2', { textContent: 'Uninstall' }));
+  const uninstallInfo = createElement('div', { className: 'help-screen__section' });
+  uninstallInfo.innerHTML = `
+    <p>To remove MMAT, simply remove it from your home screen.</p>
+    <p><strong>Do not select "Uninstall" if prompted — this will remove your web browser, not just MMAT.</strong></p>
+  `;
+  main.appendChild(uninstallInfo);
+
   // FAQ
   main.appendChild(createElement('h2', { textContent: 'Frequently Asked Questions' }));
 
