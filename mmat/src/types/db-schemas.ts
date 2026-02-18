@@ -15,7 +15,6 @@ export interface UserProfile {
   consent_version: string;
   device_id: string;
   preferences: UserPreferences;
-  restoration_pending: boolean;
   clock_offset?: number;
   schema_version?: number;
   created_at: string;
@@ -60,7 +59,7 @@ export interface AssessmentResult {
 
 export interface SyncQueueEntry {
   id?: number;
-  type: 'upload_data' | 'upload_registration' | 'fetch_history' | 'delete_data';
+  type: 'upload_data' | 'upload_registration' | 'delete_data';
   payload: Record<string, unknown>;
   local_uuid: string | null;
   status: 'pending' | 'in_flight' | 'failed' | 'completed';
@@ -81,7 +80,6 @@ export interface AuditLogEntry {
     | 'assessment_flagged'
     | 'sync_success'
     | 'sync_failed'
-    | 'data_restored'
     | 'profile_created'
     | 'profile_updated'
     | 'consent_given'

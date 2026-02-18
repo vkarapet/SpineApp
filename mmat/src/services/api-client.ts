@@ -2,7 +2,7 @@ import { hmacSha256 } from '../utils/crypto';
 import { PROXY_URL } from '../constants';
 
 export interface ApiRequest {
-  action: 'upload_data' | 'upload_registration' | 'fetch_history' | 'delete_data';
+  action: 'upload_data' | 'upload_registration' | 'delete_data';
   record_id: string;
   device_id: string;
   payload?: Record<string, unknown>;

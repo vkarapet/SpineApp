@@ -28,7 +28,6 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
     consent_version: CONSENT_VERSION,
     device_id: deviceId,
     preferences: { ...DEFAULT_PREFERENCES, dominant_hand: input.dominantHand ?? 'right' },
-    restoration_pending: false,
     schema_version: 1,
     created_at: now,
     updated_at: now,

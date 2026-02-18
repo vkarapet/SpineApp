@@ -51,11 +51,6 @@ async function bootstrap() {
     renderProfileSetup(container);
   });
 
-  router.register('#/data-restore', async (container) => {
-    const { renderDataRestore } = await import('./screens/data-restore');
-    renderDataRestore(container);
-  });
-
   router.register('#/menu', async (container) => {
     const { renderMenu } = await import('./screens/menu');
     renderMenu(container);

@@ -12,6 +12,7 @@ import type { TugPhase } from './tug-types';
 import { TUG_MAX_DURATION_MS, TUG_SENSOR_SAVE_INTERVAL_MS, TUG_WALK_DISTANCE_M, APP_VERSION } from '../../constants';
 import type { RawTimerEvent, RawMotionEvent, RawEvent } from '../../types/assessment';
 import type { AssessmentResult, SessionMetadata, UserProfile } from '../../types/db-schemas';
+import { showConfirm } from '../../components/confirm-dialog';
 import { router } from '../../main';
 
 // Shared state for results screen
@@ -138,9 +139,9 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   window.addEventListener('beforeunload', onBeforeUnload);
 
   // Navigation guard
-  const removeGuard = router.addGuard((_from, _to) => {
+  const removeGuard = router.addGuard(async (_from, _to) => {
     if (!running) return true;
-    const leave = confirm('End test early? Data from this session will be discarded.');
+    const leave = await showConfirm('End test early? Data from this session will be discarded.');
     if (leave) cleanup();
     return leave;
   });

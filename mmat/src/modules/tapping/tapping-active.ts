@@ -9,6 +9,7 @@ import { sessionSetup } from './tapping-setup';
 import { ASSESSMENT_DURATION_MS, INCREMENTAL_SAVE_INTERVAL_MS, INCREMENTAL_SAVE_TAP_COUNT, APP_VERSION } from '../../constants';
 import type { RawTapEvent } from '../../types/assessment';
 import type { AssessmentResult, SessionMetadata, UserProfile } from '../../types/db-schemas';
+import { showConfirm } from '../../components/confirm-dialog';
 import { router } from '../../main';
 
 // Shared state for results screen
@@ -101,12 +102,10 @@ export async function renderTappingActive(container: HTMLElement): Promise<void>
   window.addEventListener('beforeunload', onBeforeUnload);
 
   // Navigation guard for Android back button
-  const removeGuard = router.addGuard((_from, _to) => {
+  const removeGuard = router.addGuard(async (_from, _to) => {
     if (!running) return true;
-    const leave = confirm('End test early? Data from this session will be discarded.');
-    if (leave) {
-      cleanup();
-    }
+    const leave = await showConfirm('End test early? Data from this session will be discarded.');
+    if (leave) cleanup();
     return leave;
   });
 
