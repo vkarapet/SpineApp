@@ -228,7 +228,7 @@ export async function renderTappingActive(container: HTMLElement): Promise<void>
 
     const partialResult: AssessmentResult = {
       local_uuid: localUuid,
-      subject_hash: profile.subject_hash,
+      participant_id: profile.participant_id,
       device_id: profile.device_id,
       timestamp_start: sessionStartISO,
       task_type: 'tapping_v1',
@@ -288,7 +288,7 @@ export async function renderTappingActive(container: HTMLElement): Promise<void>
 
     const finalResult: AssessmentResult = {
       local_uuid: localUuid,
-      subject_hash: profile.subject_hash,
+      participant_id: profile.participant_id,
       device_id: profile.device_id,
       timestamp_start: sessionStartISO,
       task_type: 'tapping_v1',

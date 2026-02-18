@@ -4,8 +4,7 @@ import { PROXY_URL } from '../constants';
 export interface ApiRequest {
   action: 'upload_data' | 'upload_registration' | 'fetch_history' | 'delete_data';
   record_id: string;
-  email: string;
-  dob: string;
+  device_id: string;
   payload?: Record<string, unknown>;
 }
 
@@ -21,14 +20,12 @@ export async function apiCall(request: ApiRequest): Promise<ApiResponse> {
 
   // Generate HMAC signature
   const signatureInput = `${request.action}${request.record_id}${timestamp}`;
-  const signatureKey = `${request.email}|${request.dob}`;
+  const signatureKey = `${request.record_id}|${request.device_id}`;
   const signature = await hmacSha256(signatureKey, signatureInput);
 
   const body = {
     action: request.action,
     record_id: request.record_id,
-    email: request.email,
-    dob: request.dob,
     payload: request.payload ?? {},
   };
 

@@ -1,16 +1,9 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createFormField, type FormFieldRef } from '../components/form-field';
 import { createButton } from '../components/button';
-import { validateName, validateEmail, validateDOB } from '../utils/validation';
+import { validateParticipantId } from '../utils/validation';
+import { createProfile } from '../services/profile-service';
 import { router } from '../main';
-
-// Store form data temporarily for confirmation screen
-export let pendingProfileData: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  dob: string;
-} | null = null;
 
 export function renderProfileSetup(container: HTMLElement): void {
   clearContainer(container);
@@ -28,78 +21,43 @@ export function renderProfileSetup(container: HTMLElement): void {
   header.appendChild(
     createElement('p', {
       className: 'profile-setup-screen__subtitle',
-      textContent: 'Please enter your information to get started.',
+      textContent: 'Enter your assigned participant ID to get started.',
     }),
   );
 
   const form = createElement('div', { className: 'profile-setup-screen__form' });
 
-  const fields: FormFieldRef[] = [];
-  const fieldValidity = { firstName: false, lastName: false, email: false, dob: false };
+  let participantIdValid = false;
 
   const updateSubmitState = () => {
-    const allValid = Object.values(fieldValidity).every(Boolean);
-    submitBtn.disabled = !allValid;
-    submitBtn.classList.toggle('btn--disabled', !allValid);
+    submitBtn.disabled = !participantIdValid;
+    submitBtn.classList.toggle('btn--disabled', !participantIdValid);
   };
 
-  const firstNameField = createFormField({
-    id: 'first-name',
-    label: 'First Name',
+  const participantIdField = createFormField({
+    id: 'participant-id',
+    label: 'Participant ID',
+    type: 'text',
+    inputMode: 'text',
+    required: true,
+    placeholder: 'e.g. ABC123',
+    validate: validateParticipantId,
+    onChange: (_val, valid) => {
+      participantIdValid = valid;
+      updateSubmitState();
+    },
+  });
+
+  const nameField = createFormField({
+    id: 'display-name',
+    label: 'Name (optional)',
     type: 'text',
     inputMode: 'text',
     autocapitalize: 'words',
-    required: true,
-    placeholder: 'Enter your first name',
-    validate: (v) => validateName(v, 'First name'),
-    onChange: (_val, valid) => {
-      fieldValidity.firstName = valid;
-      updateSubmitState();
-    },
+    placeholder: 'Your name (local only)',
   });
 
-  const lastNameField = createFormField({
-    id: 'last-name',
-    label: 'Last Name',
-    type: 'text',
-    inputMode: 'text',
-    autocapitalize: 'words',
-    required: true,
-    placeholder: 'Enter your last name',
-    validate: (v) => validateName(v, 'Last name'),
-    onChange: (_val, valid) => {
-      fieldValidity.lastName = valid;
-      updateSubmitState();
-    },
-  });
-
-  const emailField = createFormField({
-    id: 'email',
-    label: 'Email Address',
-    type: 'email',
-    inputMode: 'email',
-    required: true,
-    placeholder: 'you@example.com',
-    validate: validateEmail,
-    onChange: (_val, valid) => {
-      fieldValidity.email = valid;
-      updateSubmitState();
-    },
-  });
-
-  const dobField = createFormField({
-    id: 'dob',
-    label: 'Date of Birth',
-    type: 'date',
-    required: true,
-    validate: validateDOB,
-    onChange: (_val, valid) => {
-      fieldValidity.dob = valid;
-      updateSubmitState();
-    },
-  });
-
-  fields.push(firstNameField, lastNameField, emailField, dobField);
+  const fields: FormFieldRef[] = [participantIdField, nameField];
 
   for (const field of fields) {
     form.appendChild(field.container);
@@ -110,19 +68,23 @@ export function renderProfileSetup(container: HTMLElement): void {
     variant: 'primary',
     fullWidth: true,
     disabled: true,
-    onClick: () => {
-      // Validate all fields
-      const allValid = fields.every((f) => f.isValid());
-      if (!allValid) return;
+    onClick: async () => {
+      if (!participantIdField.isValid()) return;
 
-      pendingProfileData = {
-        firstName: firstNameField.getValue(),
-        lastName: lastNameField.getValue(),
-        email: emailField.getValue(),
-        dob: dobField.getValue(),
-      };
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating profile...';
 
-      router.navigate('#/confirmation');
+      try {
+        await createProfile({
+          participantId: participantIdField.getValue(),
+          name: nameField.getValue() || undefined,
+        });
+        router.navigate('#/data-restore');
+      } catch (err) {
+        console.error('Failed to create profile:', err);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Continue';
+      }
     },
   });
 
@@ -135,7 +97,7 @@ export function renderProfileSetup(container: HTMLElement): void {
   container.appendChild(wrapper);
 
   // Focus first field
-  setTimeout(() => firstNameField.input.focus(), 100);
+  setTimeout(() => participantIdField.input.focus(), 100);
 }
 
 // Styles

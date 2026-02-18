@@ -12,9 +12,7 @@ export async function deleteAllData(): Promise<{ success: boolean; error?: strin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'delete_data',
-          record_id: profile.subject_hash,
-          email: profile.email,
-          dob: profile.dob,
+          record_id: profile.participant_id,
         }),
       });
 
@@ -26,9 +24,7 @@ export async function deleteAllData(): Promise<{ success: boolean; error?: strin
       await addToSyncQueue({
         type: 'delete_data',
         payload: {
-          record_id: profile.subject_hash,
-          email: profile.email,
-          dob: profile.dob,
+          record_id: profile.participant_id,
         },
         local_uuid: null,
         status: 'pending',
@@ -43,7 +39,7 @@ export async function deleteAllData(): Promise<{ success: boolean; error?: strin
 
     await addAuditEntry({
       action: 'data_deleted',
-      entity_id: profile.subject_hash,
+      entity_id: profile.participant_id,
       details: { online: navigator.onLine },
     });
 

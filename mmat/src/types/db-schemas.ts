@@ -9,11 +9,8 @@ export interface UserPreferences {
 
 export interface UserProfile {
   id: 'current';
-  subject_hash: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  dob: string;
+  participant_id: string;
+  name: string;
   consent_date: string;
   consent_version: string;
   device_id: string;
@@ -44,7 +41,7 @@ export interface SessionMetadata {
 
 export interface AssessmentResult {
   local_uuid: string;
-  subject_hash: string;
+  participant_id: string;
   device_id: string;
   timestamp_start: string;
   task_type: string;

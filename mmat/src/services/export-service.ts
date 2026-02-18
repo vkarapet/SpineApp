@@ -8,7 +8,7 @@ export async function exportDataAsJSON(): Promise<void> {
 
   const exportData = {
     exported_at: new Date().toISOString(),
-    record_id: profile?.subject_hash ?? 'unknown',
+    record_id: profile?.participant_id ?? 'unknown',
     // No email in export — privacy requirement
     sessions: results.map((r) => ({
       local_uuid: r.local_uuid,
@@ -32,7 +32,7 @@ export async function exportDataAsJSON(): Promise<void> {
 
   await addAuditEntry({
     action: 'data_exported',
-    entity_id: profile?.subject_hash ?? null,
+    entity_id: profile?.participant_id ?? null,
     details: { format: 'json', sessions: results.length },
   });
 }
@@ -82,7 +82,7 @@ export async function exportDataAsCSV(): Promise<void> {
 
   await addAuditEntry({
     action: 'data_exported',
-    entity_id: profile?.subject_hash ?? null,
+    entity_id: profile?.participant_id ?? null,
     details: { format: 'csv', sessions: results.length },
   });
 }

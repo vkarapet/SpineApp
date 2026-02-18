@@ -75,9 +75,8 @@ async function uploadResult(result: AssessmentResult): Promise<void> {
   try {
     const response = await apiCall({
       action: 'upload_data',
-      record_id: profile.subject_hash,
-      email: profile.email,
-      dob: profile.dob,
+      record_id: profile.participant_id,
+      device_id: profile.device_id,
       payload: {
         local_uuid: result.local_uuid,
         task_type: result.task_type,
@@ -159,9 +158,8 @@ async function batchUpload(results: AssessmentResult[]): Promise<void> {
     try {
       const response = await apiCall({
         action: 'upload_data',
-        record_id: profile.subject_hash,
-        email: profile.email,
-        dob: profile.dob,
+        record_id: profile.participant_id,
+        device_id: profile.device_id,
         payload: { records: payloads },
       });
 
@@ -212,9 +210,8 @@ async function processSyncQueue(): Promise<void> {
     try {
       const response = await apiCall({
         action: item.type,
-        record_id: profile.subject_hash,
-        email: profile.email,
-        dob: profile.dob,
+        record_id: profile.participant_id,
+        device_id: profile.device_id,
         payload: item.payload,
       });
 

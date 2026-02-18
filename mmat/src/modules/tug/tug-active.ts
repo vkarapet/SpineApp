@@ -299,7 +299,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
 
     const finalResult: AssessmentResult = {
       local_uuid: localUuid,
-      subject_hash: profile.subject_hash,
+      participant_id: profile.participant_id,
       device_id: profile.device_id,
       timestamp_start: sessionStartISO,
       task_type: 'tug_v1',
@@ -362,7 +362,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   // Initial incremental save
   const partialResult: AssessmentResult = {
     local_uuid: localUuid,
-    subject_hash: profile.subject_hash,
+    participant_id: profile.participant_id,
     device_id: profile.device_id,
     timestamp_start: sessionStartISO,
     task_type: 'tug_v1',
@@ -413,7 +413,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       try {
         await saveResult({
           local_uuid: localUuid,
-          subject_hash: profile.subject_hash,
+          participant_id: profile.participant_id,
           device_id: profile.device_id,
           timestamp_start: sessionStartISO,
           task_type: 'tug_v1',

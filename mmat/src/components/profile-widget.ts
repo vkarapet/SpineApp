@@ -6,12 +6,16 @@ export function createProfileWidget(
 ): HTMLElement {
   const widget = createElement('button', {
     className: 'profile-widget',
-    'aria-label': `Profile: ${name}. Tap to view profile.`,
+    'aria-label': name ? `Profile: ${name}. Tap to view profile.` : 'Profile. Tap to view profile.',
   });
 
+  const hasName = name.trim().length > 0;
+  const avatarContent = hasName ? name.charAt(0).toUpperCase() : '?';
+  const greeting = hasName ? `Hi, ${escapeHtml(name)}` : 'Hello';
+
   widget.innerHTML = `
-    <div class="profile-widget__avatar">${name.charAt(0).toUpperCase()}</div>
-    <span class="profile-widget__name">Hi, ${escapeHtml(name)}</span>
+    <div class="profile-widget__avatar">${avatarContent}</div>
+    <span class="profile-widget__name">${greeting}</span>
     <svg class="profile-widget__chevron" width="16" height="16" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
   `;
 

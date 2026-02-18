@@ -1,14 +1,11 @@
 import { getProfile, saveProfile, deleteProfile, addAuditEntry, clearAllData } from '../core/db';
-import { generateSubjectHash } from '../utils/crypto';
 import { generateUUID } from '../utils/uuid';
-import { STUDY_SALT, CONSENT_VERSION, APP_VERSION } from '../constants';
+import { CONSENT_VERSION, APP_VERSION } from '../constants';
 import type { UserProfile, UserPreferences } from '../types/db-schemas';
 
 export interface ProfileInput {
-  firstName: string;
-  lastName: string;
-  email: string;
-  dob: string;
+  participantId: string;
+  name?: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -19,17 +16,13 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 export async function createProfile(input: ProfileInput): Promise<UserProfile> {
-  const subjectHash = await generateSubjectHash(input.email, input.dob, STUDY_SALT);
   const deviceId = generateUUID();
   const now = new Date().toISOString();
 
   const profile: UserProfile = {
     id: 'current',
-    subject_hash: subjectHash,
-    first_name: input.firstName.trim(),
-    last_name: input.lastName.trim(),
-    email: input.email.trim().toLowerCase(),
-    dob: input.dob,
+    participant_id: input.participantId.trim(),
+    name: input.name?.trim() ?? '',
     consent_date: now,
     consent_version: CONSENT_VERSION,
     device_id: deviceId,
@@ -44,13 +37,13 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
 
   await addAuditEntry({
     action: 'profile_created',
-    entity_id: subjectHash,
+    entity_id: input.participantId.trim(),
     details: { device_id: deviceId, app_version: APP_VERSION },
   });
 
   await addAuditEntry({
     action: 'consent_given',
-    entity_id: subjectHash,
+    entity_id: input.participantId.trim(),
     details: { consent_version: CONSENT_VERSION },
   });
 
@@ -61,23 +54,32 @@ export async function loadProfile(): Promise<UserProfile | undefined> {
   return getProfile();
 }
 
-export async function updateProfileName(
-  firstName: string,
-  lastName: string,
+export async function updateProfile(
+  participantId?: string,
+  name?: string,
 ): Promise<UserProfile | undefined> {
   const profile = await getProfile();
   if (!profile) return undefined;
 
-  profile.first_name = firstName.trim();
-  profile.last_name = lastName.trim();
+  const updatedFields: string[] = [];
+
+  if (participantId !== undefined) {
+    profile.participant_id = participantId.trim();
+    updatedFields.push('participant_id');
+  }
+  if (name !== undefined) {
+    profile.name = name.trim();
+    updatedFields.push('name');
+  }
+
   profile.updated_at = new Date().toISOString();
 
   await saveProfile(profile);
 
   await addAuditEntry({
     action: 'profile_updated',
-    entity_id: profile.subject_hash,
-    details: { fields: ['first_name', 'last_name'] },
+    entity_id: profile.participant_id,
+    details: { fields: updatedFields },
   });
 
   return profile;
@@ -107,7 +109,7 @@ export async function signOut(): Promise<void> {
   if (profile) {
     await addAuditEntry({
       action: 'account_signed_out',
-      entity_id: profile.subject_hash,
+      entity_id: profile.participant_id,
       details: {},
     });
   }

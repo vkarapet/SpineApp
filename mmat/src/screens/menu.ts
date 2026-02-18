@@ -30,7 +30,7 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
 
   // Profile widget
   const profileWidget = createProfileWidget(
-    profile.first_name,
+    profile.name,
     () => router.navigate('#/profile'),
   );
 

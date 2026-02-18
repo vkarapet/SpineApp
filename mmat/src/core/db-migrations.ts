@@ -45,6 +45,12 @@ const migrations: Record<number, Migration> = {
       store.createIndex('by_group', 'session_group_id');
     }
   },
+
+  3: (_db, transaction) => {
+    // Clear user_profile store — existing profiles lack participant_id
+    const store = transaction.objectStore('user_profile');
+    store.clear();
+  },
 };
 
 export function runMigrations(

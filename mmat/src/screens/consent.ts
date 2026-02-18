@@ -41,9 +41,10 @@ export function renderConsent(container: HTMLElement): void {
     on your device and synchronized with a research database.</p>
 
     <h3>Data Handling</h3>
-    <p>Your data is identified by a unique hash derived from your email and date of birth.
-    Your raw email address is stored locally on your device for display purposes only and is
-    not transmitted to the research server. All data transmission is encrypted.</p>
+    <p>Your data is identified by a pre-assigned participant ID provided by the research team.
+    No personal information (such as email or date of birth) is collected. An optional display
+    name is stored locally on your device only and is never transmitted. All data transmission
+    is encrypted.</p>
 
     <h3>Risks &amp; Benefits</h3>
     <p>There are no known physical risks. The primary risk is potential loss of privacy, which

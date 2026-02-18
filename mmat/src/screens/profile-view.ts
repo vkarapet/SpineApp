@@ -3,9 +3,8 @@ import { createHeader } from '../components/header';
 import { createFormField } from '../components/form-field';
 import { createButton } from '../components/button';
 import { getProfile } from '../core/db';
-import { updateProfileName } from '../services/profile-service';
-import { validateName } from '../utils/validation';
-import { formatDate } from '../utils/date';
+import { updateProfile } from '../services/profile-service';
+import { validateParticipantId } from '../utils/validation';
 import { showToast } from '../components/toast';
 import { router } from '../main';
 
@@ -27,48 +26,22 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
   const main = createElement('main', { className: 'profile-view-screen' });
   main.setAttribute('role', 'main');
 
-  // Editable fields
-  const firstNameField = createFormField({
-    id: 'edit-first-name',
-    label: 'First Name',
+  const participantIdField = createFormField({
+    id: 'edit-participant-id',
+    label: 'Participant ID',
+    type: 'text',
+    inputMode: 'text',
+    value: profile.participant_id,
+    validate: validateParticipantId,
+  });
+
+  const nameField = createFormField({
+    id: 'edit-name',
+    label: 'Name (optional)',
     type: 'text',
     inputMode: 'text',
     autocapitalize: 'words',
-    value: profile.first_name,
-    validate: (v) => validateName(v, 'First name'),
-  });
-
-  const lastNameField = createFormField({
-    id: 'edit-last-name',
-    label: 'Last Name',
-    type: 'text',
-    inputMode: 'text',
-    autocapitalize: 'words',
-    value: profile.last_name,
-    validate: (v) => validateName(v, 'Last name'),
-  });
-
-  // Read-only fields
-  const emailField = createFormField({
-    id: 'view-email',
-    label: 'Email',
-    type: 'email',
-    value: profile.email,
-    readOnly: true,
-  });
-
-  const dobField = createFormField({
-    id: 'view-dob',
-    label: 'Date of Birth',
-    type: 'text',
-    value: formatDate(profile.dob),
-    readOnly: true,
-  });
-
-  const readonlyNote = createElement('p', {
-    className: 'profile-view-screen__note',
-    textContent:
-      'Email and date of birth are used to identify your data and cannot be changed. If your email has changed, contact the research team for assistance.',
+    value: profile.name,
   });
 
   const saveBtn = createButton({
@@ -76,18 +49,15 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
     variant: 'primary',
     fullWidth: true,
     onClick: async () => {
-      if (!firstNameField.isValid() || !lastNameField.isValid()) return;
-      await updateProfileName(firstNameField.getValue(), lastNameField.getValue());
+      if (!participantIdField.isValid()) return;
+      await updateProfile(participantIdField.getValue(), nameField.getValue());
       showToast('Profile updated', 'success');
       router.navigate('#/menu');
     },
   });
 
-  main.appendChild(firstNameField.container);
-  main.appendChild(lastNameField.container);
-  main.appendChild(emailField.container);
-  main.appendChild(dobField.container);
-  main.appendChild(readonlyNote);
+  main.appendChild(participantIdField.container);
+  main.appendChild(nameField.container);
   main.appendChild(saveBtn);
 
   container.appendChild(header);
@@ -104,14 +74,6 @@ style.textContent = `
     padding-bottom: calc(var(--space-8) + var(--safe-area-bottom));
     max-width: 28rem;
     margin: 0 auto;
-  }
-  .profile-view-screen__note {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    line-height: var(--line-height-relaxed);
-    padding: var(--space-3);
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-md);
   }
 `;
 document.head.appendChild(style);

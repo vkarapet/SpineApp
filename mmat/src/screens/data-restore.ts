@@ -64,9 +64,7 @@ export async function renderDataRestore(container: HTMLElement): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'fetch_history',
-        record_id: profile.subject_hash,
-        email: profile.email,
-        dob: profile.dob,
+        record_id: profile.participant_id,
       }),
     });
 

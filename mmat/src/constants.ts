@@ -1,8 +1,7 @@
 export const APP_VERSION = '1.0.0';
-export const STUDY_SALT = 'mmat-study-2026';
 export const CONSENT_VERSION = '1.0';
 export const DB_NAME = 'mmat';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 export const PROXY_URL = '/api/proxy';
 export const HEALTH_URL = '/api/health';
 export const ANALYTICS_URL = '/api/analytics';

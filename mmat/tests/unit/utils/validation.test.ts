@@ -1,27 +1,56 @@
 import { describe, it, expect } from 'vitest';
-import { validateEmail, validateName, validateDOB } from '../../../src/utils/validation';
+import { validateParticipantId, validateName } from '../../../src/utils/validation';
 
-describe('validateEmail', () => {
-  it('should accept valid email', () => {
-    expect(validateEmail('test@example.com')).toEqual({ valid: true });
+describe('validateParticipantId', () => {
+  it('should accept valid alphanumeric ID', () => {
+    expect(validateParticipantId('ABC123')).toEqual({ valid: true });
   });
 
-  it('should reject empty email', () => {
-    expect(validateEmail('')).toEqual({ valid: false, error: 'Email is required' });
+  it('should accept 3-char minimum', () => {
+    expect(validateParticipantId('abc')).toEqual({ valid: true });
   });
 
-  it('should reject invalid email', () => {
-    expect(validateEmail('notanemail')).toEqual({
+  it('should accept 20-char maximum', () => {
+    expect(validateParticipantId('a'.repeat(20))).toEqual({ valid: true });
+  });
+
+  it('should reject empty ID', () => {
+    expect(validateParticipantId('')).toEqual({
       valid: false,
-      error: 'Please enter a valid email address',
+      error: 'Participant ID is required',
     });
   });
 
-  it('should reject email without domain', () => {
-    expect(validateEmail('test@')).toEqual({
+  it('should reject too short ID', () => {
+    expect(validateParticipantId('ab')).toEqual({
       valid: false,
-      error: 'Please enter a valid email address',
+      error: 'Must be 3–20 alphanumeric characters',
     });
+  });
+
+  it('should reject too long ID', () => {
+    expect(validateParticipantId('a'.repeat(21))).toEqual({
+      valid: false,
+      error: 'Must be 3–20 alphanumeric characters',
+    });
+  });
+
+  it('should reject special characters', () => {
+    expect(validateParticipantId('ABC-123')).toEqual({
+      valid: false,
+      error: 'Must be 3–20 alphanumeric characters',
+    });
+  });
+
+  it('should reject spaces', () => {
+    expect(validateParticipantId('ABC 123')).toEqual({
+      valid: false,
+      error: 'Must be 3–20 alphanumeric characters',
+    });
+  });
+
+  it('should trim whitespace before validating', () => {
+    expect(validateParticipantId('  ABC123  ')).toEqual({ valid: true });
   });
 });
 
@@ -42,39 +71,6 @@ describe('validateName', () => {
     expect(validateName(longName, 'First name')).toEqual({
       valid: false,
       error: 'First name is too long',
-    });
-  });
-});
-
-describe('validateDOB', () => {
-  it('should accept valid adult DOB', () => {
-    expect(validateDOB('1990-01-01')).toEqual({ valid: true });
-  });
-
-  it('should reject empty DOB', () => {
-    expect(validateDOB('')).toEqual({ valid: false, error: 'Date of birth is required' });
-  });
-
-  it('should reject future date', () => {
-    expect(validateDOB('2099-01-01')).toEqual({
-      valid: false,
-      error: 'Date of birth cannot be in the future',
-    });
-  });
-
-  it('should reject under 18', () => {
-    const recent = new Date();
-    recent.setFullYear(recent.getFullYear() - 10);
-    expect(validateDOB(recent.toISOString().split('T')[0])).toEqual({
-      valid: false,
-      error: 'This app is intended for adults aged 18 and older',
-    });
-  });
-
-  it('should reject dates before 1900', () => {
-    expect(validateDOB('1899-12-31')).toEqual({
-      valid: false,
-      error: 'Please enter a valid date of birth',
     });
   });
 });

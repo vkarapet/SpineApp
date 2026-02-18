@@ -27,15 +27,6 @@ function sha256Fallback(data: Uint8Array): string {
   return combined.toString(16).padStart(16, '0') + h2.toString(16).padStart(8, '0') + h1.toString(16).padStart(8, '0');
 }
 
-export async function generateSubjectHash(
-  email: string,
-  dob: string,
-  salt: string,
-): Promise<string> {
-  const canonical = `${email.trim().toLowerCase()}|${dob}|${salt}`;
-  return sha256(canonical);
-}
-
 export async function hmacSha256(key: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
 

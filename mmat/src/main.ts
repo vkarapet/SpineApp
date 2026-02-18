@@ -51,11 +51,6 @@ async function bootstrap() {
     renderProfileSetup(container);
   });
 
-  router.register('#/confirmation', async (container) => {
-    const { renderConfirmation } = await import('./screens/confirmation');
-    renderConfirmation(container);
-  });
-
   router.register('#/data-restore', async (container) => {
     const { renderDataRestore } = await import('./screens/data-restore');
     renderDataRestore(container);
