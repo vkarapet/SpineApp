@@ -268,8 +268,8 @@ export class TugSensorEngine {
       this.updatePhaseData(this.phase, step);
       this.callbacks.onStepDetected(step);
 
-      // Audio cue at target distance
-      if (!this.turnCueFired && this.walkDistance >= TUG_WALK_DISTANCE_M) {
+      // Audio cue at target distance (walking_out only)
+      if (this.phase === 'walking_out' && !this.turnCueFired && this.walkDistance >= TUG_WALK_DISTANCE_M) {
         this.turnCueFired = true;
         this.callbacks.onTurnCue();
       }

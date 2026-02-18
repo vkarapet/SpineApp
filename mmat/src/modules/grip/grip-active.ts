@@ -324,7 +324,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
       device_id: profile.device_id,
       timestamp_start: sessionStartISO,
       task_type: 'grip_v1',
-      status: 'complete',
+      status: 'in_progress',
       session_metadata: sessionMetadata,
       raw_data: rawData,
       computed_metrics: metrics,
@@ -337,11 +337,6 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
     try {
       await saveResult(finalResult);
-      await addAuditEntry({
-        action: 'assessment_completed',
-        entity_id: localUuid,
-        details: { task_type: 'grip_v1', grip_count: metrics.tap_count },
-      });
 
       if (!profile.first_assessment_completed) {
         profile.first_assessment_completed = true;

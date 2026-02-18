@@ -228,6 +228,8 @@ style.textContent = `
     padding: var(--space-4);
     padding-bottom: calc(var(--space-8) + var(--safe-area-bottom));
     max-width: 40rem;
+    width: 100%;
+    box-sizing: border-box;
     margin: 0 auto;
     overflow: hidden;
   }

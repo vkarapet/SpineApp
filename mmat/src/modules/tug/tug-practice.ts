@@ -189,8 +189,8 @@ function showCalibrationResults(
     results.appendChild(warning);
   }
 
-  const startBtn = createButton({
-    text: 'Start Real Test',
+  const backBtn = createButton({
+    text: 'Back to Setup',
     variant: 'primary',
     fullWidth: true,
     onClick: async () => {
@@ -199,7 +199,7 @@ function showCalibrationResults(
         profile.practice_completed = true;
         await saveProfile(profile);
       }
-      router.navigate('#/assessment/tug_v1/countdown');
+      router.navigate('#/assessment/tug_v1/setup');
     },
   });
 
@@ -210,7 +210,7 @@ function showCalibrationResults(
     onClick: () => renderTugPractice(container),
   });
 
-  results.appendChild(startBtn);
+  results.appendChild(backBtn);
   results.appendChild(practiceAgainBtn);
   wrapper.appendChild(results);
 }

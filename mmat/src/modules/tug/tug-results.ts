@@ -1,6 +1,7 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
-import { getAllResults } from '../../core/db';
+import { createSaveDiscardSlider } from '../../components/save-discard-slider';
+import { getAllResults, saveResult, deleteResult, addAuditEntry } from '../../core/db';
 import { getClinicalBand, getClinicalLabel } from './tug-metrics';
 import { TUG_PHASE_LABELS } from './tug-types';
 import { lastTugResult } from './tug-active';
@@ -217,38 +218,61 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     metricsSection.appendChild(comparison);
   }
 
-  // Sync status
+  // Save/discard slider
   const syncStatus = createElement('div', {
     className: 'assessment-results__sync',
     'aria-live': 'polite',
   });
-  syncStatus.textContent = result.synced
-    ? 'Synced!'
-    : navigator.onLine
-      ? 'Results saved. Syncing...'
-      : 'Saved locally. Will sync when online.';
+  syncStatus.style.display = 'none';
 
-  if (navigator.onLine) {
-    import('../../services/sync-service')
-      .then((m) => m.triggerSync())
-      .then(async () => {
-        const { getResult } = await import('../../core/db');
-        const updated = await getResult(result.local_uuid);
-        if (updated?.synced) {
-          syncStatus.textContent = 'Synced!';
-        } else {
-          syncStatus.textContent = 'Saved locally. Sync pending.';
-        }
-      })
-      .catch(() => {
-        syncStatus.textContent = 'Saved locally. Sync pending.';
+  const slider = createSaveDiscardSlider({
+    onSave: async () => {
+      result.status = result.flagged ? 'flagged' : 'complete';
+      await saveResult(result);
+      await addAuditEntry({
+        action: 'assessment_completed',
+        entity_id: result.local_uuid,
+        details: { task_type: 'tug_v1', tug_time_s: m.tug_time_s, decision: 'saved' },
       });
-  }
+      homeBtn.disabled = false;
+      homeBtn.classList.remove('btn--disabled');
+      againBtn.disabled = false;
+      againBtn.classList.remove('btn--disabled');
+      syncStatus.style.display = '';
+      syncStatus.textContent = navigator.onLine ? 'Saved. Syncing...' : 'Saved locally. Will sync when online.';
+      if (navigator.onLine) {
+        import('../../services/sync-service')
+          .then((mod) => mod.triggerSync())
+          .then(async () => {
+            const { getResult } = await import('../../core/db');
+            const updated = await getResult(result.local_uuid);
+            syncStatus.textContent = updated?.synced ? 'Synced!' : 'Saved locally. Sync pending.';
+          })
+          .catch(() => { syncStatus.textContent = 'Saved locally. Sync pending.'; });
+      }
+    },
+    onDiscard: async () => {
+      await deleteResult(result.local_uuid);
+      await addAuditEntry({
+        action: 'assessment_flagged',
+        entity_id: result.local_uuid,
+        details: { task_type: 'tug_v1', decision: 'discarded' },
+      });
+      homeBtn.disabled = false;
+      homeBtn.classList.remove('btn--disabled');
+      againBtn.disabled = false;
+      againBtn.classList.remove('btn--disabled');
+      syncStatus.style.display = '';
+      syncStatus.textContent = 'Result discarded.';
+    },
+  });
 
+  // Actions — disabled until save/discard decision
   const homeBtn = createButton({
     text: 'Return to Home',
     variant: 'primary',
     fullWidth: true,
+    disabled: true,
     onClick: () => router.navigate('#/menu'),
   });
 
@@ -256,11 +280,13 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     text: 'Take Test Again',
     variant: 'secondary',
     fullWidth: true,
+    disabled: true,
     onClick: () => router.navigate('#/assessment/tug_v1/setup'),
   });
 
   wrapper.appendChild(header);
   wrapper.appendChild(metricsSection);
+  wrapper.appendChild(slider);
   wrapper.appendChild(syncStatus);
   wrapper.appendChild(homeBtn);
   wrapper.appendChild(againBtn);

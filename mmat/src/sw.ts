@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { CacheFirst, StaleWhileRevalidate, NetworkOnly } from 'workbox-strategies';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 
@@ -9,6 +9,12 @@ declare let self: ServiceWorkerGlobalScope;
 // Precache app shell
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
+
+// SPA navigation fallback — serve index.html for all navigation requests
+// This ensures offline navigation works (e.g. start_url with query params,
+// hash-based routes, deep links)
+const navigationHandler = createHandlerBoundToURL('/index.html');
+registerRoute(new NavigationRoute(navigationHandler));
 
 // Cache-First for static assets (icons, fonts, audio)
 registerRoute(

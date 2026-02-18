@@ -172,13 +172,8 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       }
     },
 
-    onPhaseChange(from: TugPhase, to: TugPhase) {
+    onPhaseChange(_from: TugPhase, to: TugPhase) {
       phaseLabel.textContent = TUG_PHASE_LABELS[to] ?? to;
-      // Audio cue when turn completes → walking back begins
-      if (from === 'turning_out' && to === 'walking_back') {
-        audioManager.play('beep');
-        if (supportsVibration()) vibrate(50);
-      }
     },
 
     onStepDetected(_step) {
@@ -308,7 +303,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       device_id: profile.device_id,
       timestamp_start: sessionStartISO,
       task_type: 'tug_v1',
-      status: isFlagged ? 'flagged' : 'complete',
+      status: 'in_progress',
       session_metadata: sessionMetadata,
       raw_data: allRawData,
       computed_metrics: metrics,
@@ -321,17 +316,6 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
 
     try {
       await saveResult(finalResult);
-      await addAuditEntry({
-        action: 'assessment_completed',
-        entity_id: localUuid,
-        details: {
-          task_type: 'tug_v1',
-          tug_time_s: metrics.tug_time_s,
-          total_steps: metrics.total_steps ?? 0,
-          timed_out: timedOut,
-          manual_stop: manualStop,
-        },
-      });
 
       if (!profile.first_assessment_completed) {
         profile.first_assessment_completed = true;

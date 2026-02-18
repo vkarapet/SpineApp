@@ -22,14 +22,31 @@ export function renderTugInstructions(container: HTMLElement): void {
       <li>Sit in a chair with your back against the chair</li>
       <li>Sit still &mdash; the test starts automatically after 3 seconds</li>
       <li>When you hear the start tone, stand up and walk forward</li>
-      <li>You will hear a beep at 3 meters &mdash; turn around at the marker</li>
-      <li>Walk back &mdash; another beep at 3 meters</li>
+      <li>You will hear a beep at 3 meters &mdash; turn around and walk back to the chair</li>
       <li>Sit down &mdash; the test ends automatically</li>
     </ol>
   `;
 
   const helperNote = createElement('div', { className: 'tug-instructions__helper-note' });
   helperNote.innerHTML = `<p><strong>Note:</strong> Make sure the phone is secure in your pocket. An emergency stop button is always available on screen.</p>`;
+
+  // Sound reminder + test button
+  const soundNote = createElement('div', { className: 'tug-instructions__sound-note' });
+  soundNote.innerHTML = `<p>Ensure your phone volume is turned up. You will hear a tone at the start, a beep at 3 meters, and a tone when the test ends.</p>`;
+
+  const testSoundBtn = createButton({
+    text: 'Test Sound',
+    variant: 'secondary',
+    onClick: async () => {
+      audioManager.initOnGesture();
+      const profile = await getProfile();
+      const audioEnabled = profile?.preferences.audio_enabled ?? true;
+      audioManager.setEnabled(audioEnabled);
+      await audioManager.preloadAll();
+      audioManager.play('beep');
+    },
+  });
+  soundNote.appendChild(testSoundBtn);
 
   const readyBtn = createButton({
     text: "I'm Ready",
@@ -64,6 +81,7 @@ export function renderTugInstructions(container: HTMLElement): void {
   wrapper.appendChild(body);
   wrapper.appendChild(steps);
   wrapper.appendChild(helperNote);
+  wrapper.appendChild(soundNote);
   wrapper.appendChild(actions);
   wrapper.appendChild(cancelBtn);
   container.appendChild(wrapper);
@@ -112,6 +130,20 @@ style.textContent = `
   .tug-instructions__helper-note p {
     margin: 0;
     font-size: var(--font-size-base);
+  }
+  .tug-instructions__sound-note {
+    background: var(--color-bg-secondary);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: center;
+  }
+  .tug-instructions__sound-note p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
   }
 `;
 document.head.appendChild(style);

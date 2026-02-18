@@ -2,6 +2,7 @@ import { Router } from './core/router';
 import { initDB } from './core/db';
 import { EventBus } from './core/event-bus';
 import { ModuleRegistry } from './core/module-registry';
+import { initConnectivityService } from './services/connectivity-service';
 import { renderSplash } from './screens/splash';
 
 export const router = new Router();
@@ -186,6 +187,9 @@ async function bootstrap() {
     }
     await mod.screens[stage](container);
   });
+
+  // Start connectivity monitoring (auto-syncs when coming back online)
+  initConnectivityService();
 
   // Set app container and start router
   router.setContainer(app);
