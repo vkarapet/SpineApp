@@ -204,10 +204,29 @@ async function bootstrap() {
 
   // Register service worker
   if ('serviceWorker' in navigator) {
+    const base = import.meta.env.BASE_URL;
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      const reg = await navigator.serviceWorker.register(base + 'sw.js', { scope: base });
       reg.addEventListener('updatefound', () => {
-        eventBus.emit('sw-update-found', reg);
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          // New SW installed and waiting — prompt user to update
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            import('./components/toast').then(({ showToast }) => {
+              const toast = showToast('New version available — tap to update', 'info');
+              toast.style.cursor = 'pointer';
+              toast.addEventListener('click', () => {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                toast.remove();
+              });
+            });
+          }
+        });
+      });
+      // Reload when the new SW takes over
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
       });
     } catch (err) {
       console.error('SW registration failed:', err);
