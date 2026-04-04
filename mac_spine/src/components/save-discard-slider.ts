@@ -74,7 +74,7 @@ export function createSaveDiscardSlider(config: SaveDiscardSliderConfig): HTMLEl
     // Color track + thumb
     if (normalized > 0.05) {
       const intensity = Math.min(1, normalized / 0.7);
-      track.style.background = `rgba(46, 125, 50, ${intensity * 0.25})`;
+      track.style.background = `rgba(14, 91, 61, ${intensity * 0.25})`;
       thumb.style.background = `rgb(${Math.round(255 - intensity * 211)}, ${Math.round(255 - intensity * 130)}, ${Math.round(255 - intensity * 205)})`;
     } else if (normalized < -0.05) {
       const intensity = Math.min(1, Math.abs(normalized) / 0.7);
@@ -97,10 +97,10 @@ export function createSaveDiscardSlider(config: SaveDiscardSliderConfig): HTMLEl
 
     if (action === 'save') {
       setThumbPosition(maxX);
-      track.style.background = 'rgba(46, 125, 50, 0.3)';
-      thumb.style.background = '#2E7D32';
+      track.style.background = 'rgba(14, 91, 61, 0.3)';
+      thumb.style.background = '#0E5B3D';
       resultLabel.textContent = 'SAVED';
-      resultLabel.style.color = '#2E7D32';
+      resultLabel.style.color = '#0E5B3D';
     } else {
       setThumbPosition(minX);
       track.style.background = 'rgba(198, 40, 40, 0.3)';
@@ -242,7 +242,7 @@ style.textContent = `
   }
   .sds__label--right {
     right: var(--space-4);
-    color: #2E7D32;
+    color: #0E5B3D;
   }
   .sds__result-label {
     position: absolute;

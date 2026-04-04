@@ -22,9 +22,9 @@ function countTodayDiscards(results: AssessmentResult[], taskPrefix: string): nu
 }
 
 const BAND_COLORS: Record<string, { bg: string; text: string }> = {
-  normal: { bg: '#E8F5E9', text: '#2E7D32' },
-  moderate_risk: { bg: '#FFF8E1', text: '#F57F17' },
-  high_risk: { bg: '#FFEBEE', text: '#C62828' },
+  normal: { bg: '#E8F0EB', text: '#0E5B3D' },
+  moderate_risk: { bg: '#FEF5E5', text: '#8B6914' },
+  high_risk: { bg: '#F9E8EC', text: '#7A003C' },
 };
 
 export async function renderTugResults(container: HTMLElement): Promise<void> {
@@ -359,11 +359,11 @@ const style = document.createElement('style');
 style.textContent = `
   .tug-results__flag-warning {
     padding: var(--space-3) var(--space-4);
-    background: #FFF3E0;
-    border: 1px solid #FF9800;
+    background: #FEF5E5;
+    border: 1px solid #FDBF57;
     border-radius: var(--radius-md);
     text-align: center;
-    color: #E65100;
+    color: #8B6914;
     font-weight: var(--font-weight-medium);
     font-size: var(--font-size-sm);
   }
@@ -426,7 +426,7 @@ style.textContent = `
   }
   .tug-results__compare-header {
     font-weight: var(--font-weight-semibold);
-    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    border-bottom: 1px solid var(--color-border, #D5D0CC);
     padding-bottom: var(--space-2);
     margin-bottom: var(--space-1);
   }

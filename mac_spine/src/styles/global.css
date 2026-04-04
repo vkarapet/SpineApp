@@ -10,6 +10,15 @@ body {
   overscroll-behavior: none;
 }
 
+/* McMaster typography: Poppins for headings, buttons, labels */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-heading);
+}
+
+button, .btn, label {
+  font-family: var(--font-family-heading);
+}
+
 #app {
   min-height: 100vh;
   min-height: 100dvh;
@@ -46,6 +55,12 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
+}
+
+/* Links — McMaster: maroon, underlined */
+a {
+  color: var(--color-primary);
+  text-decoration: underline;
 }
 
 /* Landscape overlay */

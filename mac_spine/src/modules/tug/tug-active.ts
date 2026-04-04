@@ -473,7 +473,7 @@ style.textContent = `
     min-height: 5rem;
     border: none;
     border-radius: var(--radius-lg);
-    background: #D32F2F;
+    background: #7A003C;
     color: #fff;
     font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-bold);
@@ -483,7 +483,7 @@ style.textContent = `
     touch-action: manipulation;
   }
   .tug-active__stop-btn:active {
-    background: #B71C1C;
+    background: #5C002D;
     transform: scale(0.97);
   }
   .tug-active__end-msg {

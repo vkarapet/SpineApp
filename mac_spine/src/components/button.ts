@@ -79,8 +79,8 @@ style.textContent = `
   }
   .btn--success {
     background-color: transparent;
-    color: var(--color-success, #34A853);
-    border: 2px solid var(--color-success, #34A853);
+    color: var(--color-success, #0E5B3D);
+    border: 2px solid var(--color-success, #0E5B3D);
   }
   .btn--text {
     background: none;

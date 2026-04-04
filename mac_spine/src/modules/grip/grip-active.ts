@@ -432,7 +432,7 @@ style.textContent = `
     width: 20mm;
     height: 20mm;
     border-radius: 50%;
-    border: 3mm solid #E53935;
+    border: 3mm solid #7A003C;
     background: transparent;
     box-sizing: content-box;
     transform: translate(-50%, -50%);

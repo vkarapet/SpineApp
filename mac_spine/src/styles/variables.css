@@ -1,38 +1,53 @@
 :root {
-  /* Colors */
-  --color-primary: #1A73E8;
-  --color-primary-dark: #1557B0;
-  --color-primary-light: #4A90E2;
-  --color-secondary: #FF6D00;
-  --color-success: #34A853;
-  --color-warning: #FBBC04;
-  --color-error: #EA4335;
-  --color-info: #4285F4;
+  /* McMaster Heritage Colors */
+  --color-primary: #7A003C;           /* Heritage Maroon */
+  --color-primary-dark: #5C002D;
+  --color-primary-light: #9A1456;
+  --color-secondary: #FDBF57;         /* Heritage Gold */
+  --color-secondary-dark: #D4991F;
+  --color-accent-green: #0E5B3D;      /* King's Forest Green */
+  --color-accent-blue: #0D5D78;       /* Bayfront Blue */
+  --color-accent-blue-light: #AAD5E1; /* Albion Falls Blue */
+  --color-heritage-grey: #495965;     /* Heritage Grey */
 
+  /* Semantic colors */
+  --color-success: #0E5B3D;
+  --color-success-bg: #E8F0EB;
+  --color-warning: #8B6914;
+  --color-warning-bg: #FEF5E5;
+  --color-warning-border: #FDBF57;
+  --color-error: #C62828;
+  --color-error-bg: #F9E8EC;
+  --color-info: #0D5D78;
+  --color-info-bg: #E5EEF2;
+
+  /* Surfaces */
   --color-bg: #FFFFFF;
-  --color-bg-secondary: #F8F9FA;
-  --color-bg-tertiary: #E8EAED;
-  --color-text: #202124;
-  --color-text-secondary: #5F6368;
-  --color-text-disabled: #9AA0A6;
-  --color-border: #DADCE0;
-  --color-border-focus: #1A73E8;
+  --color-bg-secondary: #F7F5F3;
+  --color-bg-tertiary: #EDEBE9;
+  --color-text: #000000;
+  --color-text-secondary: #495965;
+  --color-text-disabled: #8C959D;
+  --color-border: #D5D0CC;
+  --color-border-focus: #7A003C;
 
-  /* Chart colors (colorblind-safe) */
-  --color-chart-primary: #1A73E8;
-  --color-chart-secondary: #FF6D00;
-  --color-chart-flagged: #9AA0A6;
+  /* Chart colors */
+  --color-chart-primary: #7A003C;
+  --color-chart-secondary: #FDBF57;
+  --color-chart-tertiary: #0D5D78;
+  --color-chart-flagged: #8C959D;
 
-  /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  /* Typography — McMaster: Poppins (headings/buttons) + Arial (body) */
+  --font-family-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-size-xs: 0.75rem;   /* 12px */
   --font-size-sm: 0.875rem;  /* 14px */
   --font-size-base: 1rem;    /* 16px */
   --font-size-lg: 1.25rem;   /* 20px */
   --font-size-xl: 1.5rem;    /* 24px */
-  --font-size-2xl: 2rem;     /* 32px */
-  --font-size-3xl: 3rem;     /* 48px - GO signal */
-  --font-size-4xl: 4.5rem;   /* 72px - Countdown */
+  --font-size-2xl: 1.75rem;  /* 28px — H2 */
+  --font-size-3xl: 2.75rem;  /* 44px — H1 mobile */
+  --font-size-4xl: 4.5rem;   /* 72px — Countdown */
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -45,7 +60,7 @@
 
   /* Spacing (4px base) */
   --space-1: 0.25rem;   /* 4px */
-  --space-2: 0.5rem;    /* 8px - min gap between interactive elements */
+  --space-2: 0.5rem;    /* 8px */
   --space-3: 0.75rem;   /* 12px */
   --space-4: 1rem;      /* 16px */
   --space-5: 1.25rem;   /* 20px */

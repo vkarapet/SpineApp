@@ -43,7 +43,7 @@ export function renderTugPractice(container: HTMLElement): void {
         runCalibration(wrapper, statusArea, container);
       } else if (result === 'denied') {
         statusArea.innerHTML = `
-          <p style="color: #C62828;">Sensor permission denied.</p>
+          <p style="color: #7A003C;">Sensor permission denied.</p>
           <p style="font-size: var(--font-size-sm);">Motion sensors are required for this test. Please grant permission and try again.</p>
         `;
         const retryBtn = createButton({
@@ -55,7 +55,7 @@ export function renderTugPractice(container: HTMLElement): void {
         statusArea.appendChild(retryBtn);
       } else {
         statusArea.innerHTML = `
-          <p style="color: #C62828;">Motion sensors not available on this device.</p>
+          <p style="color: #7A003C;">Motion sensors not available on this device.</p>
           <p style="font-size: var(--font-size-sm);">This test requires a device with an accelerometer.</p>
         `;
         const backBtn = createButton({
@@ -132,7 +132,7 @@ function runCalibration(wrapper: HTMLElement, statusArea: HTMLElement, container
     if (samples.length === 0) {
       window.removeEventListener('devicemotion', handler);
       statusArea.innerHTML = `
-        <p style="color: #C62828;">No sensor data received.</p>
+        <p style="color: #7A003C;">No sensor data received.</p>
         <p style="font-size: var(--font-size-sm);">Motion sensors may not be available on this device.</p>
       `;
       const retryBtn = createButton({
@@ -164,11 +164,11 @@ function showCalibrationResults(
     <div class="tug-practice__sensor-info">
       <div class="tug-practice__sensor-row">
         <span>Accelerometer</span>
-        <span style="color: #2E7D32; font-weight: 600;">Active</span>
+        <span style="color: #0E5B3D; font-weight: 600;">Active</span>
       </div>
       <div class="tug-practice__sensor-row">
         <span>Gyroscope</span>
-        <span style="color: ${hasGyroscope ? '#2E7D32' : '#F57F17'}; font-weight: 600;">
+        <span style="color: ${hasGyroscope ? '#0E5B3D' : '#8B6914'}; font-weight: 600;">
           ${hasGyroscope ? 'Active' : 'Not available'}
         </span>
       </div>
@@ -239,11 +239,11 @@ style.textContent = `
   }
   .tug-practice__gyro-warning {
     padding: var(--space-3) var(--space-4);
-    background: #FFF8E1;
-    border: 1px solid #FFD54F;
+    background: #FEF5E5;
+    border: 1px solid #FDBF57;
     border-radius: var(--radius-md);
     text-align: center;
-    color: #F57F17;
+    color: #8B6914;
     font-size: var(--font-size-sm);
     margin-bottom: var(--space-4);
   }

@@ -60,13 +60,13 @@ export class ChartManager {
         {
           label: 'This device',
           data: localData.map((d) => ({ x: d.x.getTime(), y: d.y })),
-          borderColor: '#1A73E8',
-          backgroundColor: 'rgba(26, 115, 232, 0.1)',
+          borderColor: '#7A003C',
+          backgroundColor: 'rgba(122, 0, 60, 0.1)',
           pointBackgroundColor: localData.map((d) =>
-            d.isFlagged ? '#9AA0A6' : '#1A73E8',
+            d.isFlagged ? '#8C959D' : '#7A003C',
           ),
           pointBorderColor: localData.map((d) =>
-            d.isFlagged ? '#9AA0A6' : '#1A73E8',
+            d.isFlagged ? '#8C959D' : '#7A003C',
           ),
           pointRadius: 5,
           pointHitRadius: 20,
@@ -78,10 +78,10 @@ export class ChartManager {
               {
                 label: 'Restored from server',
                 data: restoredData.map((d) => ({ x: d.x.getTime(), y: d.y })),
-                borderColor: '#FF6D00',
-                backgroundColor: 'rgba(255, 109, 0, 0.1)',
+                borderColor: '#FDBF57',
+                backgroundColor: 'rgba(253, 191, 87, 0.1)',
                 pointBackgroundColor: '#FFFFFF',
-                pointBorderColor: '#FF6D00',
+                pointBorderColor: '#FDBF57',
                 pointBorderWidth: 2,
                 pointRadius: 5,
                 pointHitRadius: 20,
