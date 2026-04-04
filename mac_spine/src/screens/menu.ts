@@ -80,8 +80,6 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   const modulesSection = createElement('section', { className: 'menu-screen__modules' });
   modulesSection.setAttribute('aria-label', 'Available assessments');
 
-  // Modules are registered in bootstrap (main.ts) before routing starts
-  const modules = moduleRegistry.getAllModules();
   await addModuleCards(modulesSection);
 
   // View History button
