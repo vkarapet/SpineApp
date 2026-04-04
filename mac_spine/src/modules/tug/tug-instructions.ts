@@ -198,11 +198,11 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
   wrapper.appendChild(readyBtn);
   wrapper.appendChild(calibrateBtn);
   wrapper.appendChild(soundSection);
+  wrapper.appendChild(cancelBtn);
   wrapper.appendChild(divider);
   wrapper.appendChild(body);
   wrapper.appendChild(steps);
   wrapper.appendChild(helperNote);
-  wrapper.appendChild(cancelBtn);
   container.appendChild(wrapper);
 }
 
