@@ -54,21 +54,60 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
   const wrapper = createElement('main', { className: 'assessment-instructions' });
   wrapper.setAttribute('role', 'main');
 
+  // ── Title ─────────────────────────────────────────────────────
   const title = createElement('h1', { textContent: 'Timed Up & Go' });
 
-  // Mode selector
-  const modeGroup = createElement('div', { className: 'tug-instructions__mode-group' });
-  modeGroup.setAttribute('role', 'radiogroup');
-  modeGroup.setAttribute('aria-label', 'Phone placement during test');
+  // ── Mode slider ───────────────────────────────────────────────
+  const modeSection = createElement('div', { className: 'tug-mode-section' });
+  const modeLabel = createElement('span', {
+    className: 'tug-mode-section__label',
+    textContent: 'Test Mode',
+  });
 
-  const modes: { value: TugPhoneMode; label: string }[] = [
-    { value: 'pocket', label: 'Phone in Pocket' },
-    { value: 'hand', label: 'Phone in Hand' },
-  ];
+  const track = createElement('div', {
+    className: 'tug-mode-slider',
+    role: 'radiogroup',
+    'aria-label': 'Phone placement during test',
+  });
 
-  const modeBtns: HTMLButtonElement[] = [];
+  const optPocket = createElement('span', {
+    className: 'tug-mode-slider__option' + (currentMode === 'pocket' ? ' tug-mode-slider__option--active' : ''),
+    textContent: 'Pocket',
+    role: 'radio',
+  });
+  optPocket.setAttribute('aria-checked', currentMode === 'pocket' ? 'true' : 'false');
+  optPocket.tabIndex = 0;
 
-  async function saveMode(mode: TugPhoneMode): Promise<void> {
+  const optHand = createElement('span', {
+    className: 'tug-mode-slider__option' + (currentMode === 'hand' ? ' tug-mode-slider__option--active' : ''),
+    textContent: 'In Hand',
+    role: 'radio',
+  });
+  optHand.setAttribute('aria-checked', currentMode === 'hand' ? 'true' : 'false');
+  optHand.tabIndex = 0;
+
+  const pill = createElement('div', {
+    className: 'tug-mode-slider__pill' + (currentMode === 'hand' ? ' tug-mode-slider__pill--right' : ''),
+  });
+
+  track.appendChild(pill);
+  track.appendChild(optPocket);
+  track.appendChild(optHand);
+  modeSection.appendChild(modeLabel);
+  modeSection.appendChild(track);
+
+  async function setMode(mode: TugPhoneMode): Promise<void> {
+    if (currentMode === mode) return;
+    currentMode = mode;
+
+    optPocket.classList.toggle('tug-mode-slider__option--active', mode === 'pocket');
+    optPocket.setAttribute('aria-checked', mode === 'pocket' ? 'true' : 'false');
+    optHand.classList.toggle('tug-mode-slider__option--active', mode === 'hand');
+    optHand.setAttribute('aria-checked', mode === 'hand' ? 'true' : 'false');
+    pill.classList.toggle('tug-mode-slider__pill--right', mode === 'hand');
+
+    updateContent();
+
     const p = await getProfile();
     if (!p) return;
     p.preferences.tug_phone_mode = mode;
@@ -76,71 +115,12 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
     await saveProfile(p);
   }
 
-  for (const m of modes) {
-    const btn = createElement('button', {
-      className: 'assessment-setup__hand-btn' + (m.value === currentMode ? ' assessment-setup__hand-btn--active' : ''),
-      textContent: m.label,
-    }) as HTMLButtonElement;
-    btn.setAttribute('role', 'radio');
-    btn.setAttribute('aria-checked', m.value === currentMode ? 'true' : 'false');
+  optPocket.addEventListener('click', () => setMode('pocket'));
+  optPocket.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') setMode('pocket'); });
+  optHand.addEventListener('click', () => setMode('hand'));
+  optHand.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') setMode('hand'); });
 
-    btn.addEventListener('click', async () => {
-      if (currentMode === m.value) return;
-      currentMode = m.value;
-      modeBtns.forEach((b, i) => {
-        const isActive = modes[i].value === currentMode;
-        b.classList.toggle('assessment-setup__hand-btn--active', isActive);
-        b.setAttribute('aria-checked', isActive ? 'true' : 'false');
-      });
-      updateContent();
-      await saveMode(currentMode);
-    });
-
-    modeBtns.push(btn);
-    modeGroup.appendChild(btn);
-  }
-
-  const body = createElement('div', { className: 'assessment-instructions__body' });
-
-  const steps = createElement('div', { className: 'assessment-instructions__important' });
-
-  const helperNote = createElement('div', { className: 'tug-instructions__helper-note' });
-
-  function updateContent(): void {
-    const content = getModeContent(currentMode);
-    body.innerHTML = `<p>${content.intro}</p>`;
-    steps.innerHTML = content.steps;
-    helperNote.innerHTML = `<p><strong>Note:</strong> ${content.helperNote}</p>`;
-  }
-
-  updateContent();
-
-  // Sound reminder + test button
-  const soundNote = createElement('div', { className: 'tug-instructions__sound-note' });
-  soundNote.innerHTML = `<p>Ensure your phone volume is turned up. You will hear a tone at the start, a beep at 3 meters, and a tone when the test ends.</p>`;
-
-  const testSoundBtn = createButton({
-    text: 'Test Sound',
-    variant: 'secondary',
-    onClick: async () => {
-      audioManager.initOnGesture();
-      const p = await getProfile();
-      const audioEnabled = p?.preferences.audio_enabled ?? true;
-      audioManager.setEnabled(audioEnabled);
-      await audioManager.preloadAll();
-      audioManager.play('beep');
-    },
-  });
-  soundNote.appendChild(testSoundBtn);
-
-  // Sensor calibration
-  const calibrateBtn = createButton({
-    text: 'Sensor Calibration',
-    variant: 'secondary',
-    fullWidth: true,
-    onClick: () => router.navigate('#/assessment/tug_v1/practice'),
-  });
-
+  // ── I'm Ready ─────────────────────────────────────────────────
   const readyBtn = createButton({
     text: "I'm Ready",
     variant: 'primary',
@@ -155,33 +135,159 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
     },
   });
 
-  const actions = createElement('div', { className: 'assessment-instructions__actions' });
-  actions.appendChild(readyBtn);
+  // ── Sensor Calibration ────────────────────────────────────────
+  const calibrateBtn = createButton({
+    text: 'Sensor Calibration',
+    variant: 'secondary',
+    fullWidth: true,
+    onClick: () => router.navigate('#/assessment/tug_v1/practice'),
+  });
 
+  // ── Test Sound ────────────────────────────────────────────────
+  const soundSection = createElement('div', { className: 'tug-instructions__sound-section' });
+
+  const testSoundBtn = createButton({
+    text: 'Test Sound',
+    variant: 'secondary',
+    fullWidth: true,
+    onClick: async () => {
+      audioManager.initOnGesture();
+      const p = await getProfile();
+      const audioEnabled = p?.preferences.audio_enabled ?? true;
+      audioManager.setEnabled(audioEnabled);
+      await audioManager.preloadAll();
+      audioManager.play('beep');
+    },
+  });
+
+  const volumeNote = createElement('p', {
+    className: 'tug-instructions__volume-note',
+    textContent: 'Ensure your phone volume is turned up. You will hear a tone at the start, a beep at 3 meters, and a tone when the test ends.',
+  });
+
+  soundSection.appendChild(testSoundBtn);
+  soundSection.appendChild(volumeNote);
+
+  // ── Divider ───────────────────────────────────────────────────
+  const divider = createElement('hr', { className: 'tug-instructions__divider' });
+
+  // ── Instructions (dynamic) ────────────────────────────────────
+  const body = createElement('div', { className: 'assessment-instructions__body' });
+  const steps = createElement('div', { className: 'assessment-instructions__important' });
+  const helperNote = createElement('div', { className: 'tug-instructions__helper-note' });
+
+  function updateContent(): void {
+    const content = getModeContent(currentMode);
+    body.innerHTML = `<p>${content.intro}</p>`;
+    steps.innerHTML = content.steps;
+    helperNote.innerHTML = `<p><strong>Note:</strong> ${content.helperNote}</p>`;
+  }
+
+  updateContent();
+
+  // ── Cancel ────────────────────────────────────────────────────
   const cancelBtn = createButton({
     text: 'Cancel',
     variant: 'text',
     onClick: () => router.navigate('#/menu'),
   });
 
+  // ── Assemble ──────────────────────────────────────────────────
   wrapper.appendChild(title);
-  wrapper.appendChild(modeGroup);
+  wrapper.appendChild(modeSection);
+  wrapper.appendChild(readyBtn);
+  wrapper.appendChild(calibrateBtn);
+  wrapper.appendChild(soundSection);
+  wrapper.appendChild(divider);
   wrapper.appendChild(body);
   wrapper.appendChild(steps);
   wrapper.appendChild(helperNote);
-  wrapper.appendChild(soundNote);
-  wrapper.appendChild(calibrateBtn);
-  wrapper.appendChild(actions);
   wrapper.appendChild(cancelBtn);
   container.appendChild(wrapper);
 }
 
 const style = document.createElement('style');
 style.textContent = `
-  .tug-instructions__mode-group {
+  /* ── Mode slider ─────────────────────────────────────────── */
+  .tug-mode-section {
     display: flex;
+    flex-direction: column;
     gap: var(--space-2);
   }
+  .tug-mode-section__label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .tug-mode-slider {
+    position: relative;
+    display: flex;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 3px;
+    min-height: var(--tap-target-min);
+    align-items: stretch;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tug-mode-slider__pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    background: var(--color-primary);
+    border-radius: var(--radius-full);
+    transition: transform 0.2s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .tug-mode-slider__pill--right {
+    transform: translateX(100%);
+  }
+  .tug-mode-slider__option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-full);
+    position: relative;
+    z-index: 1;
+    transition: color 0.2s;
+  }
+  .tug-mode-slider__option--active {
+    color: #fff;
+  }
+
+  /* ── Sound section ───────────────────────────────────────── */
+  .tug-instructions__sound-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .tug-instructions__volume-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    text-align: center;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .tug-instructions__divider {
+    border: none;
+    border-top: 2px solid var(--color-border);
+    margin: var(--space-2) 0;
+  }
+
+  /* ── Instructions ────────────────────────────────────────── */
   .tug-instructions__steps {
     list-style: none;
     padding: 0;
@@ -223,20 +329,6 @@ style.textContent = `
   .tug-instructions__helper-note p {
     margin: 0;
     font-size: var(--font-size-base);
-  }
-  .tug-instructions__sound-note {
-    background: var(--color-bg-secondary);
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    align-items: center;
-  }
-  .tug-instructions__sound-note p {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-relaxed);
   }
 `;
 document.head.appendChild(style);
