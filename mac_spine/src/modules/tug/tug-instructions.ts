@@ -8,10 +8,10 @@ import type { TugPhoneMode } from './tug-types';
 function getModeContent(mode: TugPhoneMode): { intro: string; steps: string; helperNote: string } {
   if (mode === 'hand') {
     return {
-      intro: 'Hold the phone at your sternum and it will automatically detect each phase:',
+      intro: 'Hold the phone against your chest and it will automatically detect each phase:',
       steps: `
         <ol class="tug-instructions__steps">
-          <li>Hold the phone flat against your <strong>sternum (breastbone)</strong>, screen facing you</li>
+          <li><strong>Do not turn off the screen</strong> &mdash; hold the phone against your chest with the screen facing you</li>
           <li>Sit in a chair with your back against the chair</li>
           <li>Sit still &mdash; the test starts automatically after 3 seconds</li>
           <li>When you hear the start tone, stand up and walk forward</li>
