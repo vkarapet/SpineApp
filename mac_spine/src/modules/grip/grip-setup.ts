@@ -26,37 +26,50 @@ export function renderGripSetup(container: HTMLElement): void {
     createElement('h2', { textContent: 'Which hand are you using?' }),
   );
 
-  const handGroup = createElement('div', { className: 'assessment-setup__hand-group' });
-  handGroup.setAttribute('role', 'radiogroup');
-  handGroup.setAttribute('aria-label', 'Hand selection');
-
   let selectedHand: 'left' | 'right' = 'right';
 
-  const leftBtn = createElement('button', {
-    className: 'assessment-setup__hand-btn',
+  const handTrack = createElement('div', {
+    className: 'grip-setup__hand-slider',
+    role: 'radiogroup',
+    'aria-label': 'Hand selection',
+  });
+
+  const handPill = createElement('div', { className: 'grip-setup__hand-slider__pill' });
+
+  const optLeft = createElement('span', {
+    className: 'grip-setup__hand-slider__option',
     textContent: 'Left',
-    'aria-pressed': 'false',
+    role: 'radio',
   });
+  optLeft.setAttribute('aria-checked', 'false');
+  optLeft.tabIndex = 0;
 
-  const rightBtn = createElement('button', {
-    className: 'assessment-setup__hand-btn assessment-setup__hand-btn--active',
+  const optRight = createElement('span', {
+    className: 'grip-setup__hand-slider__option grip-setup__hand-slider__option--active',
     textContent: 'Right',
-    'aria-pressed': 'true',
+    role: 'radio',
   });
+  optRight.setAttribute('aria-checked', 'true');
+  optRight.tabIndex = 0;
 
-  function updateHandSelection(): void {
-    leftBtn.classList.toggle('assessment-setup__hand-btn--active', selectedHand === 'left');
-    leftBtn.setAttribute('aria-pressed', String(selectedHand === 'left'));
-    rightBtn.classList.toggle('assessment-setup__hand-btn--active', selectedHand === 'right');
-    rightBtn.setAttribute('aria-pressed', String(selectedHand === 'right'));
+  function setHand(hand: 'left' | 'right'): void {
+    selectedHand = hand;
+    optLeft.classList.toggle('grip-setup__hand-slider__option--active', hand === 'left');
+    optLeft.setAttribute('aria-checked', String(hand === 'left'));
+    optRight.classList.toggle('grip-setup__hand-slider__option--active', hand === 'right');
+    optRight.setAttribute('aria-checked', String(hand === 'right'));
+    handPill.classList.toggle('grip-setup__hand-slider__pill--right', hand === 'right');
   }
 
-  leftBtn.addEventListener('click', () => { selectedHand = 'left'; updateHandSelection(); });
-  rightBtn.addEventListener('click', () => { selectedHand = 'right'; updateHandSelection(); });
+  optLeft.addEventListener('click', () => setHand('left'));
+  optLeft.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') setHand('left'); });
+  optRight.addEventListener('click', () => setHand('right'));
+  optRight.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') setHand('right'); });
 
-  handGroup.appendChild(leftBtn);
-  handGroup.appendChild(rightBtn);
-  handSection.appendChild(handGroup);
+  handTrack.appendChild(handPill);
+  handTrack.appendChild(optLeft);
+  handTrack.appendChild(optRight);
+  handSection.appendChild(handTrack);
 
   // ── Hand weakness ────────────────────────────────────────────────────────
   const weaknessSection = createElement('section', { className: 'assessment-setup__section' });
@@ -129,6 +142,50 @@ export function renderGripSetup(container: HTMLElement): void {
 
 const style = document.createElement('style');
 style.textContent = `
+  .grip-setup__hand-slider {
+    position: relative;
+    display: flex;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 3px;
+    min-height: var(--tap-target-min);
+    align-items: stretch;
+    cursor: pointer;
+    user-select: none;
+  }
+  .grip-setup__hand-slider__pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    background: var(--color-primary);
+    border-radius: var(--radius-full);
+    transition: transform 0.2s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .grip-setup__hand-slider__pill--right {
+    transform: translateX(100%);
+  }
+  .grip-setup__hand-slider__option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-full);
+    position: relative;
+    z-index: 1;
+    transition: color 0.2s;
+  }
+  .grip-setup__hand-slider__option--active {
+    color: #fff;
+  }
   .assessment-setup__weakness-group {
     display: flex;
     flex-direction: column;
