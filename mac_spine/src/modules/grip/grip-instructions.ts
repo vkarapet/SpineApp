@@ -53,19 +53,12 @@ export function renderGripInstructions(container: HTMLElement): void {
   });
 
   const actions = createElement('div', { className: 'assessment-instructions__actions' });
-  actions.appendChild(practiceBtn);
   actions.appendChild(readyBtn);
+  actions.appendChild(practiceBtn);
   actions.appendChild(cancelBtn);
 
-const body = createElement('div', { className: 'assessment-instructions__body' });
-  body.innerHTML = `
-    <p>Grip the phone with 3+ fingers, release fully, and repeat as fast as you can for 10 seconds.</p>
-    <ul class="grip-instructions__steps">
-      <li>Rest the phone in your palm, screen up, hand on a flat surface</li>
-      <li>Curl your fingers onto the screen to grip</li>
-      <li><strong>Open your fingers completely</strong> before each new grip</li>
-    </ul>
-  `;
+const intro = createElement('div', { className: 'assessment-instructions__body' });
+  intro.innerHTML = `<p>Grip the phone with 3+ fingers, release fully, and repeat as fast as you can for 10 seconds.</p>`;
 
   // Animated diagram — alternates between open and grip images every 1s
   const diagram = createElement('div', { className: 'grip-instructions__diagram' });
@@ -84,13 +77,23 @@ const body = createElement('div', { className: 'assessment-instructions__body' }
     </div>
   `;
 
+  const steps = createElement('div', { className: 'assessment-instructions__important' });
+  steps.innerHTML = `
+    <ul class="grip-instructions__steps">
+      <li>Rest the phone in your palm, screen up, hand on a flat surface</li>
+      <li>Curl your fingers onto the screen to grip</li>
+      <li><strong>Open your fingers completely</strong> before each new grip</li>
+    </ul>
+  `;
+
   const divider = createElement('hr', { className: 'grip-instructions__divider' });
 
   wrapper.appendChild(title);
   wrapper.appendChild(actions);
   wrapper.appendChild(divider);
+  wrapper.appendChild(intro);
   wrapper.appendChild(diagram);
-  wrapper.appendChild(body);
+  wrapper.appendChild(steps);
   container.appendChild(wrapper);
 }
 
