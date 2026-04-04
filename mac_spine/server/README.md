@@ -58,6 +58,20 @@ Wrangler will print the live Worker URL:
 https://mac-spine-proxy.<account>.workers.dev
 ```
 
+### 4a. Look up the Worker URL after deploy
+
+If you need to retrieve the URL after the fact:
+
+```bash
+npx wrangler deployments list
+```
+
+Or check your account subdomain (the URL is always `https://<worker-name>.<subdomain>.workers.dev`):
+
+```bash
+npx wrangler whoami
+```
+
 ### 5. Update the PWA
 
 Set `PROXY_URL` in `mac_spine/src/constants.ts` to the Worker URL:
