@@ -34,7 +34,7 @@ export function renderGripSetup(container: HTMLElement): void {
     'aria-label': 'Hand selection',
   });
 
-  const handPill = createElement('div', { className: 'grip-setup__hand-slider__pill' });
+  const handPill = createElement('div', { className: 'grip-setup__hand-slider__pill grip-setup__hand-slider__pill--right' });
 
   const optLeft = createElement('span', {
     className: 'grip-setup__hand-slider__option',
