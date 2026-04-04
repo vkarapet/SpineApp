@@ -4,7 +4,7 @@ import { createSaveDiscardSlider } from '../../components/save-discard-slider';
 import { showDiscardDialog } from '../../components/discard-dialog';
 import { getAllResults, saveResult, addAuditEntry } from '../../core/db';
 import { getClinicalBand, getClinicalLabel } from './tug-metrics';
-import { TUG_PHASE_LABELS } from './tug-types';
+import { TUG_PHASE_LABELS, WALKING_AID_LABELS } from './tug-types';
 import { lastTugResult } from './tug-active';
 import { router } from '../../main';
 import type { AssessmentResult } from '../../types/db-schemas';
@@ -25,12 +25,6 @@ const BAND_COLORS: Record<string, { bg: string; text: string }> = {
   normal: { bg: '#E8F5E9', text: '#2E7D32' },
   moderate_risk: { bg: '#FFF8E1', text: '#F57F17' },
   high_risk: { bg: '#FFEBEE', text: '#C62828' },
-};
-
-const WALKING_AID_LABELS: Record<string, string> = {
-  none: 'no aid',
-  cane: 'cane',
-  walker: 'walker',
 };
 
 export async function renderTugResults(container: HTMLElement): Promise<void> {

@@ -1,6 +1,6 @@
 export type MotionPermissionResult = 'granted' | 'denied' | 'not_supported';
 
-export function hasDeviceMotionAPI(): boolean {
+function hasDeviceMotionAPI(): boolean {
   return typeof DeviceMotionEvent !== 'undefined';
 }
 

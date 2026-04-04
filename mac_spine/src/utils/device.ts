@@ -19,13 +19,6 @@ export function isStandalone(): boolean {
   );
 }
 
-export function getScreenDimensions(): { width: number; height: number } {
-  return {
-    width: window.screen.width,
-    height: window.screen.height,
-  };
-}
-
 export function getViewportDimensions(): { width: number; height: number } {
   return {
     width: window.innerWidth,
@@ -61,6 +54,3 @@ export function vibrate(duration: number): void {
   }
 }
 
-export function supportsDeviceMotion(): boolean {
-  return typeof DeviceMotionEvent !== 'undefined';
-}

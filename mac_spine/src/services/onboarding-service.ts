@@ -1,8 +1,9 @@
-import { loadProfile, isConsentCurrent } from './profile-service';
+import { getProfile } from '../core/db';
+import { isConsentCurrent } from './profile-service';
 import { router } from '../main';
 
 export async function determineStartRoute(): Promise<string> {
-  const profile = await loadProfile();
+  const profile = await getProfile();
 
   if (!profile) {
     // No profile — new user or data cleared

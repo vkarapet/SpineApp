@@ -99,9 +99,6 @@ export interface AssessmentModule {
   dbSchema?: (db: IDBDatabase) => void;
   getInstructions(): InstructionConfig;
   getPracticeConfig?(): PracticeConfig;
-  createUI(container: HTMLElement): void;
-  start(): void;
-  stop(): RawSessionData;
   computeMetrics(rawData: RawSessionData): ComputedMetrics;
   getSessionMetadataFields?(): MetadataField[];
 

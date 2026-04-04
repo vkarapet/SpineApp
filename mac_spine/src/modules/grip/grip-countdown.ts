@@ -34,32 +34,33 @@ export function renderGripCountdown(container: HTMLElement): void {
   let cancelled = false;
   let count = 3;
 
-  const showCount = async () => {
-    if (cancelled) return;
-
-    countdownDisplay.textContent = String(count);
-
-    const profile = await getProfile();
+  getProfile().then((profile) => {
     const audioEnabled = profile?.preferences.audio_enabled ?? true;
     const hapticEnabled = profile?.preferences.haptic_enabled ?? true;
 
-    if (audioEnabled) {
-      audioManager.play('beep');
-    }
-    if (hapticEnabled && supportsVibration()) {
-      vibrate(30);
-    }
+    const showCount = () => {
+      if (cancelled) return;
 
-    count--;
+      countdownDisplay.textContent = String(count);
 
-    if (count >= 0) {
-      setTimeout(showCount, 1000);
-    } else {
-      if (!cancelled) {
-        router.navigate('#/assessment/grip_v1/active', true);
+      if (audioEnabled) {
+        audioManager.play('beep');
       }
-    }
-  };
+      if (hapticEnabled && supportsVibration()) {
+        vibrate(30);
+      }
 
-  setTimeout(showCount, 300);
+      count--;
+
+      if (count >= 0) {
+        setTimeout(showCount, 1000);
+      } else {
+        if (!cancelled) {
+          router.navigate('#/assessment/grip_v1/active', true);
+        }
+      }
+    };
+
+    setTimeout(showCount, 300);
+  });
 }

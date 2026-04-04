@@ -45,10 +45,6 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
   return profile;
 }
 
-export async function loadProfile(): Promise<UserProfile | undefined> {
-  return getProfile();
-}
-
 export async function updateProfile(
   participantId?: string,
   name?: string,
@@ -110,5 +106,3 @@ export async function signOut(): Promise<void> {
   }
   await deleteProfile();
 }
-
-export { deleteProfile };

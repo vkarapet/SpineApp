@@ -35,7 +35,3 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 export function clearContainer(container: HTMLElement): void {
   container.innerHTML = '';
 }
-
-export function scrollToElement(el: HTMLElement): void {
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}

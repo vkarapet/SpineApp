@@ -46,23 +46,3 @@ export function daysSince(isoString: string): number {
   const now = new Date();
   return Math.floor((now.getTime() - date.getTime()) / 86_400_000);
 }
-
-export function isValidDOB(dob: string): { valid: boolean; error?: string } {
-  const date = new Date(dob);
-  if (isNaN(date.getTime())) return { valid: false, error: 'Invalid date' };
-
-  const now = new Date();
-  if (date > now) return { valid: false, error: 'Date of birth cannot be in the future' };
-
-  const year = date.getFullYear();
-  if (year < 1900) return { valid: false, error: 'Date of birth must be after 1900' };
-
-  const age = now.getFullYear() - year;
-  const monthDiff = now.getMonth() - date.getMonth();
-  const dayDiff = now.getDate() - date.getDate();
-  const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
-
-  if (actualAge < 18) return { valid: false, error: 'You must be at least 18 years old' };
-
-  return { valid: true };
-}

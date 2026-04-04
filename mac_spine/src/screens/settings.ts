@@ -191,25 +191,6 @@ style.textContent = `
     accent-color: var(--color-primary);
     cursor: pointer;
   }
-  .settings-screen__select-row {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  .settings-screen__select-label {
-    display: flex;
-    flex-direction: column;
-  }
-  .settings-screen__select {
-    min-height: var(--tap-target-min);
-    padding: var(--space-3) var(--space-4);
-    border: 2px solid var(--color-border);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-base);
-    background: var(--color-bg);
-    width: 100%;
-    cursor: pointer;
-  }
   .settings-screen__info {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);

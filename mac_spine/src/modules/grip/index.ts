@@ -1,4 +1,4 @@
-import type { AssessmentModule, RawSessionData, ComputedMetrics, InstructionConfig, PracticeConfig, MetadataField } from '../../types/assessment';
+import type { AssessmentModule, ComputedMetrics, RawSessionData, InstructionConfig, PracticeConfig, MetadataField } from '../../types/assessment';
 import type { AssessmentResult } from '../../types/db-schemas';
 import { computeGripMetrics } from './grip-metrics';
 import { GRIP_PRACTICE_DURATION_MS, GRIP_DURATION_MS } from '../../constants';
@@ -58,16 +58,13 @@ export const gripModule: AssessmentModule = {
     };
   },
 
-  createUI(_container: HTMLElement): void {
-    // UI is created by the individual screen components
-  },
-
-  start(): void {
-    // Started by grip-active.ts
-  },
-
-  stop(): RawSessionData {
-    return [];
+  screens: {
+    setup: async (c: HTMLElement) => { const { renderGripSetup } = await import('./grip-setup'); renderGripSetup(c); },
+    instructions: async (c: HTMLElement) => { const { renderGripInstructions } = await import('./grip-instructions'); renderGripInstructions(c); },
+    practice: async (c: HTMLElement) => { const { renderGripPractice } = await import('./grip-practice'); renderGripPractice(c); },
+    countdown: async (c: HTMLElement) => { const { renderGripCountdown } = await import('./grip-countdown'); renderGripCountdown(c); },
+    active: async (c: HTMLElement) => { const { renderGripActive } = await import('./grip-active'); renderGripActive(c); },
+    results: async (c: HTMLElement) => { const { renderGripResults } = await import('./grip-results'); renderGripResults(c); },
   },
 
   computeMetrics(rawData: RawSessionData): ComputedMetrics {

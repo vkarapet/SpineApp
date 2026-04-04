@@ -65,6 +65,12 @@ export const TUG_CONFIG_POCKET: TugSensorConfig = {
 // Tune after real-device testing.
 export const TUG_CONFIG_HAND: TugSensorConfig = { ...TUG_CONFIG_POCKET };
 
+export const WALKING_AID_LABELS: Record<string, string> = {
+  none: 'no aid',
+  cane: 'cane',
+  walker: 'walker',
+};
+
 export type TugClinicalBand = 'normal' | 'moderate_risk' | 'high_risk';
 
 export type TugPhase =

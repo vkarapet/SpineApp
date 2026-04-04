@@ -23,6 +23,6 @@ export type {
   AssessmentResult,
   SyncQueueEntry,
   AuditLogEntry,
+  SyncStatus,
+  SyncState,
 } from './db-schemas';
-
-export type { SyncStatus, SyncState } from './sync';

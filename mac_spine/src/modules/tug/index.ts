@@ -1,19 +1,13 @@
 import type { AssessmentModule, RawSessionData, ComputedMetrics, InstructionConfig, MetadataField } from '../../types/assessment';
-import { isMotionEvent } from '../../types/assessment';
 import type { AssessmentResult } from '../../types/db-schemas';
 import { computeTugMetrics, getClinicalBand, getClinicalLabel } from './tug-metrics';
+import { WALKING_AID_LABELS } from './tug-types';
 import { renderTugSetup } from './tug-setup';
 import { renderTugInstructions } from './tug-instructions';
 import { renderTugPractice } from './tug-practice';
 import { renderTugCountdown } from './tug-countdown';
 import { renderTugActive } from './tug-active';
 import { renderTugResults } from './tug-results';
-
-const WALKING_AID_LABELS: Record<string, string> = {
-  none: 'no aid',
-  cane: 'cane',
-  walker: 'walker',
-};
 
 export const tugModule: AssessmentModule = {
   id: 'tug_v1',
@@ -93,26 +87,7 @@ export const tugModule: AssessmentModule = {
     };
   },
 
-  createUI(_container: HTMLElement): void {
-    // UI is created by the individual screen components
-  },
-
-  start(): void {
-    // Started by tug-active.ts
-  },
-
-  stop(): RawSessionData {
-    return [];
-  },
-
   computeMetrics(rawData: RawSessionData): ComputedMetrics {
-    // If there are motion events, use sensor metrics computation
-    const hasMotion = rawData.some(isMotionEvent);
-    if (hasMotion) {
-      // For recomputation from raw data only (no live phase data),
-      // fall back to base timing metrics
-      return computeTugMetrics(rawData);
-    }
     return computeTugMetrics(rawData);
   },
 
