@@ -2,17 +2,15 @@
   "name": "mac-spine-proxy",
   "version": "1.0.0",
   "description": "MAC Spine API Proxy — Cloudflare Worker that relays assessment data to REDCap",
-  "main": "dist/functions/*.js",
+  "private": true,
   "scripts": {
-    "build": "tsc",
-    "start": "func start",
-    "dev": "npm run build && npm run start"
-  },
-  "dependencies": {
-    "@azure/functions": "^4.5.0"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "azure-functions-core-tools": "^4.0.0",
-    "typescript": "^5.4.0"
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.0.0"
   }
 }

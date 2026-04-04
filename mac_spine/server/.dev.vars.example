@@ -1,0 +1,6 @@
+# Copy this file to .dev.vars for local development (wrangler dev)
+# .dev.vars is gitignored — never commit real tokens
+
+REDCAP_API_URL=https://redcap.institution.org/api/
+REDCAP_API_TOKEN=your_token_here
+ALLOWED_ORIGIN=http://localhost:5173

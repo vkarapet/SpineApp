@@ -1,15 +1,14 @@
-import { Config } from './config.js';
+import type { Env } from './config';
 
 /**
  * Check if a participant (record_id) exists in REDCap.
- * Uses exportRecords with a filter to check for the record.
  */
 export async function verifyParticipant(
-  config: Config,
+  env: Env,
   recordId: string,
 ): Promise<boolean> {
   const params = new URLSearchParams({
-    token: config.redcapApiToken,
+    token: env.REDCAP_API_TOKEN,
     content: 'record',
     format: 'json',
     type: 'flat',
@@ -18,7 +17,7 @@ export async function verifyParticipant(
     returnFormat: 'json',
   });
 
-  const response = await fetch(config.redcapApiUrl, {
+  const response = await fetch(env.REDCAP_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
@@ -37,13 +36,13 @@ export async function verifyParticipant(
  * Returns true if a duplicate is found (skip import).
  */
 export async function checkDuplicate(
-  config: Config,
+  env: Env,
   recordId: string,
   localUuid: string,
   instrument: string,
 ): Promise<boolean> {
   const params = new URLSearchParams({
-    token: config.redcapApiToken,
+    token: env.REDCAP_API_TOKEN,
     content: 'record',
     format: 'json',
     type: 'flat',
@@ -53,7 +52,7 @@ export async function checkDuplicate(
     returnFormat: 'json',
   });
 
-  const response = await fetch(config.redcapApiUrl, {
+  const response = await fetch(env.REDCAP_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
@@ -72,11 +71,11 @@ export async function checkDuplicate(
  * Returns the count of records imported.
  */
 export async function importRecord(
-  config: Config,
+  env: Env,
   redcapRecord: Record<string, unknown>,
 ): Promise<{ count: number }> {
   const params = new URLSearchParams({
-    token: config.redcapApiToken,
+    token: env.REDCAP_API_TOKEN,
     content: 'record',
     format: 'json',
     type: 'flat',
@@ -85,7 +84,7 @@ export async function importRecord(
     returnFormat: 'json',
   });
 
-  const response = await fetch(config.redcapApiUrl, {
+  const response = await fetch(env.REDCAP_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),

@@ -10,32 +10,6 @@ export interface ModuleFieldMap {
   fields: Record<string, string>;
 }
 
-const tappingFieldMap: ModuleFieldMap = {
-  instrument: 'tapping_task',
-  fields: {
-    'local_uuid': 'local_uuid',
-    'timestamp_start': 'tap_timestamp',
-    'computed_metrics.duration_actual_ms': 'tap_duration',
-    'computed_metrics.tap_count': 'tap_count',
-    'computed_metrics.frequency_hz': 'tap_freq',
-    'computed_metrics.accuracy_mean_dist_px': 'tap_accuracy',
-    'computed_metrics.accuracy_pct_in_target': 'tap_accuracy_pct',
-    'computed_metrics.rhythm_cv': 'tap_regularity',
-    'session_metadata.hand_used': 'tap_hand',
-    'session_metadata.fatigue_rating': 'tap_fatigue',
-    'session_metadata.medication_taken': 'tap_medication',
-    'flagged': 'tap_flagged',
-    'flag_reason': 'tap_flag_reason',
-    'raw_data': 'tap_raw_json',
-    'checksum': 'tap_checksum',
-    'session_metadata.device_os': 'device_os',
-    'session_metadata.screen_width_px': 'screen_width',
-    'session_metadata.screen_height_px': 'screen_height',
-    'session_metadata.target_radius_px': 'target_radius',
-    'session_metadata.app_version': 'app_version',
-  },
-};
-
 const gripFieldMap: ModuleFieldMap = {
   instrument: 'grip_task',
   fields: {
@@ -97,7 +71,6 @@ const tugFieldMap: ModuleFieldMap = {
 };
 
 const FIELD_MAPS: Record<string, ModuleFieldMap> = {
-  tapping_v1: tappingFieldMap,
   grip_v1: gripFieldMap,
   tug_v1: tugFieldMap,
 };
