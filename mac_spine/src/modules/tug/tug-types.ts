@@ -1,8 +1,57 @@
 export interface TugSessionSetup {
-  walkingAid: 'none' | 'cane' | 'walker' | 'other';
-  fatigue: number | null;
-  medication: boolean | null;
+  walkingAid: 'none' | 'cane' | 'walker';
 }
+
+export type TugPhoneMode = 'pocket' | 'hand';
+
+export interface TugSensorConfig {
+  gravityFilterAlpha: number;
+  standupAccelThreshold: number;
+  standupTiltThreshold: number;
+  standupTiltHoldMs: number;
+  standupMaxDurationMs: number;
+  walkDistanceM: number;
+  yawRateSmoothAlpha: number;
+  turnMinAngle: number;
+  turnExitRmsFloor: number;
+  turnExitRmsScale: number;
+  turnRmsWindowSamples: number;
+  turnSettleMs: number;
+  turnMaxDurationMs: number;
+  turnWalkYawBufferSize: number;
+  sitdownSpikeThreshold: number;
+  sitdownRestAccelTolerance: number;
+  sitdownRestDurationMs: number;
+  sitdownMaxDurationMs: number;
+  sensorUiUpdateMs: number;
+}
+
+// Phone-in-pocket calibration (current production values)
+export const TUG_CONFIG_POCKET: TugSensorConfig = {
+  gravityFilterAlpha: 0.1,
+  standupAccelThreshold: 14.7,
+  standupTiltThreshold: 45,
+  standupTiltHoldMs: 200,
+  standupMaxDurationMs: 4000,
+  walkDistanceM: 3.0,
+  yawRateSmoothAlpha: 0.3,
+  turnMinAngle: 15,
+  turnExitRmsFloor: 8,
+  turnExitRmsScale: 0.8,
+  turnRmsWindowSamples: 30,
+  turnSettleMs: 200,
+  turnMaxDurationMs: 8000,
+  turnWalkYawBufferSize: 180,
+  sitdownSpikeThreshold: 3.0,
+  sitdownRestAccelTolerance: 0.5,
+  sitdownRestDurationMs: 1500,
+  sitdownMaxDurationMs: 10000,
+  sensorUiUpdateMs: 100,
+};
+
+// Phone-in-hand (sternum) calibration — copied from pocket for now.
+// Tune after real-device testing.
+export const TUG_CONFIG_HAND: TugSensorConfig = { ...TUG_CONFIG_POCKET };
 
 export type TugClinicalBand = 'normal' | 'moderate_risk' | 'high_risk';
 

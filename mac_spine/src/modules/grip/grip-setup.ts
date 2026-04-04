@@ -1,14 +1,12 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createHeader } from '../../components/header';
 import { createButton } from '../../components/button';
-import { getProfile } from '../../core/db';
 import { router } from '../../main';
 
 export let gripSessionSetup: {
   hand: 'left' | 'right';
-  fatigue: number | null;
-  medication: boolean | null;
-} = { hand: 'right', fatigue: null, medication: null };
+  weakness: 'none' | 'mild' | 'moderate' | 'severe' | null;
+} = { hand: 'right', weakness: null };
 
 export function renderGripSetup(container: HTMLElement): void {
   clearContainer(container);
@@ -22,7 +20,7 @@ export function renderGripSetup(container: HTMLElement): void {
   const main = createElement('main', { className: 'assessment-setup' });
   main.setAttribute('role', 'main');
 
-  // Hand selection
+  // ── Hand selection ───────────────────────────────────────────────────────
   const handSection = createElement('section', { className: 'assessment-setup__section' });
   handSection.appendChild(
     createElement('h2', { textContent: 'Which hand are you using?' }),
@@ -33,13 +31,6 @@ export function renderGripSetup(container: HTMLElement): void {
   handGroup.setAttribute('aria-label', 'Hand selection');
 
   let selectedHand: 'left' | 'right' = 'right';
-
-  getProfile().then((profile) => {
-    if (profile?.preferences.dominant_hand) {
-      selectedHand = profile.preferences.dominant_hand;
-      updateHandSelection();
-    }
-  });
 
   const leftBtn = createElement('button', {
     className: 'assessment-setup__hand-btn',
@@ -60,110 +51,105 @@ export function renderGripSetup(container: HTMLElement): void {
     rightBtn.setAttribute('aria-pressed', String(selectedHand === 'right'));
   }
 
-  leftBtn.addEventListener('click', () => {
-    selectedHand = 'left';
-    updateHandSelection();
-  });
-  rightBtn.addEventListener('click', () => {
-    selectedHand = 'right';
-    updateHandSelection();
-  });
+  leftBtn.addEventListener('click', () => { selectedHand = 'left'; updateHandSelection(); });
+  rightBtn.addEventListener('click', () => { selectedHand = 'right'; updateHandSelection(); });
 
   handGroup.appendChild(leftBtn);
   handGroup.appendChild(rightBtn);
   handSection.appendChild(handGroup);
 
-  // Fatigue rating
-  const fatigueSection = createElement('section', { className: 'assessment-setup__section' });
-  fatigueSection.appendChild(
-    createElement('h2', { textContent: 'How are you feeling right now?' }),
-  );
-  fatigueSection.appendChild(
-    createElement('p', {
-      className: 'assessment-setup__optional',
-      textContent: '(Optional)',
-    }),
+  // ── Hand weakness ────────────────────────────────────────────────────────
+  const weaknessSection = createElement('section', { className: 'assessment-setup__section' });
+  weaknessSection.appendChild(
+    createElement('h2', { textContent: 'Do you experience any weakness in this hand?' }),
   );
 
-  const fatigueGroup = createElement('div', { className: 'assessment-setup__scale' });
-  let selectedFatigue: number | null = null;
+  const WEAKNESS_OPTIONS: { value: 'none' | 'mild' | 'moderate' | 'severe'; label: string }[] = [
+    { value: 'none',     label: 'No weakness' },
+    { value: 'mild',     label: 'Mild' },
+    { value: 'moderate', label: 'Moderate' },
+    { value: 'severe',   label: 'Severe' },
+  ];
 
-  for (let i = 1; i <= 5; i++) {
-    const labels = ['Very Tired', 'Tired', 'Neutral', 'Alert', 'Very Alert'];
+  let selectedWeakness: 'none' | 'mild' | 'moderate' | 'severe' | null = null;
+
+  const weaknessGroup = createElement('div', { className: 'assessment-setup__weakness-group' });
+  weaknessGroup.setAttribute('role', 'radiogroup');
+  weaknessGroup.setAttribute('aria-label', 'Hand weakness level');
+
+  const weaknessBtns: HTMLElement[] = [];
+
+  for (const opt of WEAKNESS_OPTIONS) {
     const btn = createElement('button', {
-      className: 'assessment-setup__scale-btn',
-      textContent: String(i),
-      'aria-label': labels[i - 1],
-    });
-    btn.addEventListener('click', () => {
-      selectedFatigue = i;
-      fatigueGroup.querySelectorAll('.assessment-setup__scale-btn').forEach((b) => {
-        b.classList.remove('assessment-setup__scale-btn--active');
-      });
-      btn.classList.add('assessment-setup__scale-btn--active');
-    });
-    fatigueGroup.appendChild(btn);
-  }
-
-  const fatigueLabels = createElement('div', { className: 'assessment-setup__scale-labels' });
-  fatigueLabels.appendChild(createElement('span', { textContent: 'Very Tired' }));
-  fatigueLabels.appendChild(createElement('span', { textContent: 'Very Alert' }));
-
-  fatigueSection.appendChild(fatigueGroup);
-  fatigueSection.appendChild(fatigueLabels);
-
-  // Medication
-  const medSection = createElement('section', { className: 'assessment-setup__section' });
-  medSection.appendChild(
-    createElement('h2', { textContent: 'Have you taken your medication today?' }),
-  );
-  medSection.appendChild(
-    createElement('p', { className: 'assessment-setup__optional', textContent: '(Optional)' }),
-  );
-
-  const medGroup = createElement('div', { className: 'assessment-setup__med-group' });
-  let selectedMed: boolean | null = null;
-
-  for (const opt of [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false },
-    { label: 'N/A', value: null },
-  ] as const) {
-    const btn = createElement('button', {
-      className: 'assessment-setup__med-btn',
+      className: 'assessment-setup__weakness-btn',
       textContent: opt.label,
+      'aria-pressed': 'false',
     });
+    btn.dataset.value = opt.value;
     btn.addEventListener('click', () => {
-      selectedMed = opt.value;
-      medGroup.querySelectorAll('.assessment-setup__med-btn').forEach((b) => {
-        b.classList.remove('assessment-setup__med-btn--active');
+      selectedWeakness = opt.value;
+      weaknessBtns.forEach((b) => {
+        b.classList.remove('assessment-setup__weakness-btn--active');
+        b.setAttribute('aria-pressed', 'false');
       });
-      btn.classList.add('assessment-setup__med-btn--active');
+      btn.classList.add('assessment-setup__weakness-btn--active');
+      btn.setAttribute('aria-pressed', 'true');
+      continueBtn.disabled = false;
+      continueBtn.classList.remove('btn--disabled');
     });
-    medGroup.appendChild(btn);
+    weaknessGroup.appendChild(btn);
+    weaknessBtns.push(btn);
   }
-  medSection.appendChild(medGroup);
 
-  // Continue button
+  weaknessSection.appendChild(weaknessGroup);
+
+  // ── Continue button ──────────────────────────────────────────────────────
   const continueBtn = createButton({
     text: 'Continue',
     variant: 'primary',
     fullWidth: true,
+    disabled: true,
     onClick: () => {
+      if (!selectedWeakness) return;
       gripSessionSetup = {
         hand: selectedHand,
-        fatigue: selectedFatigue,
-        medication: selectedMed,
+        weakness: selectedWeakness,
       };
       router.navigate('#/assessment/grip_v1/instructions');
     },
   });
 
   main.appendChild(handSection);
-  main.appendChild(fatigueSection);
-  main.appendChild(medSection);
+  main.appendChild(weaknessSection);
   main.appendChild(continueBtn);
 
   container.appendChild(header);
   container.appendChild(main);
 }
+
+const style = document.createElement('style');
+style.textContent = `
+  .assessment-setup__weakness-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .assessment-setup__weakness-btn {
+    min-height: var(--tap-target-preferred);
+    padding: var(--space-3) var(--space-2);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.1s, background 0.1s;
+  }
+  .assessment-setup__weakness-btn--active {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
+  }
+`;
+document.head.appendChild(style);

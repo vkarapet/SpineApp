@@ -1,4 +1,4 @@
-import type { TugPhase, PhaseTransition } from './tug-types';
+import type { TugPhase, PhaseTransition, TugSensorConfig } from './tug-types';
 import {
   type Vec3,
   type DetectedStep,
@@ -11,27 +11,6 @@ import {
   SlidingWindowRMS,
   percentile,
 } from './tug-signal-processing';
-import {
-  TUG_GRAVITY_FILTER_ALPHA,
-  TUG_STANDUP_ACCEL_THRESHOLD,
-  TUG_STANDUP_TILT_THRESHOLD,
-  TUG_STANDUP_TILT_HOLD_MS,
-  TUG_STANDUP_MAX_DURATION_MS,
-  TUG_WALK_DISTANCE_M,
-  TUG_YAW_RATE_SMOOTH_ALPHA,
-  TUG_TURN_MIN_ANGLE,
-  TUG_TURN_EXIT_RMS_FLOOR,
-  TUG_TURN_EXIT_RMS_SCALE,
-  TUG_TURN_RMS_WINDOW_SAMPLES,
-  TUG_TURN_SETTLE_MS,
-  TUG_TURN_MAX_DURATION_MS,
-  TUG_TURN_WALK_YAW_BUFFER_SIZE,
-  TUG_SITDOWN_SPIKE_THRESHOLD,
-  TUG_SITDOWN_REST_ACCEL_TOLERANCE,
-  TUG_SITDOWN_REST_DURATION_MS,
-  TUG_SITDOWN_MAX_DURATION_MS,
-  TUG_SENSOR_UI_UPDATE_MS,
-} from '../../constants';
 
 export interface TugSensorState {
   phase: TugPhase;
@@ -59,6 +38,7 @@ export class TugSensorEngine {
   private phase: TugPhase = 'idle';
   private stepDetector = new StepDetector();
   private callbacks: TugSensorCallbacks;
+  private config: TugSensorConfig;
 
   private startTime = 0;
   private phaseStartTime = 0;
@@ -81,8 +61,8 @@ export class TugSensorEngine {
 
   // Turn detection — signed cumulative heading + adaptive thresholds
   private turnCumulativeYaw = 0;
-  private turnExitThreshold = TUG_TURN_EXIT_RMS_FLOOR;
-  private turnYawRMS = new SlidingWindowRMS(TUG_TURN_RMS_WINDOW_SAMPLES);
+  private turnExitThreshold: number;
+  private turnYawRMS: SlidingWindowRMS;
   private turnSettleSince = 0;
   private turnYawBias = 0;
 
@@ -112,8 +92,11 @@ export class TugSensorEngine {
   private lastAccelMag = 9.81;
   private lastTilt = 0;
 
-  constructor(callbacks: TugSensorCallbacks) {
+  constructor(callbacks: TugSensorCallbacks, config: TugSensorConfig) {
     this.callbacks = callbacks;
+    this.config = config;
+    this.turnExitThreshold = config.turnExitRmsFloor;
+    this.turnYawRMS = new SlidingWindowRMS(config.turnRmsWindowSamples);
   }
 
   calibrate(gravityEstimate: Vec3): void {
@@ -155,7 +138,7 @@ export class TugSensorEngine {
     };
 
     // Update gravity estimate
-    this.gravity = lowPassFilter(accelRaw, this.gravity, TUG_GRAVITY_FILTER_ALPHA);
+    this.gravity = lowPassFilter(accelRaw, this.gravity, this.config.gravityFilterAlpha);
 
     // Decompose acceleration relative to gravity
     const decomposed = decomposeAcceleration(accelRaw, this.gravity);
@@ -178,13 +161,13 @@ export class TugSensorEngine {
     this.lastEventTime = now;
 
     // EMA smoothing for informational yaw rate
-    this.smoothedYawRate = TUG_YAW_RATE_SMOOTH_ALPHA * yawRate
-      + (1 - TUG_YAW_RATE_SMOOTH_ALPHA) * this.smoothedYawRate;
+    this.smoothedYawRate = this.config.yawRateSmoothAlpha * yawRate
+      + (1 - this.config.yawRateSmoothAlpha) * this.smoothedYawRate;
     // Collect yaw rate samples during walking_out for adaptive turn thresholds
     if (this.phase === 'walking_out') {
       this.walkingYawRatesSigned.push(yawRate);
       this.walkingYawRatesAbs.push(Math.abs(yawRate));
-      if (this.walkingYawRatesSigned.length > TUG_TURN_WALK_YAW_BUFFER_SIZE) {
+      if (this.walkingYawRatesSigned.length > this.config.turnWalkYawBufferSize) {
         this.walkingYawRatesSigned.shift();
         this.walkingYawRatesAbs.shift();
       }
@@ -194,7 +177,7 @@ export class TugSensorEngine {
     this.processPhase(elapsed, decomposed.vertical, accelMag, tilt, yawRate, realDt);
 
     // Throttled UI update
-    if (now - this.lastUIUpdate >= TUG_SENSOR_UI_UPDATE_MS) {
+    if (now - this.lastUIUpdate >= this.config.sensorUiUpdateMs) {
       this.lastUIUpdate = now;
       this.callbacks.onStateUpdate(this.getState(elapsed));
     }
@@ -229,12 +212,12 @@ export class TugSensorEngine {
 
   private processStandingUp(elapsed: number, accelMag: number, tilt: number, phaseElapsed: number): void {
     // Check if acceleration exceeded threshold at some point
-    if (accelMag >= TUG_STANDUP_ACCEL_THRESHOLD) {
+    if (accelMag >= this.config.standupAccelThreshold) {
       this.standupAccelExceeded = true;
     }
 
     // Check tilt sustained
-    if (tilt >= TUG_STANDUP_TILT_THRESHOLD) {
+    if (tilt >= this.config.standupTiltThreshold) {
       if (this.standupTiltStart === 0) {
         this.standupTiltStart = elapsed;
       }
@@ -244,7 +227,7 @@ export class TugSensorEngine {
 
     const tiltSustained =
       this.standupTiltStart > 0 &&
-      (elapsed - this.standupTiltStart) >= TUG_STANDUP_TILT_HOLD_MS;
+      (elapsed - this.standupTiltStart) >= this.config.standupTiltHoldMs;
 
     // Transition: accel exceeded AND tilt sustained AND at least 1s
     if (this.standupAccelExceeded && tiltSustained && phaseElapsed >= 1000) {
@@ -253,7 +236,7 @@ export class TugSensorEngine {
     }
 
     // Safety: auto-advance at max duration
-    if (phaseElapsed >= TUG_STANDUP_MAX_DURATION_MS) {
+    if (phaseElapsed >= this.config.standupMaxDurationMs) {
       this.transitionTo('walking_out', elapsed, 'standup_timeout');
     }
   }
@@ -269,14 +252,14 @@ export class TugSensorEngine {
       this.callbacks.onStepDetected(step);
 
       // Audio cue at target distance (walking_out only)
-      if (this.phase === 'walking_out' && !this.turnCueFired && this.walkDistance >= TUG_WALK_DISTANCE_M) {
+      if (this.phase === 'walking_out' && !this.turnCueFired && this.walkDistance >= this.config.walkDistanceM) {
         this.turnCueFired = true;
         this.callbacks.onTurnCue();
       }
     }
 
     // Transition when distance reached
-    if (this.walkDistance >= TUG_WALK_DISTANCE_M) {
+    if (this.walkDistance >= this.config.walkDistanceM) {
       if (this.phase === 'walking_out') {
         this.transitionTo('turning_out', elapsed, 'walk_out_complete');
       } else {
@@ -305,7 +288,7 @@ export class TugSensorEngine {
     if (pd) pd.cumulativeYaw = Math.abs(this.turnCumulativeYaw);
 
     // Check completion: sufficient angle AND activity settled
-    const angleComplete = Math.abs(this.turnCumulativeYaw) >= TUG_TURN_MIN_ANGLE;
+    const angleComplete = Math.abs(this.turnCumulativeYaw) >= this.config.turnMinAngle;
     const activitySettled = yawRMS < this.turnExitThreshold;
 
     if (angleComplete && activitySettled) {
@@ -313,7 +296,7 @@ export class TugSensorEngine {
       if (this.turnSettleSince === 0) {
         this.turnSettleSince = elapsed;
       }
-      if ((elapsed - this.turnSettleSince) >= TUG_TURN_SETTLE_MS) {
+      if ((elapsed - this.turnSettleSince) >= this.config.turnSettleMs) {
         this.transitionTo('walking_back', elapsed, 'turn_complete');
         return;
       }
@@ -322,7 +305,7 @@ export class TugSensorEngine {
     }
 
     // Safety: force transition after max duration
-    if (phaseElapsed >= TUG_TURN_MAX_DURATION_MS) {
+    if (phaseElapsed >= this.config.turnMaxDurationMs) {
       this.transitionTo('walking_back', elapsed, 'turn_timeout');
     }
   }
@@ -340,7 +323,7 @@ export class TugSensorEngine {
     }
 
     // Safety: auto-complete at max duration
-    if (phaseElapsed >= TUG_SITDOWN_MAX_DURATION_MS) {
+    if (phaseElapsed >= this.config.sitdownMaxDurationMs) {
       this.transitionTo('complete', elapsed, 'sitdown_timeout');
       this.callbacks.onComplete(elapsed);
     }
@@ -354,7 +337,7 @@ export class TugSensorEngine {
     // Detect impact spike — record the most recent one as the sit-down moment.
     // Walking spikes won't be followed by 1.5s stillness, so only the real
     // sit-down spike will lead to confirmation.
-    if (deviation > TUG_SITDOWN_SPIKE_THRESHOLD) {
+    if (deviation > this.config.sitdownSpikeThreshold) {
       this.sitdownPhaseTriggered = true;
       this.sitdownSpikeTime = elapsed;
     }
@@ -362,9 +345,9 @@ export class TugSensorEngine {
     if (!this.sitdownPhaseTriggered) return false;
 
     // After spike, check for brief stillness
-    if (deviation < TUG_SITDOWN_REST_ACCEL_TOLERANCE) {
+    if (deviation < this.config.sitdownRestAccelTolerance) {
       if (this.restStartTime === 0) this.restStartTime = elapsed;
-      if ((elapsed - this.restStartTime) >= TUG_SITDOWN_REST_DURATION_MS) {
+      if ((elapsed - this.restStartTime) >= this.config.sitdownRestDurationMs) {
         return true;
       }
     } else {
@@ -399,7 +382,7 @@ export class TugSensorEngine {
         ? this.walkingYawRatesSigned.reduce((a, b) => a + b, 0) / this.walkingYawRatesSigned.length
         : 0;
 
-      this.turnExitThreshold = Math.max(TUG_TURN_EXIT_RMS_FLOOR, yawAbsP75 * TUG_TURN_EXIT_RMS_SCALE);
+      this.turnExitThreshold = Math.max(this.config.turnExitRmsFloor, yawAbsP75 * this.config.turnExitRmsScale);
       this.turnYawBias = signedMean; // drift correction (not walking oscillation magnitude)
 
       // Reset turn integration state
@@ -441,9 +424,9 @@ export class TugSensorEngine {
       elapsedMs: elapsed,
       steps: isWalking ? this.walkSteps : 0,
       distance: isWalking ? this.walkDistance : 0,
-      targetDistance: TUG_WALK_DISTANCE_M,
+      targetDistance: this.config.walkDistanceM,
       cumulativeYaw: isTurning ? Math.abs(this.turnCumulativeYaw) : 0,
-      targetYaw: TUG_TURN_MIN_ANGLE,
+      targetYaw: this.config.turnMinAngle,
       tilt: this.lastTilt,
       accelMagnitude: this.lastAccelMag,
     };

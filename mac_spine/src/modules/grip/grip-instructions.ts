@@ -18,33 +18,6 @@ export function renderGripInstructions(container: HTMLElement): void {
 
   const title = createElement('h1', { textContent: 'Grip & Release Test' });
 
-  const body = createElement('div', { className: 'assessment-instructions__body' });
-  body.innerHTML = `
-    <p>Grip the phone with 3+ fingers, release fully, and repeat as fast as you can for 10 seconds.</p>
-    <ul class="grip-instructions__steps">
-      <li>Rest the phone in your palm, screen up, hand on a flat surface</li>
-      <li>Curl your fingers onto the screen to grip</li>
-      <li>Open your fingers completely before each new grip</li>
-    </ul>
-  `;
-
-  // Animated diagram — alternates between open and grip images every 1s
-  const diagram = createElement('div', { className: 'grip-instructions__diagram' });
-  diagram.setAttribute('aria-label', 'Animation showing a hand gripping and releasing a phone');
-  const base = import.meta.env.BASE_URL;
-  diagram.innerHTML = `
-    <div class="grip-instructions__img-container">
-      <img class="grip-instructions__img grip-instructions__img--open"
-           src="${base}images/grip-open.png"
-           alt="Hand open with fingers extended above phone"
-           width="256" height="256" />
-      <img class="grip-instructions__img grip-instructions__img--grip"
-           src="${base}images/grip-closed.png"
-           alt="Hand gripping phone with fingers curled onto screen"
-           width="256" height="256" />
-    </div>
-  `;
-
   const practiceBtn = createButton({
     text: 'Practice',
     variant: 'secondary',
@@ -73,21 +46,54 @@ export function renderGripInstructions(container: HTMLElement): void {
     },
   });
 
-  const actions = createElement('div', { className: 'assessment-instructions__actions' });
-  actions.appendChild(practiceBtn);
-  actions.appendChild(readyBtn);
-
   const cancelBtn = createButton({
     text: 'Cancel',
     variant: 'text',
     onClick: () => router.navigate('#/menu'),
   });
 
+  const actions = createElement('div', { className: 'assessment-instructions__actions' });
+  actions.appendChild(practiceBtn);
+  actions.appendChild(readyBtn);
+  actions.appendChild(cancelBtn);
+
+  const instructionsLabel = createElement('h2', {
+    className: 'grip-instructions__section-label',
+    textContent: 'Instructions',
+  });
+
+  const body = createElement('div', { className: 'assessment-instructions__body' });
+  body.innerHTML = `
+    <p>Grip the phone with 3+ fingers, release fully, and repeat as fast as you can for 10 seconds.</p>
+    <ul class="grip-instructions__steps">
+      <li>Rest the phone in your palm, screen up, hand on a flat surface</li>
+      <li>Curl your fingers onto the screen to grip</li>
+      <li><strong>Open your fingers completely</strong> before each new grip</li>
+    </ul>
+  `;
+
+  // Animated diagram — alternates between open and grip images every 1s
+  const diagram = createElement('div', { className: 'grip-instructions__diagram' });
+  diagram.setAttribute('aria-label', 'Animation showing a hand gripping and releasing a phone');
+  const base = import.meta.env.BASE_URL;
+  diagram.innerHTML = `
+    <div class="grip-instructions__img-container">
+      <img class="grip-instructions__img grip-instructions__img--open"
+           src="${base}images/grip-open.png"
+           alt="Hand open with fingers extended above phone"
+           width="256" height="256" />
+      <img class="grip-instructions__img grip-instructions__img--grip"
+           src="${base}images/grip-closed.png"
+           alt="Hand gripping phone with fingers curled onto screen"
+           width="256" height="256" />
+    </div>
+  `;
+
   wrapper.appendChild(title);
+  wrapper.appendChild(actions);
+  wrapper.appendChild(instructionsLabel);
   wrapper.appendChild(body);
   wrapper.appendChild(diagram);
-  wrapper.appendChild(actions);
-  wrapper.appendChild(cancelBtn);
   container.appendChild(wrapper);
 }
 
@@ -117,6 +123,15 @@ function renderScreenReaderGate(container: HTMLElement): void {
 
 const style = document.createElement('style');
 style.textContent = `
+  .grip-instructions__section-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-secondary);
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-3);
+  }
   .grip-instructions__steps {
     list-style: none;
     padding: 0;

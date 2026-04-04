@@ -6,8 +6,6 @@ import type { TugSessionSetup } from './tug-types';
 
 export let tugSessionSetup: TugSessionSetup = {
   walkingAid: 'none',
-  fatigue: null,
-  medication: null,
 };
 
 export function renderTugSetup(container: HTMLElement): void {
@@ -21,6 +19,11 @@ export function renderTugSetup(container: HTMLElement): void {
 
   const main = createElement('main', { className: 'assessment-setup' });
   main.setAttribute('role', 'main');
+
+  // Space requirement notice
+  const notice = createElement('p', { className: 'assessment-setup__notice' });
+  notice.textContent = 'Please ensure you have a chair, and at least 3 metres of space to complete this test.';
+  main.appendChild(notice);
 
   // Walking aid selection
   const aidSection = createElement('section', { className: 'assessment-setup__section' });
@@ -38,7 +41,6 @@ export function renderTugSetup(container: HTMLElement): void {
     { label: 'None', value: 'none' },
     { label: 'Cane', value: 'cane' },
     { label: 'Walker', value: 'walker' },
-    { label: 'Other', value: 'other' },
   ];
 
   const aidButtons: HTMLButtonElement[] = [];
@@ -63,95 +65,18 @@ export function renderTugSetup(container: HTMLElement): void {
   }
   aidSection.appendChild(aidGroup);
 
-  // Fatigue rating
-  const fatigueSection = createElement('section', { className: 'assessment-setup__section' });
-  fatigueSection.appendChild(
-    createElement('h2', { textContent: 'How are you feeling right now?' }),
-  );
-  fatigueSection.appendChild(
-    createElement('p', {
-      className: 'assessment-setup__optional',
-      textContent: '(Optional)',
-    }),
-  );
-
-  const fatigueGroup = createElement('div', { className: 'assessment-setup__scale' });
-  let selectedFatigue: number | null = null;
-
-  for (let i = 1; i <= 5; i++) {
-    const labels = ['Very Tired', 'Tired', 'Neutral', 'Alert', 'Very Alert'];
-    const btn = createElement('button', {
-      className: 'assessment-setup__scale-btn',
-      textContent: String(i),
-      'aria-label': labels[i - 1],
-    });
-    btn.addEventListener('click', () => {
-      selectedFatigue = i;
-      fatigueGroup.querySelectorAll('.assessment-setup__scale-btn').forEach((b) => {
-        b.classList.remove('assessment-setup__scale-btn--active');
-      });
-      btn.classList.add('assessment-setup__scale-btn--active');
-    });
-    fatigueGroup.appendChild(btn);
-  }
-
-  const fatigueLabels = createElement('div', { className: 'assessment-setup__scale-labels' });
-  fatigueLabels.appendChild(createElement('span', { textContent: 'Very Tired' }));
-  fatigueLabels.appendChild(createElement('span', { textContent: 'Very Alert' }));
-
-  fatigueSection.appendChild(fatigueGroup);
-  fatigueSection.appendChild(fatigueLabels);
-
-  // Medication
-  const medSection = createElement('section', { className: 'assessment-setup__section' });
-  medSection.appendChild(
-    createElement('h2', { textContent: 'Have you taken your medication today?' }),
-  );
-  medSection.appendChild(
-    createElement('p', { className: 'assessment-setup__optional', textContent: '(Optional)' }),
-  );
-
-  const medGroup = createElement('div', { className: 'assessment-setup__med-group' });
-  let selectedMed: boolean | null = null;
-
-  for (const opt of [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false },
-    { label: 'N/A', value: null },
-  ] as const) {
-    const btn = createElement('button', {
-      className: 'assessment-setup__med-btn',
-      textContent: opt.label,
-    });
-    btn.addEventListener('click', () => {
-      selectedMed = opt.value;
-      medGroup.querySelectorAll('.assessment-setup__med-btn').forEach((b) => {
-        b.classList.remove('assessment-setup__med-btn--active');
-      });
-      btn.classList.add('assessment-setup__med-btn--active');
-    });
-    medGroup.appendChild(btn);
-  }
-  medSection.appendChild(medGroup);
-
   // Continue button
   const continueBtn = createButton({
     text: 'Continue',
     variant: 'primary',
     fullWidth: true,
     onClick: () => {
-      tugSessionSetup = {
-        walkingAid: selectedAid,
-        fatigue: selectedFatigue,
-        medication: selectedMed,
-      };
+      tugSessionSetup = { walkingAid: selectedAid };
       router.navigate('#/assessment/tug_v1/instructions');
     },
   });
 
   main.appendChild(aidSection);
-  main.appendChild(fatigueSection);
-  main.appendChild(medSection);
   main.appendChild(continueBtn);
 
   container.appendChild(header);

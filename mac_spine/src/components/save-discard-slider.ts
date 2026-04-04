@@ -2,7 +2,14 @@ import { createElement } from '../utils/dom';
 
 export interface SaveDiscardSliderConfig {
   onSave: () => void;
-  onDiscard: () => void;
+  /** Called with the confirmed reason string once the user completes the discard dialog. */
+  onDiscard: (reason: string) => void;
+  /**
+   * Called when the user pulls the slider to the discard side.
+   * Show a confirmation/reason dialog here.
+   * Return the reason string to proceed with discard, or null to cancel (slider snaps back).
+   */
+  requestDiscardReason: () => Promise<string | null>;
 }
 
 export function createSaveDiscardSlider(config: SaveDiscardSliderConfig): HTMLElement {
@@ -145,7 +152,15 @@ export function createSaveDiscardSlider(config: SaveDiscardSliderConfig): HTMLEl
     updateVisuals(normalized);
   };
 
-  const onPointerUp = (_e: PointerEvent) => {
+  function snapToCenter(): void {
+    const { centerX } = getTrackBounds();
+    thumb.style.transition = 'left 0.2s ease-out';
+    setThumbPosition(centerX);
+    updateVisuals(0);
+    setTimeout(() => { thumb.style.transition = ''; }, 200);
+  }
+
+  const onPointerUp = async (_e: PointerEvent) => {
     if (!dragging || committed) return;
     dragging = false;
     thumb.classList.remove('sds__thumb--active');
@@ -158,21 +173,33 @@ export function createSaveDiscardSlider(config: SaveDiscardSliderConfig): HTMLEl
       commitResult('save');
       config.onSave();
     } else if (normalized <= -0.7) {
-      commitResult('discard');
-      config.onDiscard();
+      // Lock slider interactions while the modal is shown
+      committed = true;
+      const reason = await config.requestDiscardReason();
+      if (reason === null) {
+        // User cancelled — reset slider
+        committed = false;
+        snapToCenter();
+      } else {
+        commitResult('discard');
+        config.onDiscard(reason);
+      }
     } else {
-      // Snap back to center
-      thumb.style.transition = 'left 0.2s ease-out';
-      setThumbPosition(centerX);
-      updateVisuals(0);
-      setTimeout(() => { thumb.style.transition = ''; }, 200);
+      snapToCenter();
     }
+  };
+
+  const onPointerCancel = (_e: PointerEvent) => {
+    if (!dragging || committed) return;
+    dragging = false;
+    thumb.classList.remove('sds__thumb--active');
+    snapToCenter();
   };
 
   track.addEventListener('pointerdown', onPointerDown);
   track.addEventListener('pointermove', onPointerMove);
   track.addEventListener('pointerup', onPointerUp);
-  track.addEventListener('pointercancel', onPointerUp);
+  track.addEventListener('pointercancel', onPointerCancel);
 
   return container;
 }

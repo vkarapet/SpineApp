@@ -12,8 +12,7 @@ export interface GripCycle {
 
 export interface GripSessionState {
   hand: 'left' | 'right';
-  fatigue: number | null;
-  medication: boolean | null;
+  weakness: 'none' | 'mild' | 'moderate' | 'severe' | null;
   startTime: number;
   sessionStartISO: string;
 }

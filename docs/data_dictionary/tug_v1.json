@@ -1,0 +1,304 @@
+{
+  "module": "tug_v1",
+  "name": "Timed Up & Go",
+  "redcap_instrument": "tug_task",
+  "description": "Standard Timed Up & Go (TUG) test with sensor-augmented phase detection. Participant places phone in front trouser pocket. The app auto-detects: stand-up, walk out, turn, walk back, turn, sit-down. A manual helper mode is available if motion permission is denied.",
+  "note": "Field names in 'redcap_field' reflect the recommended REDCap data dictionary names. The current field-maps.ts uses shorter shared names (e.g. 'local_uuid', 'device_os') that will conflict when both instruments are imported into REDCap. Update field-maps.ts to use the prefixed names below before connecting to the live REDCap project.",
+  "fields": [
+    {
+      "local_key": "local_uuid",
+      "redcap_field": "tug_local_uuid",
+      "current_code_field": "local_uuid",
+      "type": "string (UUID v4)",
+      "example": "b9e1d4f3-22a7-4c81-9d3e-5f7b08c12a90",
+      "description": "Unique identifier for this session. Used for deduplication on re-sync."
+    },
+    {
+      "local_key": "timestamp_start",
+      "redcap_field": "tug_timestamp",
+      "current_code_field": "tug_timestamp",
+      "type": "string (ISO 8601)",
+      "example": "2025-01-15T14:45:00.456Z",
+      "description": "UTC timestamp of when the test began (when the first 'start' timer event fired)."
+    },
+    {
+      "local_key": "computed_metrics.duration_actual_ms",
+      "redcap_field": "tug_duration",
+      "current_code_field": "tug_duration",
+      "type": "number",
+      "unit": "milliseconds",
+      "example": 18342,
+      "description": "Total duration of the sensor recording session, from first to last event."
+    },
+    {
+      "local_key": "computed_metrics.tug_time_s",
+      "redcap_field": "tug_time",
+      "current_code_field": "tug_time",
+      "type": "number",
+      "unit": "seconds",
+      "example": 11.4,
+      "description": "Clinical TUG time: total time from stand-up to sit-down in seconds. Primary performance metric. Lower = faster. Clinical thresholds: <10s normal, 10–20s variable, >20s high fall risk.",
+      "primary_metric": true
+    },
+    {
+      "local_key": "computed_metrics.total_steps",
+      "redcap_field": "tug_total_steps",
+      "current_code_field": "tug_total_steps",
+      "type": "integer | null",
+      "unit": "steps",
+      "example": 16,
+      "description": "Total step count across the full test (walk-out + walk-back). Null if sensor data unavailable (manual mode)."
+    },
+    {
+      "local_key": "computed_metrics.total_distance_m",
+      "redcap_field": "tug_total_distance",
+      "current_code_field": "tug_total_distance",
+      "type": "number | null",
+      "unit": "metres",
+      "example": 5.84,
+      "description": "Total estimated distance walked. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.avg_stride_length_m",
+      "redcap_field": "tug_avg_stride",
+      "current_code_field": "tug_avg_stride",
+      "type": "number | null",
+      "unit": "metres",
+      "example": 0.73,
+      "description": "Average stride length across the test. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.walk_out_steps",
+      "redcap_field": "tug_walk_out_steps",
+      "current_code_field": "tug_walk_out_steps",
+      "type": "integer | null",
+      "unit": "steps",
+      "example": 8,
+      "description": "Step count during walk-out phase (stand to cone). Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.walk_out_distance_m",
+      "redcap_field": "tug_walk_out_distance",
+      "current_code_field": "tug_walk_out_distance",
+      "type": "number | null",
+      "unit": "metres",
+      "example": 3.05,
+      "description": "Estimated distance during walk-out phase. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.walk_out_duration_ms",
+      "redcap_field": "tug_walk_out_duration",
+      "current_code_field": "tug_walk_out_duration",
+      "type": "number | null",
+      "unit": "milliseconds",
+      "example": 4200,
+      "description": "Duration of walk-out phase. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.walk_back_steps",
+      "redcap_field": "tug_walk_back_steps",
+      "current_code_field": "tug_walk_back_steps",
+      "type": "integer | null",
+      "unit": "steps",
+      "example": 8,
+      "description": "Step count during walk-back phase (cone to chair). Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.walk_back_distance_m",
+      "redcap_field": "tug_walk_back_distance",
+      "current_code_field": "tug_walk_back_distance",
+      "type": "number | null",
+      "unit": "metres",
+      "example": 2.97,
+      "description": "Estimated distance during walk-back phase. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.walk_back_duration_ms",
+      "redcap_field": "tug_walk_back_duration",
+      "current_code_field": "tug_walk_back_duration",
+      "type": "number | null",
+      "unit": "milliseconds",
+      "example": 4600,
+      "description": "Duration of walk-back phase. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.turn_out_yaw_deg",
+      "redcap_field": "tug_turn_out_yaw",
+      "current_code_field": "tug_turn_out_yaw",
+      "type": "number | null",
+      "unit": "degrees",
+      "example": 172.4,
+      "description": "Total yaw rotation during the outward turn (at the cone). Should be approximately 180°. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.turn_out_duration_ms",
+      "redcap_field": "tug_turn_out_duration",
+      "current_code_field": "tug_turn_out_duration",
+      "type": "number | null",
+      "unit": "milliseconds",
+      "example": 1100,
+      "description": "Duration of the outward turn at the cone. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.turn_sit_yaw_deg",
+      "redcap_field": "tug_turn_sit_yaw",
+      "current_code_field": "tug_turn_sit_yaw",
+      "type": "number | null",
+      "unit": "degrees",
+      "example": 168.9,
+      "description": "Total yaw rotation during the final turn before sitting. Should be approximately 180°. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.turn_sit_duration_ms",
+      "redcap_field": "tug_turn_sit_duration",
+      "current_code_field": "tug_turn_sit_duration",
+      "type": "number | null",
+      "unit": "milliseconds",
+      "example": 1050,
+      "description": "Duration of the final sit-down turn. Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.standup_duration_ms",
+      "redcap_field": "tug_standup_duration",
+      "current_code_field": "tug_standup_duration",
+      "type": "number | null",
+      "unit": "milliseconds",
+      "example": 1800,
+      "description": "Duration of the stand-up phase (rising from chair). Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.sitdown_duration_ms",
+      "redcap_field": "tug_sitdown_duration",
+      "current_code_field": "tug_sitdown_duration",
+      "type": "number | null",
+      "unit": "milliseconds",
+      "example": 1650,
+      "description": "Duration of the sit-down phase (lowering into chair). Null if sensor data unavailable."
+    },
+    {
+      "local_key": "computed_metrics.phases_completed",
+      "redcap_field": "tug_phases_completed",
+      "current_code_field": "tug_phases_completed",
+      "type": "integer | null",
+      "range": "0–6",
+      "values": {
+        "0": "No phases detected (manual mode or failed detection)",
+        "1": "Stand-up only",
+        "2": "Stand-up + walk-out",
+        "3": "Stand-up + walk-out + turn-out",
+        "4": "Stand-up + walk-out + turn-out + walk-back",
+        "5": "Stand-up + walk-out + turn-out + walk-back + turn-sit",
+        "6": "All phases: stand-up, walk-out, turn-out, walk-back, turn-sit, sit-down"
+      },
+      "example": 6,
+      "description": "Number of TUG phases successfully detected by sensor analysis. 6 = complete automatic detection. 0 = manual mode (only tug_time is reliable)."
+    },
+    {
+      "local_key": "session_metadata.fatigue_rating",
+      "redcap_field": "tug_fatigue",
+      "current_code_field": "tug_fatigue",
+      "type": "integer | null",
+      "range": "1–5",
+      "values": {
+        "1": "Very well",
+        "2": "Better than usual",
+        "3": "Neutral",
+        "4": "More fatigued than usual",
+        "5": "Very fatigued"
+      },
+      "example": 2,
+      "description": "Self-reported fatigue level at the time of assessment. Null if not answered."
+    },
+    {
+      "local_key": "session_metadata.medication_taken",
+      "redcap_field": "tug_medication",
+      "current_code_field": "tug_medication",
+      "type": "boolean | null",
+      "values": {
+        "true": "Yes — medication taken",
+        "false": "No — medication not taken",
+        "null": "Not answered"
+      },
+      "example": true,
+      "description": "Whether the participant had taken their medication on the day of assessment. May be null if skipped."
+    },
+    {
+      "local_key": "session_metadata.walking_aid",
+      "redcap_field": "tug_walking_aid",
+      "current_code_field": "tug_walking_aid",
+      "type": "string (categorical)",
+      "values": ["none", "cane", "walker", "other"],
+      "example": "none",
+      "description": "Walking aid used during the TUG test. Selected by participant in setup screen."
+    },
+    {
+      "local_key": "flagged",
+      "redcap_field": "tug_flagged",
+      "current_code_field": "tug_flagged",
+      "type": "boolean",
+      "example": false,
+      "description": "Whether this session was flagged as potentially unreliable on the results screen."
+    },
+    {
+      "local_key": "flag_reason",
+      "redcap_field": "tug_flag_reason",
+      "current_code_field": "tug_flag_reason",
+      "type": "string | null",
+      "example": "Phone fell out of pocket mid-test",
+      "description": "Free-text reason provided when session is flagged. Null if not flagged."
+    },
+    {
+      "local_key": "raw_data",
+      "redcap_field": "tug_raw_json",
+      "current_code_field": "tug_raw_json",
+      "type": "JSON string (array of RawMotionEvent | RawTimerEvent)",
+      "description": "Full raw sensor and timer event stream, serialised as JSON. Motion events: { kind: 'motion', t: number (ms), ax, ay, az (m/s²), gx, gy, gz (rad/s) }. Timer events: { kind: 'timer', t: number (ms), event: 'start'|'stop'|'lap', source: 'manual'|'sensor' }.",
+      "example": "[{\"kind\":\"timer\",\"t\":0,\"event\":\"start\",\"source\":\"sensor\"},{\"kind\":\"motion\",\"t\":12,\"ax\":0.1,\"ay\":9.7,\"az\":0.3,\"gx\":0.01,\"gy\":0.02,\"gz\":0.0}, ...]"
+    },
+    {
+      "local_key": "checksum",
+      "redcap_field": "tug_checksum",
+      "current_code_field": "tug_checksum",
+      "type": "string (SHA-256 hex)",
+      "example": "9d2e4a1f...",
+      "description": "SHA-256 checksum of the raw_data array for integrity verification."
+    },
+    {
+      "local_key": "session_metadata.device_os",
+      "redcap_field": "tug_device_os",
+      "current_code_field": "device_os",
+      "type": "string",
+      "example": "Android 14",
+      "description": "Operating system and version of the device."
+    },
+    {
+      "local_key": "session_metadata.screen_width_px",
+      "redcap_field": "tug_screen_width",
+      "current_code_field": "screen_width",
+      "type": "integer",
+      "unit": "pixels",
+      "example": 412,
+      "description": "Screen (viewport) width at time of assessment."
+    },
+    {
+      "local_key": "session_metadata.screen_height_px",
+      "redcap_field": "tug_screen_height",
+      "current_code_field": "screen_height",
+      "type": "integer",
+      "unit": "pixels",
+      "example": 915,
+      "description": "Screen (viewport) height at time of assessment."
+    },
+    {
+      "local_key": "session_metadata.app_version",
+      "redcap_field": "tug_app_version",
+      "current_code_field": "app_version",
+      "type": "string (semver)",
+      "example": "1.2.0",
+      "description": "Version of the MAC Spine app that recorded the session."
+    }
+  ],
+  "redcap_linking_field": "record_id",
+  "redcap_repeat_instrument": "tug_task",
+  "redcap_repeat_instance": "new (auto-incremented)"
+}

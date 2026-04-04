@@ -13,7 +13,6 @@ const WALKING_AID_LABELS: Record<string, string> = {
   none: 'no aid',
   cane: 'cane',
   walker: 'walker',
-  other: 'other aid',
 };
 
 export const tugModule: AssessmentModule = {
@@ -41,6 +40,7 @@ export const tugModule: AssessmentModule = {
       'session_metadata.fatigue_rating': 'tug_fatigue',
       'session_metadata.medication_taken': 'tug_medication',
       'session_metadata.walking_aid': 'tug_walking_aid',
+      'session_metadata.phone_placement': 'tug_phone_placement',
       flagged: 'tug_flagged',
       flag_reason: 'tug_flag_reason',
       raw_data: 'tug_raw_json',
@@ -126,7 +126,6 @@ export const tugModule: AssessmentModule = {
           { value: 'none', label: 'None' },
           { value: 'cane', label: 'Cane' },
           { value: 'walker', label: 'Walker' },
-          { value: 'other', label: 'Other' },
         ],
       },
       {

@@ -1,10 +1,24 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { createSaveDiscardSlider } from '../../components/save-discard-slider';
-import { getAllResults, saveResult, deleteResult, addAuditEntry } from '../../core/db';
+import { showDiscardDialog } from '../../components/discard-dialog';
+import { getAllResults, saveResult, addAuditEntry } from '../../core/db';
 import { getRhythmLabel } from './grip-metrics';
 import { lastGripResult } from './grip-active';
 import { router } from '../../main';
+import type { AssessmentResult } from '../../types/db-schemas';
+
+const MAX_DAILY_DISCARDS = 2;
+
+function countTodayDiscards(results: AssessmentResult[], taskPrefix: string): number {
+  const todayStr = new Date().toLocaleDateString();
+  return results.filter(
+    (r) =>
+      r.task_type.startsWith(taskPrefix) &&
+      r.status === 'discarded' &&
+      new Date(r.timestamp_start).toLocaleDateString() === todayStr,
+  ).length;
+}
 
 export async function renderGripResults(container: HTMLElement): Promise<void> {
   clearContainer(container);
@@ -16,6 +30,10 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
 
   const result = lastGripResult;
   const m = result.computed_metrics;
+
+  const allResults = await getAllResults();
+  const todayDiscards = countTodayDiscards(allResults, 'grip');
+  const discardLimitReached = todayDiscards >= MAX_DAILY_DISCARDS;
 
   const wrapper = createElement('main', { className: 'assessment-results' });
   wrapper.setAttribute('role', 'main');
@@ -40,7 +58,6 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
   metricsSection.appendChild(createMetricCard('Rhythm consistency', rhythmLabel));
 
   // Comparison with previous grip sessions
-  const allResults = await getAllResults();
   const previousResults = allResults
     .filter(
       (r) =>
@@ -72,55 +89,6 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
     metricsSection.appendChild(comparison);
   }
 
-  // Save/discard slider
-  const syncStatus = createElement('div', {
-    className: 'assessment-results__sync',
-    'aria-live': 'polite',
-  });
-  syncStatus.style.display = 'none';
-
-  const slider = createSaveDiscardSlider({
-    onSave: async () => {
-      result.status = result.flagged ? 'flagged' : 'complete';
-      await saveResult(result);
-      await addAuditEntry({
-        action: 'assessment_completed',
-        entity_id: result.local_uuid,
-        details: { task_type: 'grip_v1', grip_count: m.tap_count, decision: 'saved' },
-      });
-      homeBtn.disabled = false;
-      homeBtn.classList.remove('btn--disabled');
-      againBtn.disabled = false;
-      againBtn.classList.remove('btn--disabled');
-      syncStatus.style.display = '';
-      syncStatus.textContent = navigator.onLine ? 'Saved. Syncing...' : 'Saved locally. Will sync when online.';
-      if (navigator.onLine) {
-        import('../../services/sync-service')
-          .then((mod) => mod.triggerSync())
-          .then(async () => {
-            const { getResult } = await import('../../core/db');
-            const updated = await getResult(result.local_uuid);
-            syncStatus.textContent = updated?.synced ? 'Synced!' : 'Saved locally. Sync pending.';
-          })
-          .catch(() => { syncStatus.textContent = 'Saved locally. Sync pending.'; });
-      }
-    },
-    onDiscard: async () => {
-      await deleteResult(result.local_uuid);
-      await addAuditEntry({
-        action: 'assessment_flagged',
-        entity_id: result.local_uuid,
-        details: { task_type: 'grip_v1', decision: 'discarded' },
-      });
-      homeBtn.disabled = false;
-      homeBtn.classList.remove('btn--disabled');
-      againBtn.disabled = false;
-      againBtn.classList.remove('btn--disabled');
-      syncStatus.style.display = '';
-      syncStatus.textContent = 'Result discarded.';
-    },
-  });
-
   // Actions — disabled until save/discard decision
   const homeBtn = createButton({
     text: 'Return to Home',
@@ -138,13 +106,104 @@ export async function renderGripResults(container: HTMLElement): Promise<void> {
     onClick: () => router.navigate('#/assessment/grip_v1/setup'),
   });
 
+  const syncStatus = createElement('div', {
+    className: 'assessment-results__sync',
+    'aria-live': 'polite',
+  });
+  syncStatus.style.display = 'none';
+
+  function enableNavigation(): void {
+    homeBtn.disabled = false;
+    homeBtn.classList.remove('btn--disabled');
+    againBtn.disabled = false;
+    againBtn.classList.remove('btn--disabled');
+  }
+
+  async function doSave(): Promise<void> {
+    result.status = result.flagged ? 'flagged' : 'complete';
+    await saveResult(result);
+    await addAuditEntry({
+      action: 'assessment_completed',
+      entity_id: result.local_uuid,
+      details: { task_type: 'grip_v1', grip_count: m.tap_count, decision: 'saved' },
+    });
+    enableNavigation();
+    syncStatus.style.display = '';
+    syncStatus.textContent = navigator.onLine ? 'Saved. Syncing…' : 'Saved locally. Will sync when online.';
+    if (navigator.onLine) {
+      import('../../services/sync-service')
+        .then((mod) => mod.triggerSync())
+        .then(async () => {
+          const { getResult } = await import('../../core/db');
+          const updated = await getResult(result.local_uuid);
+          syncStatus.textContent = updated?.synced ? 'Synced!' : 'Saved locally. Sync pending.';
+        })
+        .catch(() => { syncStatus.textContent = 'Saved locally. Sync pending.'; });
+    }
+  }
+
+  async function doDiscard(reason: string): Promise<void> {
+    result.status = 'discarded';
+    result.flagged = true;
+    result.flag_reason = reason;
+    await saveResult(result);
+    await addAuditEntry({
+      action: 'assessment_flagged',
+      entity_id: result.local_uuid,
+      details: { task_type: 'grip_v1', decision: 'discarded', reason },
+    });
+    enableNavigation();
+    syncStatus.style.display = '';
+    syncStatus.textContent = navigator.onLine ? 'Discarded. Syncing…' : 'Discarded. Will sync when online.';
+    if (navigator.onLine) {
+      import('../../services/sync-service')
+        .then((mod) => mod.triggerSync())
+        .then(async () => {
+          const { getResult } = await import('../../core/db');
+          const updated = await getResult(result.local_uuid);
+          syncStatus.textContent = updated?.synced ? 'Discarded and synced.' : 'Discarded. Sync pending.';
+        })
+        .catch(() => { syncStatus.textContent = 'Discarded. Sync pending.'; });
+    }
+  }
+
   wrapper.appendChild(header);
   wrapper.appendChild(metricsSection);
-  wrapper.appendChild(slider);
-  wrapper.appendChild(syncStatus);
-  wrapper.appendChild(homeBtn);
-  wrapper.appendChild(againBtn);
-  container.appendChild(wrapper);
+
+  if (discardLimitReached) {
+    // Auto-save — no slider
+    const banner = createElement('div', {
+      className: 'assessment-results__discard-limit-banner',
+      textContent: `Daily discard limit reached (${MAX_DAILY_DISCARDS}/${MAX_DAILY_DISCARDS}) — session saved automatically.`,
+    });
+    wrapper.appendChild(banner);
+    wrapper.appendChild(syncStatus);
+    wrapper.appendChild(homeBtn);
+    wrapper.appendChild(againBtn);
+    container.appendChild(wrapper);
+    await doSave();
+  } else {
+    // Show discard counter if any discards used today
+    if (todayDiscards > 0) {
+      const counter = createElement('div', {
+        className: 'assessment-results__discard-counter',
+        textContent: `Discards used today: ${todayDiscards} / ${MAX_DAILY_DISCARDS}`,
+      });
+      wrapper.appendChild(counter);
+    }
+
+    const slider = createSaveDiscardSlider({
+      onSave: doSave,
+      onDiscard: doDiscard,
+      requestDiscardReason: showDiscardDialog,
+    });
+
+    wrapper.appendChild(slider);
+    wrapper.appendChild(syncStatus);
+    wrapper.appendChild(homeBtn);
+    wrapper.appendChild(againBtn);
+    container.appendChild(wrapper);
+  }
 }
 
 function createMetricCard(label: string, value: string): HTMLElement {

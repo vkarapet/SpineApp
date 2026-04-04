@@ -512,8 +512,8 @@ Measure functional mobility using the phone's accelerometer and gyroscope to aut
 
 #### API Client
 - **Endpoint:** `POST /api/proxy`
-- **Authentication:** HMAC-SHA256 signature of `(action + record_id + timestamp)` sent in `X-Request-Signature` header
-- **Actions:** `upload_data`, `upload_registration`, `delete_data`
+- **Authentication:** HMAC-SHA256 signature of `(action + record_id)` sent in `X-Request-Signature` header
+- **Actions:** `upload_data`
 - **Clock drift detection:** Compares `Date` response header with local time; warns if drift > 60 seconds
 
 #### Retry Logic

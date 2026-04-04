@@ -3,8 +3,8 @@ import type { ComputedMetrics, RawEvent } from './assessment';
 export interface UserPreferences {
   audio_enabled: boolean;
   haptic_enabled: boolean;
-  dominant_hand: 'left' | 'right';
   reminder_frequency: 'daily' | 'every_2_days' | 'weekly' | 'off';
+  tug_phone_mode?: 'pocket' | 'hand';
 }
 
 export interface UserProfile {
@@ -26,9 +26,9 @@ export interface UserProfile {
 
 export interface SessionMetadata {
   hand_used: 'left' | 'right' | 'n/a';
-  dominant_hand: 'left' | 'right';
   fatigue_rating: number | null;
   medication_taken: boolean | null;
+  hand_weakness?: 'none' | 'mild' | 'moderate' | 'severe' | null;
   screen_width_px: number;
   screen_height_px: number;
   target_radius_px: number;
@@ -36,6 +36,7 @@ export interface SessionMetadata {
   browser: string;
   app_version: string;
   walking_aid?: 'none' | 'cane' | 'walker' | 'other';
+  phone_placement?: 'pocket' | 'hand';
 }
 
 export interface AssessmentResult {
@@ -43,7 +44,7 @@ export interface AssessmentResult {
   participant_id: string;
   timestamp_start: string;
   task_type: string;
-  status: 'in_progress' | 'complete' | 'flagged';
+  status: 'in_progress' | 'complete' | 'flagged' | 'discarded';
   session_metadata: SessionMetadata;
   raw_data: RawEvent[];
   computed_metrics: ComputedMetrics;

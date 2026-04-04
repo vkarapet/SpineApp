@@ -1,0 +1,174 @@
+{
+  "module": "grip_v1",
+  "name": "Grip & Release Test",
+  "redcap_instrument": "grip_task",
+  "description": "10-second test measuring grip cycle speed, rhythm, and coordination. The participant holds the phone in their palm and repeatedly grips and releases using 3+ fingers.",
+  "note": "Field names in 'redcap_field' reflect the recommended REDCap data dictionary names. The current field-maps.ts uses shorter shared names (e.g. 'local_uuid', 'device_os') that will conflict when both instruments are imported into REDCap. Update field-maps.ts to use the prefixed names below before connecting to the live REDCap project.",
+  "fields": [
+    {
+      "local_key": "local_uuid",
+      "redcap_field": "grip_local_uuid",
+      "current_code_field": "local_uuid",
+      "type": "string (UUID v4)",
+      "example": "a3f8c2d1-74b9-4e12-b8f0-1c9e23a45d67",
+      "description": "Unique identifier for this session. Used for deduplication on re-sync."
+    },
+    {
+      "local_key": "timestamp_start",
+      "redcap_field": "grip_timestamp",
+      "current_code_field": "grip_timestamp",
+      "type": "string (ISO 8601)",
+      "example": "2025-01-15T14:30:00.123Z",
+      "description": "UTC timestamp of when the test began."
+    },
+    {
+      "local_key": "computed_metrics.duration_actual_ms",
+      "redcap_field": "grip_duration",
+      "current_code_field": "grip_duration",
+      "type": "number",
+      "unit": "milliseconds",
+      "example": 10042,
+      "description": "Actual recorded duration of the test. Should be approximately 10000 ms."
+    },
+    {
+      "local_key": "computed_metrics.tap_count",
+      "redcap_field": "grip_count",
+      "current_code_field": "grip_count",
+      "type": "integer",
+      "unit": "grip cycles",
+      "example": 28,
+      "description": "Number of complete grip-and-release cycles recorded during the test."
+    },
+    {
+      "local_key": "computed_metrics.frequency_hz",
+      "redcap_field": "grip_freq",
+      "current_code_field": "grip_freq",
+      "type": "number",
+      "unit": "Hz",
+      "example": 2.79,
+      "description": "Grip cycles per second. Primary performance metric. Higher = faster.",
+      "primary_metric": true
+    },
+    {
+      "local_key": "computed_metrics.rhythm_cv",
+      "redcap_field": "grip_regularity",
+      "current_code_field": "grip_regularity",
+      "type": "number",
+      "unit": "coefficient of variation (%)",
+      "example": 14.2,
+      "description": "Coefficient of variation of inter-grip intervals. Lower = more regular rhythm. Expressed as a percentage (0–100+).",
+      "note": "Stored as CV not inverted — lower values indicate better regularity. The app displays this inverted (as a regularity score) but the raw CV is what is stored."
+    },
+    {
+      "local_key": "session_metadata.hand_used",
+      "redcap_field": "grip_hand",
+      "current_code_field": "grip_hand",
+      "type": "string (categorical)",
+      "values": ["left", "right"],
+      "example": "right",
+      "description": "Which hand the participant used for the test. Selected by participant in setup screen."
+    },
+    {
+      "local_key": "session_metadata.fatigue_rating",
+      "redcap_field": "grip_fatigue",
+      "current_code_field": "grip_fatigue",
+      "type": "integer | null",
+      "range": "1–5",
+      "values": {
+        "1": "Very well",
+        "2": "Better than usual",
+        "3": "Neutral",
+        "4": "More fatigued than usual",
+        "5": "Very fatigued"
+      },
+      "example": 3,
+      "description": "Self-reported fatigue level at the time of assessment. Null if not answered."
+    },
+    {
+      "local_key": "session_metadata.medication_taken",
+      "redcap_field": "grip_medication",
+      "current_code_field": "grip_medication",
+      "type": "boolean | null",
+      "values": {
+        "true": "Yes — medication taken",
+        "false": "No — medication not taken",
+        "null": "Not answered"
+      },
+      "example": true,
+      "description": "Whether the participant had taken their medication on the day of assessment. Selected in setup screen. May be null if skipped."
+    },
+    {
+      "local_key": "flagged",
+      "redcap_field": "grip_flagged",
+      "current_code_field": "grip_flagged",
+      "type": "boolean",
+      "values": {
+        "false": "Not flagged",
+        "true": "Flagged for review"
+      },
+      "example": false,
+      "description": "Whether the participant or clinician flagged this session as potentially unreliable on the results screen."
+    },
+    {
+      "local_key": "flag_reason",
+      "redcap_field": "grip_flag_reason",
+      "current_code_field": "grip_flag_reason",
+      "type": "string | null",
+      "example": "Phone slipped during test",
+      "description": "Free-text reason provided when session is flagged. Null if not flagged."
+    },
+    {
+      "local_key": "raw_data",
+      "redcap_field": "grip_raw_json",
+      "current_code_field": "grip_raw_json",
+      "type": "JSON string (array of RawTapEvent)",
+      "description": "Full array of raw touch events recorded during the session, serialised as JSON. Each event: { t: number (ms from start), x: 0, y: 0, type: 'start'|'end', touch_id: number, rejected: boolean, reject_reason: string|null }. x/y are 0 for grip (position not relevant).",
+      "example": "[{\"t\":142,\"x\":0,\"y\":0,\"type\":\"start\",\"touch_id\":1,\"rejected\":false,\"reject_reason\":null}, ...]"
+    },
+    {
+      "local_key": "checksum",
+      "redcap_field": "grip_checksum",
+      "current_code_field": "grip_checksum",
+      "type": "string (SHA-256 hex)",
+      "example": "3a7f9c2d...",
+      "description": "SHA-256 checksum of the raw_data array for integrity verification."
+    },
+    {
+      "local_key": "session_metadata.device_os",
+      "redcap_field": "grip_device_os",
+      "current_code_field": "device_os",
+      "type": "string",
+      "example": "iOS 17.4",
+      "description": "Operating system and version of the device."
+    },
+    {
+      "local_key": "session_metadata.screen_width_px",
+      "redcap_field": "grip_screen_width",
+      "current_code_field": "screen_width",
+      "type": "integer",
+      "unit": "pixels",
+      "example": 390,
+      "description": "Screen (viewport) width at time of assessment."
+    },
+    {
+      "local_key": "session_metadata.screen_height_px",
+      "redcap_field": "grip_screen_height",
+      "current_code_field": "screen_height",
+      "type": "integer",
+      "unit": "pixels",
+      "example": 844,
+      "description": "Screen (viewport) height at time of assessment."
+    },
+    {
+      "local_key": "session_metadata.app_version",
+      "redcap_field": "grip_app_version",
+      "current_code_field": "app_version",
+      "type": "string (semver)",
+      "example": "1.2.0",
+      "description": "Version of the MAC Spine app that recorded the session."
+    }
+  ],
+  "redcap_linking_field": "record_id",
+  "redcap_repeat_instrument": "grip_task",
+  "redcap_repeat_instance": "new (auto-incremented)"
+}

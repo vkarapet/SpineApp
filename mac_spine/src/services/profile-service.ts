@@ -5,13 +5,11 @@ import type { UserProfile, UserPreferences } from '../types/db-schemas';
 export interface ProfileInput {
   participantId: string;
   name?: string;
-  dominantHand?: 'left' | 'right';
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   audio_enabled: true,
   haptic_enabled: true,
-  dominant_hand: 'right',
   reminder_frequency: 'off',
 };
 
@@ -24,7 +22,7 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
     name: input.name?.trim() ?? '',
     consent_date: now,
     consent_version: CONSENT_VERSION,
-    preferences: { ...DEFAULT_PREFERENCES, dominant_hand: input.dominantHand ?? 'right' },
+    preferences: { ...DEFAULT_PREFERENCES },
     schema_version: 1,
     created_at: now,
     updated_at: now,

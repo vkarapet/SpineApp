@@ -63,9 +63,9 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
   const sessionMetadata: SessionMetadata = {
     hand_used: gripSessionSetup.hand,
-    dominant_hand: profile.preferences.dominant_hand,
-    fatigue_rating: gripSessionSetup.fatigue,
-    medication_taken: gripSessionSetup.medication,
+    fatigue_rating: null,
+    medication_taken: null,
+    hand_weakness: gripSessionSetup.weakness,
     screen_width_px: viewport.width,
     screen_height_px: viewport.height,
     target_radius_px: 0, // Not applicable for grip test

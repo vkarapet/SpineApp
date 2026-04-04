@@ -38,30 +38,34 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
     );
   }
 
-  // Dominant hand
-  main.appendChild(createSectionHeader('Dominant Hand'));
-  const handGroup = createElement('div', { className: 'settings-screen__hand-group' });
-  handGroup.setAttribute('role', 'radiogroup');
-  handGroup.setAttribute('aria-label', 'Dominant hand');
+  // TUG Assessment
+  main.appendChild(createSectionHeader('TUG Assessment'));
 
-  for (const hand of ['left', 'right'] as const) {
-    const btn = createElement('button', {
-      className: `settings-screen__hand-btn ${prefs.dominant_hand === hand ? 'settings-screen__hand-btn--active' : ''}`,
-      textContent: hand.charAt(0).toUpperCase() + hand.slice(1),
-      'aria-pressed': prefs.dominant_hand === hand ? 'true' : 'false',
-    });
-    btn.addEventListener('click', async () => {
-      await updatePreference('dominant_hand', hand);
-      handGroup.querySelectorAll('.settings-screen__hand-btn').forEach((b) => {
-        b.classList.remove('settings-screen__hand-btn--active');
-        b.setAttribute('aria-pressed', 'false');
-      });
-      btn.classList.add('settings-screen__hand-btn--active');
-      btn.setAttribute('aria-pressed', 'true');
-    });
-    handGroup.appendChild(btn);
+  const tugModeRow = createElement('div', { className: 'settings-screen__select-row' });
+  const tugModeLabel = createElement('div', { className: 'settings-screen__select-label' });
+  tugModeLabel.appendChild(createElement('span', { className: 'settings-screen__toggle-label', textContent: 'Phone placement' }));
+  tugModeLabel.appendChild(createElement('span', { className: 'settings-screen__toggle-desc', textContent: 'Where the phone is held during the TUG test' }));
+
+  const tugModeSelect = createElement('select', { className: 'settings-screen__select', 'aria-label': 'Phone placement during TUG' }) as HTMLSelectElement;
+  const tugOptions: { value: string; label: string }[] = [
+    { value: 'pocket', label: 'Pocket' },
+    { value: 'hand', label: 'In Hand (sternum)' },
+  ];
+  for (const opt of tugOptions) {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    if ((prefs.tug_phone_mode ?? 'pocket') === opt.value) option.selected = true;
+    tugModeSelect.appendChild(option);
   }
-  main.appendChild(handGroup);
+  tugModeSelect.addEventListener('change', async () => {
+    await updatePreference('tug_phone_mode', tugModeSelect.value as 'pocket' | 'hand');
+    showToast('TUG phone placement updated', 'success');
+  });
+
+  tugModeRow.appendChild(tugModeLabel);
+  tugModeRow.appendChild(tugModeSelect);
+  main.appendChild(tugModeRow);
 
   // Data Management
   main.appendChild(createSectionHeader('Data Management'));
@@ -216,24 +220,14 @@ style.textContent = `
     accent-color: var(--color-primary);
     cursor: pointer;
   }
-  .settings-screen__hand-group {
+  .settings-screen__select-row {
     display: flex;
+    flex-direction: column;
     gap: var(--space-2);
   }
-  .settings-screen__hand-btn {
-    flex: 1;
-    min-height: var(--tap-target-min);
-    padding: var(--space-3);
-    border: 2px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-  }
-  .settings-screen__hand-btn--active {
-    border-color: var(--color-primary);
-    background: var(--color-primary);
-    color: #fff;
+  .settings-screen__select-label {
+    display: flex;
+    flex-direction: column;
   }
   .settings-screen__select {
     min-height: var(--tap-target-min);

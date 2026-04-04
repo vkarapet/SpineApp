@@ -1,8 +1,8 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createHeader } from '../components/header';
-import { getAllResults, getProfile, saveResult, addAuditEntry } from '../core/db';
+import { getAllResults, getProfile } from '../core/db';
 import { formatDateTime } from '../utils/date';
-import { showDetail, showPrompt } from '../components/confirm-dialog';
+import { showDetail } from '../components/confirm-dialog';
 import type { AssessmentResult } from '../types/db-schemas';
 import type { DetailRow } from '../components/confirm-dialog';
 import { router, moduleRegistry } from '../main';
@@ -86,7 +86,8 @@ async function renderList(main: HTMLElement): Promise<void> {
 
   let results = await getAllResults();
 
-  // Filter by module tab
+  // Filter by module tab; exclude in_progress (crash-recovery records)
+  results = results.filter((r) => r.status !== 'in_progress');
   if (currentModuleTab) {
     results = results.filter((r) => r.task_type.startsWith(currentModuleTab));
   }
@@ -114,8 +115,9 @@ async function renderList(main: HTMLElement): Promise<void> {
 }
 
 function createHistoryRow(result: AssessmentResult): HTMLElement {
+  const isDiscarded = result.status === 'discarded';
   const row = createElement('button', {
-    className: `history-screen__row ${result.flagged ? 'history-screen__row--flagged' : ''}`,
+    className: `history-screen__row ${isDiscarded ? 'history-screen__row--discarded' : ''}`,
   });
   row.setAttribute('role', 'listitem');
 
@@ -132,10 +134,10 @@ function createHistoryRow(result: AssessmentResult): HTMLElement {
     className: 'history-screen__metrics',
     textContent: summary,
   }));
-  if (result.flagged) {
+  if (isDiscarded) {
     left.appendChild(createElement('span', {
-      className: 'history-screen__flag',
-      textContent: `Flagged: ${result.flag_reason ?? 'Not representative'}`,
+      className: 'history-screen__discard-label',
+      textContent: `Discarded: ${result.flag_reason ?? 'No reason given'}`,
     }));
   }
 
@@ -148,20 +150,7 @@ function createHistoryRow(result: AssessmentResult): HTMLElement {
   row.appendChild(left);
   row.appendChild(syncIcon);
 
-  // Tap for detail
-  row.addEventListener('click', () => {
-    showSessionDetail(result);
-  });
-
-  // Long press for flagging
-  let longPressTimer: ReturnType<typeof setTimeout>;
-  row.addEventListener('pointerdown', () => {
-    longPressTimer = setTimeout(() => {
-      showFlagDialog(result);
-    }, 500);
-  });
-  row.addEventListener('pointerup', () => clearTimeout(longPressTimer));
-  row.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
+  row.addEventListener('click', () => showSessionDetail(result));
 
   return row;
 }
@@ -197,33 +186,6 @@ function showSessionDetail(result: AssessmentResult): void {
   );
 
   showDetail('Session Details', rows);
-}
-
-async function showFlagDialog(result: AssessmentResult): Promise<void> {
-  const reason = await showPrompt(
-    'Mark this session as not representative?',
-    {
-      title: 'Flag Session',
-      placeholder: 'e.g. "phone slipped", "was distracted"',
-      confirmText: 'Flag',
-    },
-  );
-
-  if (reason === null) return;
-
-  result.flagged = true;
-  result.flag_reason = reason || 'Not representative';
-  result.status = 'flagged';
-
-  await saveResult(result);
-  await addAuditEntry({
-    action: 'assessment_flagged',
-    entity_id: result.local_uuid,
-    details: { reason: result.flag_reason },
-  });
-
-  const container = document.getElementById('app');
-  if (container) renderHistory(container);
 }
 
 const style = document.createElement('style');
@@ -299,7 +261,7 @@ style.textContent = `
   .history-screen__row:active {
     background: var(--color-bg-secondary);
   }
-  .history-screen__row--flagged {
+  .history-screen__row--discarded {
     opacity: 0.6;
   }
   .history-screen__row-left {
@@ -315,7 +277,7 @@ style.textContent = `
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
   }
-  .history-screen__flag {
+  .history-screen__discard-label {
     font-size: var(--font-size-xs);
     color: var(--color-warning);
     font-style: italic;

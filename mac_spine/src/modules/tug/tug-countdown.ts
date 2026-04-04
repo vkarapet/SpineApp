@@ -1,15 +1,20 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
+import { getProfile } from '../../core/db';
 import { TUG_STILLNESS_ACCEL_TOLERANCE, TUG_STILLNESS_DURATION_MS } from '../../constants';
 import { router } from '../../main';
 
 /**
  * Stillness detection screen — replaces the audible countdown.
- * Instructs the participant to put the phone in their pocket and sit still.
+ * Instructs the participant to place/hold the phone and sit still.
  * After 3 seconds of no significant movement, navigates to the active screen.
  */
-export function renderTugCountdown(container: HTMLElement): void {
+export async function renderTugCountdown(container: HTMLElement): Promise<void> {
   clearContainer(container);
+
+  const profile = await getProfile();
+  const phoneMode = profile?.preferences.tug_phone_mode ?? 'pocket';
+  const isHandMode = phoneMode === 'hand';
 
   const wrapper = createElement('main', { className: 'assessment-countdown' });
   wrapper.setAttribute('role', 'main');
@@ -29,12 +34,19 @@ export function renderTugCountdown(container: HTMLElement): void {
     className: 'tug-countdown__prompt',
     'aria-live': 'assertive',
   });
-  prompt.innerHTML = `
-    <div class="tug-countdown__icon">&#128241;</div>
-    <h2>Put phone in your pocket</h2>
-    <p>Then sit still in the chair.</p>
-    <p class="tug-countdown__sub">The test will start automatically<br>when you are still for 3 seconds.</p>
-  `;
+  prompt.innerHTML = isHandMode
+    ? `
+      <div class="tug-countdown__icon">&#128241;</div>
+      <h2>Hold phone at your chest</h2>
+      <p>Press it flat against your sternum, then sit still in the chair.</p>
+      <p class="tug-countdown__sub">The test will start automatically<br>when you are still for 3 seconds.</p>
+    `
+    : `
+      <div class="tug-countdown__icon">&#128241;</div>
+      <h2>Put phone in your pocket</h2>
+      <p>Then sit still in the chair.</p>
+      <p class="tug-countdown__sub">The test will start automatically<br>when you are still for 3 seconds.</p>
+    `;
 
   const statusDisplay = createElement('div', {
     className: 'tug-countdown__status',

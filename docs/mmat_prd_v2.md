@@ -749,8 +749,7 @@ Every request from the client must include:
 **Proxy verification:**
 1. Compute `SHA-256(lowercase(trim(email)) + "|" + dob + "|" + STUDY_SALT)`.
 2. Verify it matches the provided `record_id`. Reject with 403 if mismatch.
-3. Verify `X-Request-Timestamp` is within ±5 minutes of server time (prevents replay attacks).
-4. Verify `X-Request-Signature` using the same derived key.
+3. Verify `X-Request-Signature` using the same derived key.
 
 #### 8.2.4 Rate Limiting
 
@@ -1250,8 +1249,7 @@ The following is a **functional specification** for the API proxy. The productio
 5. Validate required fields (action, record_id, email, dob) → reject if missing (400)
 6. Validate record_id format (64-char hex) → reject if invalid (400)
 7. Verify identity: SHA-256(canonical(email) + "|" + dob + "|" + STUDY_SALT) == record_id → reject if mismatch (403)
-8. Verify timestamp within ±5 minutes → reject if stale (403)
-9. Verify HMAC signature → reject if invalid (403)
+8. Verify HMAC signature → reject if invalid (403)
 10. Validate action is in whitelist → reject if unknown (400)
 11. Validate payload schema per action → reject if invalid (422)
 12. Route to REDCap API:

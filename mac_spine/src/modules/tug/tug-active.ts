@@ -7,9 +7,9 @@ import { vibrate, supportsVibration, getDeviceOS, getBrowserInfo, getViewportDim
 import { computeTugSensorMetrics } from './tug-metrics';
 import { tugSessionSetup } from './tug-setup';
 import { TugSensorEngine } from './tug-sensor';
-import { TUG_PHASE_LABELS } from './tug-types';
+import { TUG_PHASE_LABELS, TUG_CONFIG_POCKET, TUG_CONFIG_HAND } from './tug-types';
 import type { TugPhase } from './tug-types';
-import { TUG_MAX_DURATION_MS, TUG_SENSOR_SAVE_INTERVAL_MS, TUG_WALK_DISTANCE_M, APP_VERSION } from '../../constants';
+import { TUG_MAX_DURATION_MS, TUG_SENSOR_SAVE_INTERVAL_MS, APP_VERSION } from '../../constants';
 import type { RawTimerEvent, RawMotionEvent, RawEvent } from '../../types/assessment';
 import type { AssessmentResult, SessionMetadata, UserProfile } from '../../types/db-schemas';
 import { showConfirm } from '../../components/confirm-dialog';
@@ -43,11 +43,13 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   const localUuid = generateUUID();
   const sessionStartISO = new Date().toISOString();
 
+  const phoneMode = profile.preferences.tug_phone_mode ?? 'pocket';
+  const sensorConfig = phoneMode === 'hand' ? TUG_CONFIG_HAND : TUG_CONFIG_POCKET;
+
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',
-    dominant_hand: profile.preferences.dominant_hand,
-    fatigue_rating: tugSessionSetup.fatigue,
-    medication_taken: tugSessionSetup.medication,
+    fatigue_rating: null,
+    medication_taken: null,
     screen_width_px: viewport.width,
     screen_height_px: viewport.height,
     target_radius_px: 0,
@@ -55,6 +57,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     browser: getBrowserInfo(),
     app_version: APP_VERSION,
     walking_aid: tugSessionSetup.walkingAid,
+    phone_placement: phoneMode,
   };
 
   // Pre-allocate event arrays
@@ -103,7 +106,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   const progressBar = createElement('div', { className: 'tug-sensor__progress-bar' });
   const progressLabel = createElement('span', {
     className: 'tug-sensor__progress-label',
-    textContent: `0.0 / ${TUG_WALK_DISTANCE_M.toFixed(1)}m`,
+    textContent: `0.0 / ${sensorConfig.walkDistanceM.toFixed(1)}m`,
   });
   progressContainer.appendChild(progressBar);
   progressContainer.appendChild(progressLabel);
@@ -111,7 +114,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   // Turn info — shown during turning phases
   const turnInfo = createElement('div', { className: 'tug-sensor__turn-info' });
   turnInfo.style.display = 'none';
-  turnInfo.textContent = 'Turn: 0° / 160°';
+  turnInfo.textContent = `Turn: 0° / ${Math.round(sensorConfig.turnMinAngle)}°`;
 
   // Emergency stop button
   const stopBtn = createElement('button', {
@@ -146,7 +149,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     return leave;
   });
 
-  // Sensor engine
+  // Sensor engine (mode-specific config)
   const engine = new TugSensorEngine({
     onStateUpdate(state) {
       // Update phase label
@@ -198,7 +201,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       });
       endAssessment(false, false, finalElapsedMs);
     },
-  });
+  }, sensorConfig);
 
   // Retrieve calibration gravity
   const calGravity = window.__tugCalibrationGravity;

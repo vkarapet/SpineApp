@@ -194,7 +194,10 @@ export async function getUnsyncedResults(): Promise<AssessmentResult[]> {
     const store = tx.objectStore('assessment_results');
     const allResults: AssessmentResult[] = await promisifyRequest(store.getAll());
     return allResults.filter(
-      (r) => r.participant_id === profile.participant_id && !r.synced && r.status === 'complete',
+      (r) =>
+        r.participant_id === profile.participant_id &&
+        !r.synced &&
+        (r.status === 'complete' || r.status === 'discarded'),
     );
   } catch (err) {
     console.error('getUnsyncedResults error:', err);
