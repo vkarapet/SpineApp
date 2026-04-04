@@ -89,11 +89,14 @@ export function renderGripInstructions(container: HTMLElement): void {
     </div>
   `;
 
+  const divider = createElement('hr', { className: 'grip-instructions__divider' });
+
   wrapper.appendChild(title);
   wrapper.appendChild(actions);
+  wrapper.appendChild(divider);
+  wrapper.appendChild(diagram);
   wrapper.appendChild(instructionsLabel);
   wrapper.appendChild(body);
-  wrapper.appendChild(diagram);
   container.appendChild(wrapper);
 }
 
@@ -123,6 +126,11 @@ function renderScreenReaderGate(container: HTMLElement): void {
 
 const style = document.createElement('style');
 style.textContent = `
+  .grip-instructions__divider {
+    border: none;
+    border-top: 2px solid var(--color-border);
+    margin: var(--space-2) 0;
+  }
   .grip-instructions__section-label {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
