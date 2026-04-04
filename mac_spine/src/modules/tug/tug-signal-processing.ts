@@ -157,7 +157,15 @@ export function percentile(values: number[], p: number): number {
 
 // --- Step Detector ---
 
+export interface StepDetectorConfig {
+  initialThreshold: number;
+  minIntervalMs: number;
+  peakValleyMaxMs: number;
+}
+
 export class StepDetector {
+  private cfg: StepDetectorConfig;
+
   private smoothBuffer: number[] = [];
   private smoothSum = 0;
 
@@ -172,8 +180,13 @@ export class StepDetector {
   private stepCount = 0;
   private adaptiveThreshold: number;
 
-  constructor() {
-    this.adaptiveThreshold = TUG_STEP_INITIAL_THRESHOLD;
+  constructor(config?: Partial<StepDetectorConfig>) {
+    this.cfg = {
+      initialThreshold: config?.initialThreshold ?? TUG_STEP_INITIAL_THRESHOLD,
+      minIntervalMs: config?.minIntervalMs ?? TUG_STEP_MIN_INTERVAL_MS,
+      peakValleyMaxMs: config?.peakValleyMaxMs ?? TUG_STEP_PEAK_VALLEY_MAX_MS,
+    };
+    this.adaptiveThreshold = this.cfg.initialThreshold;
   }
 
   processSample(t: number, verticalAccel: number): DetectedStep | null {
@@ -210,8 +223,8 @@ export class StepDetector {
 
         if (
           peakValleyDiff > this.adaptiveThreshold &&
-          timeSinceLastStep >= TUG_STEP_MIN_INTERVAL_MS &&
-          peakToNowInterval <= TUG_STEP_PEAK_VALLEY_MAX_MS
+          timeSinceLastStep >= this.cfg.minIntervalMs &&
+          peakToNowInterval <= this.cfg.peakValleyMaxMs
         ) {
           // Step detected
           this.stepCount++;
@@ -262,6 +275,6 @@ export class StepDetector {
     this.currentValley = Infinity;
     this.lastStepT = -Infinity;
     this.stepCount = 0;
-    this.adaptiveThreshold = TUG_STEP_INITIAL_THRESHOLD;
+    this.adaptiveThreshold = this.cfg.initialThreshold;
   }
 }

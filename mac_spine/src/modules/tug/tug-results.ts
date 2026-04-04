@@ -287,6 +287,14 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     }
   }
 
+  let discardCount = todayDiscards;
+
+  const counter = createElement('div', {
+    className: 'assessment-results__discard-counter',
+    textContent: `Discards used today: ${discardCount} / ${MAX_DAILY_DISCARDS}`,
+  });
+  if (discardCount === 0) counter.style.display = 'none';
+
   async function doDiscard(reason: string): Promise<void> {
     result.status = 'discarded';
     result.flagged = true;
@@ -297,6 +305,9 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
       entity_id: result.local_uuid,
       details: { task_type: 'tug_v1', decision: 'discarded', reason },
     });
+    discardCount++;
+    counter.style.display = '';
+    counter.textContent = `Discards used today: ${discardCount} / ${MAX_DAILY_DISCARDS}`;
     enableNavigation();
     syncStatus.style.display = '';
     syncStatus.textContent = navigator.onLine ? 'Discarded. Syncing…' : 'Discarded. Will sync when online.';
@@ -327,13 +338,7 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     container.appendChild(wrapper);
     await doSave();
   } else {
-    if (todayDiscards > 0) {
-      const counter = createElement('div', {
-        className: 'assessment-results__discard-counter',
-        textContent: `Discards used today: ${todayDiscards} / ${MAX_DAILY_DISCARDS}`,
-      });
-      wrapper.appendChild(counter);
-    }
+    wrapper.appendChild(counter);
 
     const slider = createSaveDiscardSlider({
       onSave: doSave,

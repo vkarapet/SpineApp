@@ -36,7 +36,7 @@ export class TugSensorEngine {
   private gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
   private restGravity: Vec3 = { x: 0, y: 0, z: 9.81 };
   private phase: TugPhase = 'idle';
-  private stepDetector = new StepDetector();
+  private stepDetector: StepDetector;
   private callbacks: TugSensorCallbacks;
   private config: TugSensorConfig;
 
@@ -95,6 +95,11 @@ export class TugSensorEngine {
   constructor(callbacks: TugSensorCallbacks, config: TugSensorConfig) {
     this.callbacks = callbacks;
     this.config = config;
+    this.stepDetector = new StepDetector({
+      initialThreshold: config.stepInitialThreshold,
+      minIntervalMs: config.stepMinIntervalMs,
+      peakValleyMaxMs: config.stepPeakValleyMaxMs,
+    });
     this.turnExitThreshold = config.turnExitRmsFloor;
     this.turnYawRMS = new SlidingWindowRMS(config.turnRmsWindowSamples);
   }

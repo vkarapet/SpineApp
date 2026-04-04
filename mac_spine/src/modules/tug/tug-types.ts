@@ -11,6 +11,11 @@ export interface TugSensorConfig {
   standupTiltHoldMs: number;
   standupMaxDurationMs: number;
   walkDistanceM: number;
+  // Step detection
+  stepInitialThreshold: number;
+  stepMinIntervalMs: number;
+  stepPeakValleyMaxMs: number;
+  // Turn detection
   yawRateSmoothAlpha: number;
   turnMinAngle: number;
   turnExitRmsFloor: number;
@@ -19,6 +24,7 @@ export interface TugSensorConfig {
   turnSettleMs: number;
   turnMaxDurationMs: number;
   turnWalkYawBufferSize: number;
+  // Sit down
   sitdownSpikeThreshold: number;
   sitdownRestAccelTolerance: number;
   sitdownRestDurationMs: number;
@@ -26,7 +32,7 @@ export interface TugSensorConfig {
   sensorUiUpdateMs: number;
 }
 
-// Phone-in-pocket calibration (current production values)
+// Phone-in-pocket calibration
 export const TUG_CONFIG_POCKET: TugSensorConfig = {
   gravityFilterAlpha: 0.1,
   standupAccelThreshold: 14.7,
@@ -34,14 +40,20 @@ export const TUG_CONFIG_POCKET: TugSensorConfig = {
   standupTiltHoldMs: 200,
   standupMaxDurationMs: 4000,
   walkDistanceM: 3.0,
+  // Step detection — lower threshold for better sensitivity
+  stepInitialThreshold: 1.2,
+  stepMinIntervalMs: 300,
+  stepPeakValleyMaxMs: 500,
+  // Turn detection — lower thresholds for earlier/easier completion
   yawRateSmoothAlpha: 0.3,
   turnMinAngle: 15,
-  turnExitRmsFloor: 8,
-  turnExitRmsScale: 0.8,
+  turnExitRmsFloor: 5,
+  turnExitRmsScale: 0.5,
   turnRmsWindowSamples: 30,
-  turnSettleMs: 200,
+  turnSettleMs: 100,
   turnMaxDurationMs: 8000,
   turnWalkYawBufferSize: 180,
+  // Sit down
   sitdownSpikeThreshold: 3.0,
   sitdownRestAccelTolerance: 0.5,
   sitdownRestDurationMs: 1500,
