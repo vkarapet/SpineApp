@@ -42,6 +42,7 @@ const tugFieldMap: ModuleFieldMap = {
     'session_metadata.fatigue_rating': 'tug_fatigue',
     'session_metadata.medication_taken': 'tug_medication',
     'session_metadata.walking_aid': 'tug_walking_aid',
+    'session_metadata.phone_placement': 'tug_phone_placement',
     'flagged': 'tug_flagged',
     'flag_reason': 'tug_flag_reason',
     'raw_data': 'tug_raw_json',
@@ -115,6 +116,10 @@ export function transformRecord(
       redcapRecord[redcapField] = value;
     }
   }
+
+  // Mark instrument as complete — every record reaching the proxy is a
+  // finalised session; REDCap will show Incomplete (0) otherwise.
+  redcapRecord[`${fieldMap.instrument}_complete`] = '2';
 
   return redcapRecord;
 }

@@ -69,6 +69,15 @@
       "description": "Which hand the participant used for the test. Selected by participant in setup screen."
     },
     {
+      "local_key": "session_metadata.hand_weakness",
+      "redcap_field": "grip_hand_weakness",
+      "current_code_field": "grip_hand_weakness",
+      "type": "string (categorical) | null",
+      "values": ["none", "mild", "moderate", "severe"],
+      "example": "none",
+      "description": "Self-reported degree of weakness in the hand used for the test. Selected by participant in setup screen."
+    },
+    {
       "local_key": "session_metadata.fatigue_rating",
       "redcap_field": "grip_fatigue",
       "current_code_field": "grip_fatigue",

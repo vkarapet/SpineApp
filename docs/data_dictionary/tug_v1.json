@@ -232,6 +232,15 @@
       "description": "Walking aid used during the TUG test. Selected by participant in setup screen."
     },
     {
+      "local_key": "session_metadata.phone_placement",
+      "redcap_field": "tug_phone_placement",
+      "current_code_field": "tug_phone_placement",
+      "type": "string (categorical)",
+      "values": ["pocket", "hand"],
+      "example": "pocket",
+      "description": "Phone placement mode for the test. 'pocket' = front trouser pocket; 'hand' = held flat against the chest/sternum. Selected by participant on the instructions screen and persisted in preferences."
+    },
+    {
       "local_key": "flagged",
       "redcap_field": "tug_flagged",
       "current_code_field": "tug_flagged",
