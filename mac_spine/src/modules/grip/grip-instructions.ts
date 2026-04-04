@@ -57,12 +57,7 @@ export function renderGripInstructions(container: HTMLElement): void {
   actions.appendChild(readyBtn);
   actions.appendChild(cancelBtn);
 
-  const instructionsLabel = createElement('h2', {
-    className: 'grip-instructions__section-label',
-    textContent: 'Instructions',
-  });
-
-  const body = createElement('div', { className: 'assessment-instructions__body' });
+const body = createElement('div', { className: 'assessment-instructions__body' });
   body.innerHTML = `
     <p>Grip the phone with 3+ fingers, release fully, and repeat as fast as you can for 10 seconds.</p>
     <ul class="grip-instructions__steps">
@@ -95,7 +90,6 @@ export function renderGripInstructions(container: HTMLElement): void {
   wrapper.appendChild(actions);
   wrapper.appendChild(divider);
   wrapper.appendChild(diagram);
-  wrapper.appendChild(instructionsLabel);
   wrapper.appendChild(body);
   container.appendChild(wrapper);
 }
