@@ -2,8 +2,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
-import { handleProxyRequest } from './mock-proxy';
-
 declare let self: ServiceWorkerGlobalScope;
 
 // Precache app shell
@@ -34,14 +32,6 @@ registerRoute(
   new StaleWhileRevalidate({
     cacheName: 'module-code',
   }),
-);
-
-// Mock proxy for API calls — intercept POST /api/proxy in the SW
-registerRoute(
-  ({ url, request }) =>
-    request.method === 'POST' && url.pathname.includes('/api/proxy'),
-  async ({ request }) => handleProxyRequest(request),
-  'POST',
 );
 
 // Skip waiting control — do NOT auto-skip

@@ -1,3 +1,4 @@
+import { redcapFetch } from './config';
 import type { Env } from './config';
 
 /**
@@ -17,7 +18,7 @@ export async function verifyParticipant(
     returnFormat: 'json',
   });
 
-  const response = await fetch(env.REDCAP_API_URL, {
+  const response = await redcapFetch(env, env.REDCAP_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
@@ -52,7 +53,7 @@ export async function checkDuplicate(
     returnFormat: 'json',
   });
 
-  const response = await fetch(env.REDCAP_API_URL, {
+  const response = await redcapFetch(env, env.REDCAP_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
@@ -84,7 +85,7 @@ export async function importRecord(
     returnFormat: 'json',
   });
 
-  const response = await fetch(env.REDCAP_API_URL, {
+  const response = await redcapFetch(env, env.REDCAP_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),

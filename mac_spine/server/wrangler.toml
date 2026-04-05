@@ -2,6 +2,12 @@ name = "mac-spine-proxy"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
+# Service binding to mock-redcap worker (enables Worker-to-Worker fetch)
+# Remove this when switching to the real REDCap API
+[[services]]
+binding = "MOCK_REDCAP"
+service = "mac-spine-mock-redcap"
+
 # Secrets (REDCAP_API_URL, REDCAP_API_TOKEN, ALLOWED_ORIGIN) are set via:
 #   wrangler secret put <NAME>
 # or via Cloudflare Dashboard → Workers → mac-spine-proxy → Settings → Variables

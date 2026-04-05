@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local development (wrangler dev)
+# .dev.vars is gitignored — never commit real values
+
+MOCK_API_TOKEN=mock_token_12345
+SEED_PARTICIPANTS=P001,P002,P003

@@ -1,0 +1,9 @@
+name = "mac-spine-mock-redcap"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# KV namespace — create with: npx wrangler kv namespace create RECORDS
+# then paste the id below
+[[kv_namespaces]]
+binding = "RECORDS"
+id = "6b57a6f7d6a14718abdd3c12facaa3c7"
