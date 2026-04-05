@@ -26,24 +26,32 @@ export async function apiCall(request: ApiRequest): Promise<ApiResponse> {
     payload: request.payload ?? {},
   };
 
-  const response = await fetch(PROXY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Request-Signature': signature,
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Signature': signature,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return {
+      success: false,
+      error: 'Unable to reach the server. Please check your internet connection and try again.',
+    };
+  }
 
   // Get server timestamp for clock drift detection
   const dateHeader = response.headers.get('Date');
   const serverTimestamp = dateHeader ? new Date(dateHeader).getTime() : undefined;
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ error: 'Unknown error' }));
+    const errorBody = await response.json().catch(() => ({}));
     return {
       success: false,
-      error: errorBody.error ?? `HTTP ${response.status}`,
+      error: errorBody.message ?? errorBody.error ?? `Unexpected server error (${response.status}). Please try again later.`,
       serverTimestamp,
     };
   }
