@@ -57,7 +57,7 @@ export function createModuleCard(config: ModuleCardConfig): HTMLElement {
 function createSparkline(values: number[]): HTMLElement {
   const width = 120;
   const height = 32;
-  const padding = 2;
+  const padding = 4;
 
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -73,7 +73,7 @@ function createSparkline(values: number[]): HTMLElement {
   container.innerHTML = `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true">
       <polyline points="${points}" fill="none" stroke="var(--color-primary, #7A003C)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="${points.split(' ').pop()!.split(',')[0]}" cy="${points.split(' ').pop()!.split(',')[1]}" r="3" fill="var(--color-secondary, #FDBF57)"/>
+      <circle cx="${points.split(' ').pop()!.split(',')[0]}" cy="${points.split(' ').pop()!.split(',')[1]}" r="3" fill="var(--color-primary, #7A003C)"/>
     </svg>
     <span class="module-card__sparkline-label">${values.length} sessions</span>
   `;
