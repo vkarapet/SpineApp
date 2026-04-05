@@ -11,22 +11,10 @@ export function renderSplash(container: HTMLElement): void {
 
   const logo = createElement('div', { className: 'splash-screen__logo' });
   const logoImg = createElement('img') as HTMLImageElement;
-  logoImg.src = import.meta.env.BASE_URL + 'icons/icon-192.png';
-  logoImg.width = 96;
-  logoImg.height = 96;
-  logoImg.alt = '';
-  logoImg.setAttribute('aria-hidden', 'true');
+  logoImg.src = import.meta.env.BASE_URL + 'icons/splash_900.png';
+  logoImg.alt = 'MAC Spine';
+  logoImg.className = 'splash-screen__splash-img';
   logo.appendChild(logoImg);
-
-  const title = createElement('h1', {
-    className: 'splash-screen__title',
-    textContent: 'Mobile Assessment Clinic for Spine',
-  });
-
-  const subtitle = createElement('p', {
-    className: 'splash-screen__subtitle',
-    textContent: 'MAC Spine',
-  });
 
   const spinner = createElement('div', { className: 'spinner' });
 
@@ -37,8 +25,6 @@ export function renderSplash(container: HTMLElement): void {
   status.setAttribute('aria-live', 'polite');
 
   wrapper.appendChild(logo);
-  wrapper.appendChild(title);
-  wrapper.appendChild(subtitle);
   wrapper.appendChild(spinner);
   wrapper.appendChild(status);
   container.appendChild(wrapper);
@@ -75,14 +61,10 @@ style.textContent = `
   .splash-screen__logo {
     margin-bottom: var(--space-4);
   }
-  .splash-screen__title {
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-primary);
-  }
-  .splash-screen__subtitle {
-    font-size: var(--font-size-base);
-    color: var(--color-text-secondary);
+  .splash-screen__splash-img {
+    max-width: 300px;
+    width: 80%;
+    height: auto;
   }
   .splash-screen__status {
     font-size: var(--font-size-sm);

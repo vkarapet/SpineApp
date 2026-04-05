@@ -38,16 +38,15 @@ export function createHeader(config: HeaderConfig): HTMLElement {
   } else if (showLogo) {
     const base = import.meta.env.BASE_URL || '/';
     const logo = createElement('img', {
-      className: 'app-header__logo',
-      'aria-hidden': 'true',
+      className: 'app-header__title-img',
     }) as HTMLImageElement;
-    logo.src = `${base}icons/icon-192.png`;
-    logo.alt = '';
+    logo.src = `${base}icons/title_128h.png`;
+    logo.alt = title;
     left.appendChild(logo);
   }
 
   const titleEl = createElement('h1', {
-    className: 'app-header__title',
+    className: showLogo ? 'app-header__title app-header__title--hidden' : 'app-header__title',
     textContent: title,
   });
 
@@ -112,10 +111,18 @@ style.textContent = `
     font-weight: var(--font-weight-bold);
     color: var(--color-primary);
   }
-  .app-header__logo {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-sm);
+  .app-header__title-img {
+    height: 44px;
+    width: auto;
+    object-fit: contain;
+  }
+  .app-header__title--hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
   }
   .app-header__btn {
     display: flex;
