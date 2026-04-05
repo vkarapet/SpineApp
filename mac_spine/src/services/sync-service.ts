@@ -56,10 +56,12 @@ export async function triggerSync(): Promise<void> {
     // 4. Prune old synced results
     await pruneOldSyncedResults();
 
-    // 5. Update last synced timestamp
-    await setLastSyncedAt(new Date().toISOString());
+    // 5. Update last synced timestamp only if no uploads failed
+    if (!lastSyncError) {
+      await setLastSyncedAt(new Date().toISOString());
+    }
 
-    eventBus.emit('sync-status', 'idle');
+    eventBus.emit('sync-status', lastSyncError ? 'error' : 'idle');
   } catch (err) {
     console.error('Sync error:', err);
     lastSyncError = err instanceof Error ? err.message : String(err);
