@@ -60,10 +60,13 @@ style.textContent = `
   }
   .splash-screen__logo {
     margin-bottom: var(--space-4);
+    width: 100%;
+    display: flex;
+    justify-content: center;
   }
   .splash-screen__splash-img {
-    max-width: 300px;
-    width: 80%;
+    width: 100%;
+    max-width: 450px;
     height: auto;
   }
   .splash-screen__status {
