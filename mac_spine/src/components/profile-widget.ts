@@ -59,6 +59,7 @@ style.textContent = `
     font-weight: var(--font-weight-bold);
     font-size: var(--font-size-lg);
     flex-shrink: 0;
+    box-shadow: 0 0 0 2px var(--color-secondary);
   }
   .profile-widget__name {
     flex: 1;

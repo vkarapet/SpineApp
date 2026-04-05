@@ -90,7 +90,7 @@ style.textContent = `
     padding: var(--space-3) var(--space-4);
     padding-top: calc(var(--space-3) + var(--safe-area-top));
     background: var(--color-bg);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 2px solid var(--color-secondary);
     position: sticky;
     top: 0;
     z-index: var(--z-header);

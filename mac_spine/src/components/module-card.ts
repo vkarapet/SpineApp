@@ -72,8 +72,8 @@ function createSparkline(values: number[]): HTMLElement {
   const container = createElement('div', { className: 'module-card__sparkline' });
   container.innerHTML = `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-      <polyline points="${points}" fill="none" stroke="#7A003C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="${points.split(' ').pop()!.split(',')[0]}" cy="${points.split(' ').pop()!.split(',')[1]}" r="3" fill="#7A003C"/>
+      <polyline points="${points}" fill="none" stroke="var(--color-secondary, #FDBF57)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${points.split(' ').pop()!.split(',')[0]}" cy="${points.split(' ').pop()!.split(',')[1]}" r="3" fill="var(--color-primary, #7A003C)"/>
     </svg>
     <span class="module-card__sparkline-label">${values.length} sessions</span>
   `;
@@ -91,6 +91,7 @@ style.textContent = `
     padding: var(--space-4);
     background: var(--color-bg);
     border: 2px solid var(--color-border);
+    border-left: 3px solid var(--color-secondary);
     border-radius: var(--radius-lg);
     cursor: pointer;
     text-align: left;
@@ -99,6 +100,7 @@ style.textContent = `
   .module-card:active {
     background: var(--color-bg-secondary);
     border-color: var(--color-primary);
+    border-left-color: var(--color-secondary);
   }
   .module-card + .module-card {
     margin-top: var(--space-2);
