@@ -129,6 +129,15 @@ style.textContent = `
     color: var(--color-error);
     word-break: break-word;
   }
+  .sync-status__offline-toast {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-info-bg);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-info);
+    transition: opacity var(--transition-slow);
+  }
   .sync-status__warning {
     margin-top: var(--space-2);
     padding: var(--space-2) var(--space-3);

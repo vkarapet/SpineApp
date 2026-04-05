@@ -45,6 +45,20 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   });
 
   async function handleSyncNow(): Promise<void> {
+    if (!navigator.onLine) {
+      // Show offline message that auto-dismisses
+      const offlineMsg = createElement('div', {
+        className: 'sync-status__offline-toast',
+        textContent: 'No internet connection. Your data will sync automatically when you reconnect.',
+      });
+      syncStatusEl.appendChild(offlineMsg);
+      setTimeout(() => {
+        offlineMsg.style.opacity = '0';
+        setTimeout(() => offlineMsg.remove(), 300);
+      }, 3500);
+      return;
+    }
+
     let syncError: string | null = null;
     try {
       const syncMod = await import('../services/sync-service');

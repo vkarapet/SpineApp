@@ -267,18 +267,7 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
       details: { task_type: 'tug_v1', tug_time_s: m.tug_time_s, decision: 'saved' },
     });
     enableNavigation();
-    syncStatus.style.display = '';
-    syncStatus.textContent = navigator.onLine ? 'Saved. Syncing…' : 'Saved locally. Will sync when online.';
-    if (navigator.onLine) {
-      import('../../services/sync-service')
-        .then((mod) => mod.triggerSync())
-        .then(async () => {
-          const { getResult } = await import('../../core/db');
-          const updated = await getResult(result.local_uuid);
-          syncStatus.textContent = updated?.synced ? 'Synced!' : 'Saved locally. Sync pending.';
-        })
-        .catch(() => { syncStatus.textContent = 'Saved locally. Sync pending.'; });
-    }
+    showSyncFeedback(syncStatus, result.local_uuid);
   }
 
   let discardCount = todayDiscards;
@@ -303,18 +292,7 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     counter.style.display = '';
     counter.textContent = `Discards used today: ${discardCount} / ${MAX_DAILY_DISCARDS}`;
     enableNavigation();
-    syncStatus.style.display = '';
-    syncStatus.textContent = navigator.onLine ? 'Discarded. Syncing…' : 'Discarded. Will sync when online.';
-    if (navigator.onLine) {
-      import('../../services/sync-service')
-        .then((mod) => mod.triggerSync())
-        .then(async () => {
-          const { getResult } = await import('../../core/db');
-          const updated = await getResult(result.local_uuid);
-          syncStatus.textContent = updated?.synced ? 'Discarded and synced.' : 'Discarded. Sync pending.';
-        })
-        .catch(() => { syncStatus.textContent = 'Discarded. Sync pending.'; });
-    }
+    showSyncFeedback(syncStatus, result.local_uuid);
   }
 
   wrapper.appendChild(header);
@@ -346,6 +324,40 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     wrapper.appendChild(againBtn);
     container.appendChild(wrapper);
   }
+}
+
+function showSyncFeedback(el: HTMLElement, localUuid: string): void {
+  el.style.display = '';
+  el.className = 'assessment-results__sync';
+
+  if (!navigator.onLine) {
+    el.classList.add('assessment-results__sync--offline');
+    el.textContent = 'No internet connection. Your data is saved and will sync automatically when you reconnect.';
+    setTimeout(() => {
+      el.classList.add('assessment-results__sync--fade-out');
+      setTimeout(() => { el.style.display = 'none'; }, 300);
+    }, 3500);
+    return;
+  }
+
+  el.textContent = 'Saved. Syncing…';
+  import('../../services/sync-service')
+    .then(async (mod) => {
+      await mod.triggerSync();
+      const { getResult } = await import('../../core/db');
+      const updated = await getResult(localUuid);
+      if (updated?.synced) {
+        el.textContent = 'Synced!';
+      } else {
+        const err = mod.lastSyncError;
+        el.classList.add('assessment-results__sync--error');
+        el.textContent = err ?? 'Sync failed. Your data is saved locally — try again from the home screen.';
+      }
+    })
+    .catch(() => {
+      el.classList.add('assessment-results__sync--error');
+      el.textContent = 'Sync failed. Your data is saved locally — try again from the home screen.';
+    });
 }
 
 function createMetricCard(label: string, value: string): HTMLElement {
