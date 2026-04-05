@@ -125,7 +125,7 @@ const style = document.createElement('style');
 style.textContent = `
   .grip-instructions__divider {
     border: none;
-    border-top: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-secondary);
     margin: var(--space-2) 0;
   }
   .grip-instructions__section-label {

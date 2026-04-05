@@ -283,7 +283,7 @@ style.textContent = `
   /* ── Divider ─────────────────────────────────────────────── */
   .tug-instructions__divider {
     border: none;
-    border-top: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-secondary);
     margin: var(--space-2) 0;
   }
 

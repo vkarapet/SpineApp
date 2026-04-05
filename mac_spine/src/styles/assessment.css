@@ -50,7 +50,6 @@
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 2px 0 0 var(--color-secondary);
 }
 .assessment-setup__scale {
   display: flex;
@@ -70,7 +69,6 @@
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 2px 0 0 var(--color-secondary);
 }
 .assessment-setup__scale-labels {
   display: flex;
@@ -96,7 +94,6 @@
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 2px 0 0 var(--color-secondary);
 }
 
 /* === Instructions Screen === */
@@ -115,6 +112,7 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   text-align: center;
+  color: var(--color-primary);
 }
 .assessment-instructions__body {
   line-height: var(--line-height-relaxed);
@@ -303,9 +301,7 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-4);
-  padding-left: calc(var(--space-4) - 1px);
   background: var(--color-bg-secondary);
-  border-left: 3px solid var(--color-secondary);
   border-radius: var(--radius-lg);
 }
 .assessment-results__metric-label {
