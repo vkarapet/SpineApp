@@ -45,11 +45,13 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   });
 
   async function handleSyncNow(): Promise<void> {
+    let syncError: string | null = null;
     try {
-      const { triggerSync } = await import('../services/sync-service');
-      await triggerSync();
-    } catch {
-      // sync errors handled internally
+      const syncMod = await import('../services/sync-service');
+      await syncMod.triggerSync();
+      syncError = syncMod.lastSyncError;
+    } catch (err) {
+      syncError = err instanceof Error ? err.message : String(err);
     }
     // Refresh the sync status widget in place
     const freshUnsynced = await getUnsyncedResults();
@@ -58,6 +60,7 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
       pendingCount: freshUnsynced.length,
       lastSyncedAt: freshProfile?.last_synced_at ?? null,
       onSyncNow: handleSyncNow,
+      error: syncError,
     });
     syncStatusEl.replaceWith(newSyncStatus);
     syncStatusEl = newSyncStatus;

@@ -7,13 +7,24 @@ export interface SyncStatusConfig {
   pendingCount: number;
   lastSyncedAt: string | null;
   onSyncNow: () => void;
+  error?: string | null;
 }
 
 export function createSyncStatus(config: SyncStatusConfig): HTMLElement {
-  const { pendingCount, lastSyncedAt, onSyncNow } = config;
+  const { pendingCount, lastSyncedAt, onSyncNow, error } = config;
 
   const container = createElement('div', { className: 'sync-status' });
   container.setAttribute('aria-live', 'polite');
+
+  // Show error banner if present
+  if (error) {
+    const errorEl = createElement('div', {
+      className: 'sync-status__error',
+      textContent: `Sync failed: ${error}`,
+    });
+    errorEl.setAttribute('role', 'alert');
+    container.appendChild(errorEl);
+  }
 
   const statusRow = createElement('div', { className: 'sync-status__row' });
 
@@ -107,6 +118,16 @@ style.textContent = `
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     margin-top: var(--space-2);
+  }
+  .sync-status__error {
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-2);
+    background: var(--color-error-bg);
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-error);
+    word-break: break-word;
   }
   .sync-status__warning {
     margin-top: var(--space-2);

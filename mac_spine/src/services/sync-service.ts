@@ -25,9 +25,13 @@ import type { AssessmentResult } from '../types/db-schemas';
 
 let syncing = false;
 
+/** Last sync error message, cleared on next successful sync. */
+export let lastSyncError: string | null = null;
+
 export async function triggerSync(): Promise<void> {
   if (syncing || !navigator.onLine) return;
   syncing = true;
+  lastSyncError = null;
 
   try {
     eventBus.emit('sync-status', 'syncing');
@@ -58,6 +62,7 @@ export async function triggerSync(): Promise<void> {
     eventBus.emit('sync-status', 'idle');
   } catch (err) {
     console.error('Sync error:', err);
+    lastSyncError = err instanceof Error ? err.message : String(err);
     eventBus.emit('sync-status', 'error');
   } finally {
     syncing = false;
@@ -101,6 +106,8 @@ async function uploadResult(result: AssessmentResult): Promise<void> {
         checkClockDrift(response.serverTimestamp);
       }
     } else {
+      const errMsg = response.error ?? 'Upload failed';
+      lastSyncError = errMsg;
       result.sync_attempts++;
       await saveResult(result);
 
@@ -115,10 +122,11 @@ async function uploadResult(result: AssessmentResult): Promise<void> {
         created_at: new Date().toISOString(),
         last_attempt_at: new Date().toISOString(),
         next_retry_at: new Date(Date.now() + SYNC_BACKOFF_BASE_MS).toISOString(),
-        error: response.error ?? null,
+        error: errMsg,
       });
     }
   } catch (err) {
+    lastSyncError = err instanceof Error ? err.message : String(err);
     await addAuditEntry({
       action: 'sync_failed',
       entity_id: result.local_uuid,
