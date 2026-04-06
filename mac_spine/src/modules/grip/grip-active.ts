@@ -4,10 +4,9 @@ import { generateUUID } from '../../utils/uuid';
 import { computeChecksum } from '../../utils/crypto';
 import { audioManager } from '../../utils/audio';
 import { vibrate, supportsVibration, getDeviceOS, getBrowserInfo, getViewportDimensions } from '../../utils/device';
-import { computeGripMetrics } from './grip-metrics';
+import { computeGripMetrics, labelGripCycles } from './grip-metrics';
 import { gripSessionSetup } from './grip-setup';
 import { GRIP_DURATION_MS, GRIP_MIN_FINGERS, INCREMENTAL_SAVE_INTERVAL_MS, INCREMENTAL_SAVE_GRIP_COUNT, APP_VERSION } from '../../constants';
-import type { GripTouchRecord } from '../../types/assessment';
 import type { AssessmentResult, SessionMetadata, UserProfile } from '../../types/db-schemas';
 import { showConfirm } from '../../components/confirm-dialog';
 import { router } from '../../main';
@@ -44,14 +43,15 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
   const viewport = getViewportDimensions();
 
-  // Completed touch records (final output format)
-  const touchRecords: GripTouchRecord[] = [];
+  // Raw paired touch records — grip labeling is done in post-processing
+  interface RawTouch { touch_id: number; start_t: number; start_x: number; start_y: number; end_t: number; end_x: number; end_y: number; }
+  const rawTouches: RawTouch[] = [];
 
   // Pending touches — start data waiting for their end event
   interface PendingTouch { touch_id: number; start_t: number; start_x: number; start_y: number; }
   const pendingTouches = new Map<number, PendingTouch>();
 
-  // Grip state — keyed by Touch.identifier
+  // Grip state — keyed by Touch.identifier (UI only, not used for data labeling)
   const activeTouches = new Map<number, HTMLElement>();
   const cancelledIds = new Set<number>();
   let gripAchieved = false;
@@ -113,29 +113,20 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     return leave;
   });
 
-  // Finalize a grip/non-grip cycle: pair all pending touches with end data
-  // and write them to touchRecords
-  function finalizeCycle(wasGrip: boolean): void {
-    const gripNum = wasGrip ? gripCycleCount + 1 : null;
-
-    // Any pending touches that didn't get an explicit end (shouldn't happen
-    // in normal flow, but be safe) — record them with end = start
+  // Flush any pending touches that never got an end event (e.g. test ended mid-grip)
+  function flushPendingTouches(now: number): void {
     for (const [, pending] of pendingTouches) {
-      touchRecords.push({
+      rawTouches.push({
         touch_id: pending.touch_id,
         start_t: pending.start_t,
         start_x: pending.start_x,
         start_y: pending.start_y,
-        end_t: pending.start_t,
+        end_t: now,
         end_x: pending.start_x,
         end_y: pending.start_y,
-        is_grip: wasGrip,
-        grip_number: gripNum,
       });
     }
     pendingTouches.clear();
-
-    if (wasGrip) gripCycleCount++;
   }
 
   function clearAllCircles(): void {
@@ -199,9 +190,9 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     e.preventDefault();
 
     // If all existing circles are orphans from a previous cancel,
-    // this is a new grip attempt — finalize previous cycle and clean up
+    // this is a new grip attempt — clean up before starting fresh
     if (activeTouches.size > 0 && cancelledIds.size === activeTouches.size) {
-      finalizeCycle(gripAchieved);
+      if (gripAchieved) gripCycleCount++;
       gripAchieved = false;
       clearAllCircles();
     }
@@ -229,8 +220,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
       // Pair with pending start data
       const pending = pendingTouches.get(touch.identifier);
       if (pending) {
-        const gripNum = gripAchieved ? gripCycleCount + 1 : null;
-        touchRecords.push({
+        rawTouches.push({
           touch_id: pending.touch_id,
           start_t: pending.start_t,
           start_x: pending.start_x,
@@ -238,8 +228,6 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
           end_t: now,
           end_x: touch.clientX,
           end_y: touch.clientY,
-          is_grip: gripAchieved,
-          grip_number: gripNum,
         });
         pendingTouches.delete(touch.identifier);
       }
@@ -271,7 +259,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
       const touch = e.changedTouches[i];
       const pending = pendingTouches.get(touch.identifier);
       if (pending) {
-        touchRecords.push({
+        rawTouches.push({
           touch_id: pending.touch_id,
           start_t: pending.start_t,
           start_x: pending.start_x,
@@ -279,15 +267,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
           end_t: now,
           end_x: touch.clientX,
           end_y: touch.clientY,
-          is_grip: gripAchieved,
-          grip_number: gripAchieved ? gripCycleCount + 1 : null,
         });
         pendingTouches.delete(touch.identifier);
       }
     }
 
-    // If grip was achieved before the cancel, count it as a completed
-    // cycle and give the user a clean slate for the next attempt
+    // If grip was achieved, count it and give a clean slate
     if (gripAchieved) {
       gripCycleCount++;
       gripAchieved = false;
@@ -323,7 +308,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   async function doIncrementalSave(): Promise<void> {
     gripsSinceSave = 0;
     lastSaveTime = performance.now();
-    const rawData = [...touchRecords];
+    const rawData = labelGripCycles([...rawTouches]);
     const metrics = computeGripMetrics(rawData, performance.now() - startTime);
 
     const partialResult: AssessmentResult = {
@@ -376,12 +361,13 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     goSignal.style.display = 'flex';
     indicatorContainer.style.display = 'none';
 
-    // Finalize any in-progress cycle (test ended mid-grip)
+    // Flush any touches still in progress (test ended mid-grip)
     if (pendingTouches.size > 0) {
-      finalizeCycle(gripAchieved);
+      flushPendingTouches(performance.now() - startTime);
     }
 
-    const rawData = [...touchRecords];
+    // Post-process: label all touches with grip cycle info
+    const rawData = labelGripCycles(rawTouches);
     const actualDuration = performance.now() - startTime;
 
     const metrics = computeGripMetrics(rawData, actualDuration);
