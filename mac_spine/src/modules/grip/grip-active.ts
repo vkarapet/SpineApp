@@ -265,10 +265,10 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (!running) return;
 
     const now = performance.now() - startTime;
+
+    // Record all cancelled touches
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-
-      // Record the cancelled touch as a completed contact
       const pending = pendingTouches.get(touch.identifier);
       if (pending) {
         touchRecords.push({
@@ -284,22 +284,27 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
         });
         pendingTouches.delete(touch.identifier);
       }
+    }
 
-      // Remove the circle — the OS has stolen this touch, so keeping
-      // it as a ghost blocks the user from retrying
+    // If grip was achieved before the cancel, count it as a completed
+    // cycle and give the user a clean slate for the next attempt
+    if (gripAchieved) {
+      gripCycleCount++;
+      gripAchieved = false;
+      clearAllCircles();
+      return;
+    }
+
+    // Grip wasn't achieved — remove only the cancelled touches so
+    // the user can keep adding fingers without a full release
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
       const circle = activeTouches.get(touch.identifier);
       if (circle) {
         circle.remove();
         activeTouches.delete(touch.identifier);
       }
       cancelledIds.delete(touch.identifier);
-    }
-
-    // If cancellation dropped us below grip threshold, allow re-detection
-    if (activeTouches.size < GRIP_MIN_FINGERS && gripAchieved) {
-      gripAchieved = false;
-      // Reset remaining circles to red (non-grip)
-      activeTouches.forEach((el) => el.classList.remove('grip-active__circle--grip'));
     }
   };
 
