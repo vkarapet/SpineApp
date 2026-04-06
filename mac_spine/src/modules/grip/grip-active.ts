@@ -56,6 +56,9 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   const cancelledIds = new Set<number>();
   // Frozen circles: cancelled but kept visible for feedback until next cycle
   const frozenCircles: HTMLElement[] = [];
+  // Whether frozen circles represent a completed grip (true) or
+  // a partial cancel still in progress (false)
+  let frozenCycleComplete = false;
   let gripAchieved = false;
   let gripCycleCount = 0;
   let running = false;
@@ -198,10 +201,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (!running) return;
     e.preventDefault();
 
-    // Clear frozen circles from a completed previous cycle
-    if (frozenCircles.length > 0 && !gripAchieved) {
+    // Clear frozen circles only from a completed previous cycle,
+    // not from a partial cancel still building toward a grip
+    if (frozenCircles.length > 0 && frozenCycleComplete) {
       for (const circle of frozenCircles) circle.remove();
       frozenCircles.length = 0;
+      frozenCycleComplete = false;
     }
 
     // If all remaining active circles are orphans from a previous cancel,
@@ -303,6 +308,9 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (gripAchieved && activeTouches.size === 0) {
       gripCycleCount++;
       gripAchieved = false;
+      frozenCycleComplete = true;
+    } else {
+      frozenCycleComplete = false;
     }
   };
 
