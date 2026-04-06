@@ -18,7 +18,16 @@ import { GRIP_MIN_FINGERS } from '../../constants';
  * time among all touches that overlap with it. This ensures that if
  * finger C starts while A and B are physically on screen (even if A/B
  * were cancelled), they're recognized as simultaneous.
+ *
+ * A small tolerance (CANCEL_TOLERANCE_MS) bridges the gap between a
+ * touchcancel end and the next touchstart — the browser may cancel
+ * existing touches just milliseconds before registering a new one,
+ * even though all fingers are physically on screen simultaneously.
  */
+
+/** Tolerance (ms) for bridging touchcancel gaps. */
+const CANCEL_TOLERANCE_MS = 50;
+
 export function labelGripCycles(
   rawTouches: Array<{ touch_id: number; start_t: number; start_x: number; start_y: number; end_t: number; end_x: number; end_y: number }>,
 ): GripTouchRecord[] {
@@ -27,20 +36,15 @@ export function labelGripCycles(
   const n = rawTouches.length;
 
   // Compute effective end times: extend each touch's end_t to account
-  // for touchcancel. If another touch starts before this one ends,
-  // they overlap — so extend end_t to at least cover that start.
-  // We iteratively extend until stable.
-  const effectiveEnd = rawTouches.map(t => t.end_t);
+  // for touchcancel. Add tolerance to bridge cancel→start gaps, then
+  // iteratively extend overlapping touches until stable.
+  const effectiveEnd = rawTouches.map(t => t.end_t + CANCEL_TOLERANCE_MS);
 
-  // For each touch, extend its effective end to the max end of any
-  // overlapping touch (using start_t < effectiveEnd overlap check).
-  // Repeat until no changes (handles transitive overlaps).
   let changed = true;
   while (changed) {
     changed = false;
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
-        // Check overlap: A starts before B effectively ends, and vice versa
         const aStart = rawTouches[i].start_t;
         const bStart = rawTouches[j].start_t;
         const overlaps = aStart < effectiveEnd[j] && bStart < effectiveEnd[i];
