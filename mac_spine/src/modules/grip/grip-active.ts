@@ -278,10 +278,15 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
         pendingTouches.delete(touch.identifier);
       }
 
-      // Mark as cancelled but keep the circle visible — the finger is
-      // likely still on screen, the OS just stole the touch tracking.
-      // Circles persist until the next touchstart cleans up orphans.
       cancelledIds.add(touch.identifier);
+    }
+
+    // If all active touches are now cancelled, clean up immediately
+    // so the user sees a fast reset rather than stuck circles
+    if (cancelledIds.size > 0 && cancelledIds.size >= activeTouches.size) {
+      if (gripAchieved) gripCycleCount++;
+      gripAchieved = false;
+      clearAllCircles();
     }
   };
 
