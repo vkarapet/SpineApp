@@ -10,6 +10,20 @@ export const router = new Router();
 export const eventBus = new EventBus();
 export const moduleRegistry = new ModuleRegistry();
 
+/** SW registration — available after bootstrap for manual update checks. */
+export let swRegistration: ServiceWorkerRegistration | null = null;
+
+function promptSwUpdate(worker: ServiceWorker): void {
+  import('./components/toast').then(({ showToast }) => {
+    const toast = showToast('New version available — tap to update', 'info', false);
+    toast.style.cursor = 'pointer';
+    toast.addEventListener('click', () => {
+      worker.postMessage({ type: 'SKIP_WAITING' });
+      toast.remove();
+    });
+  });
+}
+
 async function registerModules(): Promise<void> {
   const [grip, tug] = await Promise.all([
     import('./modules/grip/index'),
@@ -109,27 +123,37 @@ async function bootstrap() {
     const base = import.meta.env.BASE_URL;
     try {
       const reg = await navigator.serviceWorker.register(base + 'sw.js', { scope: base });
+
+      // Expose registration for settings screen "Check for Updates"
+      swRegistration = reg;
+
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (!newWorker) return;
         newWorker.addEventListener('statechange', () => {
           // New SW installed and waiting — prompt user to update
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            import('./components/toast').then(({ showToast }) => {
-              const toast = showToast('New version available — tap to update', 'info', false);
-              toast.style.cursor = 'pointer';
-              toast.addEventListener('click', () => {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                toast.remove();
-              });
-            });
+            promptSwUpdate(newWorker);
           }
         });
       });
+
       // Reload when the new SW takes over
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       });
+
+      // Check for updates when the app returns to foreground
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          reg.update().catch(() => {});
+        }
+      });
+
+      // Also check if there's already a waiting worker (dismissed toast earlier)
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        promptSwUpdate(reg.waiting);
+      }
     } catch (err) {
       console.error('SW registration failed:', err);
     }

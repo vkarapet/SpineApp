@@ -9,7 +9,8 @@ import { getStorageEstimate } from '../utils/storage';
 import { supportsVibration } from '../utils/device';
 import { showToast } from '../components/toast';
 import { showConfirm } from '../components/confirm-dialog';
-import { router } from '../main';
+import { router, swRegistration } from '../main';
+import { APP_VERSION } from '../constants';
 
 export async function renderSettings(container: HTMLElement): Promise<void> {
   clearContainer(container);
@@ -37,6 +38,49 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
       }),
     );
   }
+
+  // App
+  main.appendChild(createSectionHeader('App'));
+
+  const versionInfo = createElement('p', {
+    className: 'settings-screen__info',
+    textContent: `Version: ${APP_VERSION}`,
+  });
+  main.appendChild(versionInfo);
+
+  main.appendChild(
+    createButton({
+      text: 'Check for Updates',
+      variant: 'secondary',
+      fullWidth: true,
+      onClick: async () => {
+        if (!swRegistration) {
+          showToast('Service worker not available', 'error');
+          return;
+        }
+
+        // If there's already a waiting worker, apply it
+        if (swRegistration.waiting) {
+          swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          return;
+        }
+
+        try {
+          const reg = swRegistration;
+          await reg.update();
+          // After update(), check if a new worker is now waiting
+          const waiting = reg.waiting;
+          if (waiting) {
+            waiting.postMessage({ type: 'SKIP_WAITING' });
+          } else {
+            showToast('App is up to date', 'success');
+          }
+        } catch {
+          showToast('Could not check for updates', 'error');
+        }
+      },
+    }),
+  );
 
   // Data Management
   main.appendChild(createSectionHeader('Data Management'));
