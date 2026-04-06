@@ -3,90 +3,70 @@ import { isGripTouchRecord } from '../../types/assessment';
 import { GRIP_MIN_FINGERS } from '../../constants';
 
 /**
+ * Maximum gap (ms) between consecutive touch starts within the same
+ * grip attempt. Touches starting within this window of each other
+ * are grouped into the same cycle. This accounts for the fact that
+ * fingers rarely land at exactly the same millisecond.
+ */
+const CYCLE_GAP_MS = 200;
+
+/**
  * Post-process raw paired touches into labeled GripTouchRecords.
- * Reconstructs grip cycles by simulating the same logic used for
- * real-time UI: a grip is detected when GRIP_MIN_FINGERS are
- * simultaneously on screen, and a cycle completes on full release.
  *
- * This runs once at the end of the test, so grip_number assignment
- * is guaranteed to be consistent regardless of touchcancel timing.
+ * Groups touches into cycles based on proximity of start times
+ * (within CYCLE_GAP_MS of each other). A cycle is a grip if it
+ * contains GRIP_MIN_FINGERS or more touches. This approach is
+ * robust to touchcancel events which artificially shorten end times.
  */
 export function labelGripCycles(
   rawTouches: Array<{ touch_id: number; start_t: number; start_x: number; start_y: number; end_t: number; end_x: number; end_y: number }>,
 ): GripTouchRecord[] {
   if (rawTouches.length === 0) return [];
 
-  // Build a timeline of start/end events, sorted by time
-  interface TimelineEvent {
-    t: number;
-    type: 'start' | 'end';
-    index: number; // index into rawTouches
-  }
+  // Sort by start time
+  const sorted = rawTouches.map((t, i) => ({ ...t, origIndex: i }));
+  sorted.sort((a, b) => a.start_t - b.start_t);
 
-  const timeline: TimelineEvent[] = [];
-  for (let i = 0; i < rawTouches.length; i++) {
-    timeline.push({ t: rawTouches[i].start_t, type: 'start', index: i });
-    timeline.push({ t: rawTouches[i].end_t, type: 'end', index: i });
-  }
-  // Sort by time, starts before ends at same time
-  timeline.sort((a, b) => a.t - b.t || (a.type === 'start' ? -1 : 1));
+  // Group into cycles: consecutive touches within CYCLE_GAP_MS
+  const cycles: Array<{ indices: number[]; isGrip: boolean }> = [];
+  let currentCycle: number[] = [sorted[0].origIndex];
+  let lastStartT = sorted[0].start_t;
 
-  // Walk the timeline tracking active touches
-  const activeIndices = new Set<number>();
-  let gripAchieved = false;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].start_t - lastStartT <= CYCLE_GAP_MS) {
+      // Still within the same cycle
+      currentCycle.push(sorted[i].origIndex);
+    } else {
+      // Gap too large — finalize previous cycle, start new one
+      cycles.push({
+        indices: currentCycle,
+        isGrip: currentCycle.length >= GRIP_MIN_FINGERS,
+      });
+      currentCycle = [sorted[i].origIndex];
+    }
+    lastStartT = sorted[i].start_t;
+  }
+  // Finalize last cycle
+  cycles.push({
+    indices: currentCycle,
+    isGrip: currentCycle.length >= GRIP_MIN_FINGERS,
+  });
+
+  // Assign grip numbers (1-indexed, only for grip cycles)
+  const labels = new Map<number, { is_grip: boolean; grip_number: number | null }>();
   let gripNumber = 0;
 
-  // Track which touches belong to the current cycle and whether it's a grip
-  let currentCycleIndices = new Set<number>();
-  let currentCycleIsGrip = false;
-
-  // Final labels: index → { is_grip, grip_number }
-  const labels = new Map<number, { is_grip: boolean; grip_number: number | null }>();
-
-  for (const event of timeline) {
-    if (event.type === 'start') {
-      activeIndices.add(event.index);
-      currentCycleIndices.add(event.index);
-
-      if (activeIndices.size >= GRIP_MIN_FINGERS && !gripAchieved) {
-        gripAchieved = true;
-        currentCycleIsGrip = true;
-      }
-    } else {
-      activeIndices.delete(event.index);
-
-      // Full release — all fingers off screen
-      if (activeIndices.size === 0) {
-        if (gripAchieved) gripNumber++;
-
-        // Label all touches in this cycle
-        for (const idx of currentCycleIndices) {
-          labels.set(idx, {
-            is_grip: currentCycleIsGrip,
-            grip_number: currentCycleIsGrip ? gripNumber : null,
-          });
-        }
-
-        // Reset for next cycle
-        gripAchieved = false;
-        currentCycleIsGrip = false;
-        currentCycleIndices = new Set();
-      }
-    }
-  }
-
-  // Handle any touches still in a cycle at the end (test ended mid-grip)
-  if (currentCycleIndices.size > 0) {
-    if (gripAchieved) gripNumber++;
-    for (const idx of currentCycleIndices) {
+  for (const cycle of cycles) {
+    if (cycle.isGrip) gripNumber++;
+    for (const idx of cycle.indices) {
       labels.set(idx, {
-        is_grip: currentCycleIsGrip,
-        grip_number: currentCycleIsGrip ? gripNumber : null,
+        is_grip: cycle.isGrip,
+        grip_number: cycle.isGrip ? gripNumber : null,
       });
     }
   }
 
-  // Build final records
+  // Build final records in original order
   return rawTouches.map((raw, i) => {
     const label = labels.get(i) ?? { is_grip: false, grip_number: null };
     return {
