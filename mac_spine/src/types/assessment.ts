@@ -37,6 +37,18 @@ export interface RawTapEvent {
   reject_reason: string | null;
 }
 
+export interface GripTouchRecord {
+  touch_id: number;
+  start_t: number;
+  start_x: number;
+  start_y: number;
+  end_t: number;
+  end_x: number;
+  end_y: number;
+  is_grip: boolean;
+  grip_number: number | null;
+}
+
 export interface RawMotionEvent {
   kind: 'motion';
   t: number;
@@ -56,7 +68,7 @@ export interface RawTimerEvent {
 }
 
 /** Discriminated by presence of `kind` — legacy tap events have no `kind` field. */
-export type RawEvent = RawTapEvent | RawMotionEvent | RawTimerEvent;
+export type RawEvent = RawTapEvent | RawMotionEvent | RawTimerEvent | GripTouchRecord;
 
 export type RawSessionData = RawEvent[];
 
@@ -71,6 +83,10 @@ export function isMotionEvent(e: RawEvent): e is RawMotionEvent {
 
 export function isTimerEvent(e: RawEvent): e is RawTimerEvent {
   return 'kind' in e && (e as RawTimerEvent).kind === 'timer';
+}
+
+export function isGripTouchRecord(e: RawEvent): e is GripTouchRecord {
+  return 'start_t' in e;
 }
 
 export interface ComputedMetrics {

@@ -5,6 +5,7 @@ export type {
   PracticeConfig,
   MetadataField,
   RawTapEvent,
+  GripTouchRecord,
   RawMotionEvent,
   RawTimerEvent,
   RawEvent,
@@ -14,7 +15,7 @@ export type {
   ScreenRenderer,
 } from './assessment';
 
-export { isTapEvent, isMotionEvent, isTimerEvent } from './assessment';
+export { isTapEvent, isMotionEvent, isTimerEvent, isGripTouchRecord } from './assessment';
 
 export type {
   UserProfile,

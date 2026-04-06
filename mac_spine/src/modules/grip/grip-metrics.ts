@@ -1,30 +1,40 @@
-import type { RawTapEvent, RawSessionData, ComputedMetrics } from '../../types/assessment';
-import { isTapEvent } from '../../types/assessment';
-import { GRIP_MIN_FINGERS } from '../../constants';
-
-interface ReconstructedCycle {
-  gripTimestamp: number;
-  fingerCount: number;
-}
+import type { RawSessionData, ComputedMetrics } from '../../types/assessment';
+import { isGripTouchRecord } from '../../types/assessment';
 
 export function computeGripMetrics(
   rawData: RawSessionData,
   durationMs: number,
 ): ComputedMetrics {
-  // Filter to tap events, then reconstruct grip cycles
-  const tapEvents = rawData.filter(isTapEvent);
-  const cycles = reconstructCycles(tapEvents);
+  const records = rawData.filter(isGripTouchRecord);
 
-  const gripCount = cycles.length;
+  // Find unique grip numbers (excluding null = non-grip touches)
+  const gripNumbers = new Set<number>();
+  for (const r of records) {
+    if (r.grip_number !== null) gripNumbers.add(r.grip_number);
+  }
+
+  const gripCount = gripNumbers.size;
   const durationSec = durationMs / 1000;
   const frequencyHz = durationSec > 0 ? gripCount / durationSec : 0;
 
   // Rhythm CV (coefficient of variation of inter-grip intervals)
+  // Use the earliest start_t of each grip cycle as the grip timestamp
   let rhythmCv = 0;
-  if (cycles.length >= 2) {
+  if (gripCount >= 2) {
+    const gripTimestamps: number[] = [];
+    for (const num of Array.from(gripNumbers).sort((a, b) => a - b)) {
+      let earliest = Infinity;
+      for (const r of records) {
+        if (r.grip_number === num && r.start_t < earliest) {
+          earliest = r.start_t;
+        }
+      }
+      gripTimestamps.push(earliest);
+    }
+
     const intervals: number[] = [];
-    for (let i = 1; i < cycles.length; i++) {
-      intervals.push(cycles[i].gripTimestamp - cycles[i - 1].gripTimestamp);
+    for (let i = 1; i < gripTimestamps.length; i++) {
+      intervals.push(gripTimestamps[i] - gripTimestamps[i - 1]);
     }
 
     const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
@@ -47,43 +57,8 @@ export function computeGripMetrics(
   };
 }
 
-function reconstructCycles(rawData: RawTapEvent[]): ReconstructedCycle[] {
-  const cycles: ReconstructedCycle[] = [];
-  const activePointers = new Set<number>();
-  let gripAchieved = false;
-  let currentGripTimestamp = 0;
-  let currentFingerCount = 0;
-
-  for (const event of rawData) {
-    if (event.rejected) continue;
-
-    if (event.type === 'start') {
-      activePointers.add(event.touch_id);
-
-      if (activePointers.size >= GRIP_MIN_FINGERS && !gripAchieved) {
-        gripAchieved = true;
-        currentGripTimestamp = event.t;
-        currentFingerCount = activePointers.size;
-      }
-    } else if (event.type === 'end') {
-      activePointers.delete(event.touch_id);
-
-      if (activePointers.size === 0 && gripAchieved) {
-        cycles.push({
-          gripTimestamp: currentGripTimestamp,
-          fingerCount: currentFingerCount,
-        });
-        gripAchieved = false;
-      }
-    }
-  }
-
-  return cycles;
-}
-
 export function getRhythmLabel(cv: number): string {
   if (cv < 0.1) return 'Good';
   if (cv <= 0.25) return 'Fair';
   return 'Variable';
 }
-

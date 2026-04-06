@@ -7,7 +7,7 @@ import { vibrate, supportsVibration, getDeviceOS, getBrowserInfo, getViewportDim
 import { computeGripMetrics } from './grip-metrics';
 import { gripSessionSetup } from './grip-setup';
 import { GRIP_DURATION_MS, GRIP_MIN_FINGERS, INCREMENTAL_SAVE_INTERVAL_MS, INCREMENTAL_SAVE_GRIP_COUNT, APP_VERSION } from '../../constants';
-import type { RawTapEvent } from '../../types/assessment';
+import type { GripTouchRecord } from '../../types/assessment';
 import type { AssessmentResult, SessionMetadata, UserProfile } from '../../types/db-schemas';
 import { showConfirm } from '../../components/confirm-dialog';
 import { router } from '../../main';
@@ -44,9 +44,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
   const viewport = getViewportDimensions();
 
-  // Pre-allocate event array
-  const tapEvents: RawTapEvent[] = new Array(500);
-  let tapIndex = 0;
+  // Completed touch records (final output format)
+  const touchRecords: GripTouchRecord[] = [];
+
+  // Pending touches — start data waiting for their end event
+  interface PendingTouch { touch_id: number; start_t: number; start_x: number; start_y: number; }
+  const pendingTouches = new Map<number, PendingTouch>();
 
   // Grip state — keyed by Touch.identifier
   const activeTouches = new Map<number, HTMLElement>();
@@ -110,24 +113,29 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     return leave;
   });
 
-  // Record event
-  function recordEvent(
-    t: number,
-    x: number,
-    y: number,
-    type: 'start' | 'end',
-    touchId: number,
-    rejected: boolean,
-    rejectReason: string | null,
-  ): void {
-    const event: RawTapEvent = { t, x, y, type, touch_id: touchId, rejected, reject_reason: rejectReason };
+  // Finalize a grip/non-grip cycle: pair all pending touches with end data
+  // and write them to touchRecords
+  function finalizeCycle(wasGrip: boolean): void {
+    const gripNum = wasGrip ? gripCycleCount + 1 : null;
 
-    if (tapIndex < tapEvents.length) {
-      tapEvents[tapIndex] = event;
-    } else {
-      tapEvents.push(event);
+    // Any pending touches that didn't get an explicit end (shouldn't happen
+    // in normal flow, but be safe) — record them with end = start
+    for (const [, pending] of pendingTouches) {
+      touchRecords.push({
+        touch_id: pending.touch_id,
+        start_t: pending.start_t,
+        start_x: pending.start_x,
+        start_y: pending.start_y,
+        end_t: pending.start_t,
+        end_x: pending.start_x,
+        end_y: pending.start_y,
+        is_grip: wasGrip,
+        grip_number: gripNum,
+      });
     }
-    tapIndex++;
+    pendingTouches.clear();
+
+    if (wasGrip) gripCycleCount++;
   }
 
   function clearAllCircles(): void {
@@ -191,9 +199,9 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     e.preventDefault();
 
     // If all existing circles are orphans from a previous cancel,
-    // this is a new grip attempt — clean up before starting fresh
+    // this is a new grip attempt — finalize previous cycle and clean up
     if (activeTouches.size > 0 && cancelledIds.size === activeTouches.size) {
-      if (gripAchieved) gripCycleCount++;
+      finalizeCycle(gripAchieved);
       gripAchieved = false;
       clearAllCircles();
     }
@@ -201,7 +209,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     const now = performance.now() - startTime;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      recordEvent(now, touch.clientX, touch.clientY, 'start', touch.identifier, false, null);
+      pendingTouches.set(touch.identifier, {
+        touch_id: touch.identifier,
+        start_t: now,
+        start_x: touch.clientX,
+        start_y: touch.clientY,
+      });
     }
     reconcileCircles(e.touches);
   };
@@ -212,7 +225,24 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     const now = performance.now() - startTime;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      recordEvent(now, touch.clientX, touch.clientY, 'end', touch.identifier, false, null);
+
+      // Pair with pending start data
+      const pending = pendingTouches.get(touch.identifier);
+      if (pending) {
+        const gripNum = gripAchieved ? gripCycleCount + 1 : null;
+        touchRecords.push({
+          touch_id: pending.touch_id,
+          start_t: pending.start_t,
+          start_x: pending.start_x,
+          start_y: pending.start_y,
+          end_t: now,
+          end_x: touch.clientX,
+          end_y: touch.clientY,
+          is_grip: gripAchieved,
+          grip_number: gripNum,
+        });
+        pendingTouches.delete(touch.identifier);
+      }
 
       // Remove circle for this lifted finger
       const circle = activeTouches.get(touch.identifier);
@@ -225,9 +255,8 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
     // Full release — no more active touches on screen
     if (e.touches.length === 0) {
-      const wasGrip = gripAchieved;
+      if (gripAchieved) gripCycleCount++;
       clearAllCircles();
-      if (wasGrip) gripCycleCount++;
       gripAchieved = false;
     }
   };
@@ -238,9 +267,39 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     const now = performance.now() - startTime;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      recordEvent(now, touch.clientX, touch.clientY, 'end', touch.identifier, false, null);
-      // Mark as cancelled but keep the circle — finger is still on screen
-      cancelledIds.add(touch.identifier);
+
+      // Record the cancelled touch as a completed contact
+      const pending = pendingTouches.get(touch.identifier);
+      if (pending) {
+        touchRecords.push({
+          touch_id: pending.touch_id,
+          start_t: pending.start_t,
+          start_x: pending.start_x,
+          start_y: pending.start_y,
+          end_t: now,
+          end_x: touch.clientX,
+          end_y: touch.clientY,
+          is_grip: gripAchieved,
+          grip_number: gripAchieved ? gripCycleCount + 1 : null,
+        });
+        pendingTouches.delete(touch.identifier);
+      }
+
+      // Remove the circle — the OS has stolen this touch, so keeping
+      // it as a ghost blocks the user from retrying
+      const circle = activeTouches.get(touch.identifier);
+      if (circle) {
+        circle.remove();
+        activeTouches.delete(touch.identifier);
+      }
+      cancelledIds.delete(touch.identifier);
+    }
+
+    // If cancellation dropped us below grip threshold, allow re-detection
+    if (activeTouches.size < GRIP_MIN_FINGERS && gripAchieved) {
+      gripAchieved = false;
+      // Reset remaining circles to red (non-grip)
+      activeTouches.forEach((el) => el.classList.remove('grip-active__circle--grip'));
     }
   };
 
@@ -259,7 +318,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   async function doIncrementalSave(): Promise<void> {
     gripsSinceSave = 0;
     lastSaveTime = performance.now();
-    const rawData = tapEvents.slice(0, tapIndex);
+    const rawData = [...touchRecords];
     const metrics = computeGripMetrics(rawData, performance.now() - startTime);
 
     const partialResult: AssessmentResult = {
@@ -312,7 +371,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     goSignal.style.display = 'flex';
     indicatorContainer.style.display = 'none';
 
-    const rawData = tapEvents.slice(0, tapIndex);
+    // Finalize any in-progress cycle (test ended mid-grip)
+    if (pendingTouches.size > 0) {
+      finalizeCycle(gripAchieved);
+    }
+
+    const rawData = [...touchRecords];
     const actualDuration = performance.now() - startTime;
 
     const metrics = computeGripMetrics(rawData, actualDuration);
