@@ -1,5 +1,6 @@
 import { redcapFetch } from './config';
 import type { Env } from './config';
+import type { ModuleFieldMap } from './field-maps';
 
 /**
  * Check if a participant (record_id) exists in REDCap.
@@ -40,7 +41,7 @@ export async function checkDuplicate(
   env: Env,
   recordId: string,
   localUuid: string,
-  instrument: string,
+  fieldMap: ModuleFieldMap,
 ): Promise<boolean> {
   const params = new URLSearchParams({
     token: env.REDCAP_API_TOKEN,
@@ -48,8 +49,8 @@ export async function checkDuplicate(
     format: 'json',
     type: 'flat',
     records: recordId,
-    fields: 'record_id,local_uuid',
-    forms: instrument,
+    fields: `record_id,${fieldMap.localUuidField}`,
+    forms: fieldMap.instrument,
     returnFormat: 'json',
   });
 
@@ -64,7 +65,7 @@ export async function checkDuplicate(
   }
 
   const records = await response.json() as Array<Record<string, unknown>>;
-  return records.some((r) => r.local_uuid === localUuid);
+  return records.some((r) => r[fieldMap.localUuidField] === localUuid);
 }
 
 /**

@@ -7,13 +7,15 @@
 
 export interface ModuleFieldMap {
   instrument: string;
+  localUuidField: string;
   fields: Record<string, string>;
 }
 
 const gripFieldMap: ModuleFieldMap = {
   instrument: 'grip_task',
+  localUuidField: 'grip_local_uuid',
   fields: {
-    'local_uuid': 'local_uuid',
+    'local_uuid': 'grip_local_uuid',
     'timestamp_start': 'grip_timestamp',
     'computed_metrics.duration_actual_ms': 'grip_duration',
     'computed_metrics.tap_count': 'grip_count',
@@ -25,17 +27,18 @@ const gripFieldMap: ModuleFieldMap = {
     'flag_reason': 'grip_flag_reason',
     'raw_data': 'grip_raw_json',
     'checksum': 'grip_checksum',
-    'session_metadata.device_os': 'device_os',
-    'session_metadata.screen_width_px': 'screen_width',
-    'session_metadata.screen_height_px': 'screen_height',
-    'session_metadata.app_version': 'app_version',
+    'session_metadata.device_os': 'grip_device_os',
+    'session_metadata.screen_width_px': 'grip_screen_width',
+    'session_metadata.screen_height_px': 'grip_screen_height',
+    'session_metadata.app_version': 'grip_app_version',
   },
 };
 
 const tugFieldMap: ModuleFieldMap = {
   instrument: 'tug_task',
+  localUuidField: 'tug_local_uuid',
   fields: {
-    'local_uuid': 'local_uuid',
+    'local_uuid': 'tug_local_uuid',
     'timestamp_start': 'tug_timestamp',
     'computed_metrics.duration_actual_ms': 'tug_duration',
     'computed_metrics.tug_time_s': 'tug_time',
@@ -47,10 +50,10 @@ const tugFieldMap: ModuleFieldMap = {
     'flag_reason': 'tug_flag_reason',
     'raw_data': 'tug_raw_json',
     'checksum': 'tug_checksum',
-    'session_metadata.device_os': 'device_os',
-    'session_metadata.screen_width_px': 'screen_width',
-    'session_metadata.screen_height_px': 'screen_height',
-    'session_metadata.app_version': 'app_version',
+    'session_metadata.device_os': 'tug_device_os',
+    'session_metadata.screen_width_px': 'tug_screen_width',
+    'session_metadata.screen_height_px': 'tug_screen_height',
+    'session_metadata.app_version': 'tug_app_version',
     'computed_metrics.total_steps': 'tug_total_steps',
     'computed_metrics.total_distance_m': 'tug_total_distance',
     'computed_metrics.avg_stride_length_m': 'tug_avg_stride',

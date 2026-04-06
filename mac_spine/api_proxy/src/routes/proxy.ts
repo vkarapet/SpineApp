@@ -150,7 +150,7 @@ export async function handleProxy(
         env,
         body.record_id,
         record.local_uuid,
-        fieldMap.instrument,
+        fieldMap,
       );
       if (isDuplicate) {
         skippedCount++;

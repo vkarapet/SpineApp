@@ -18,7 +18,14 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // Lock to allowed origin
+    const url = new URL(request.url);
+
+    // Health check — no origin restriction (used for monitoring)
+    if (url.pathname === '/health' && request.method === 'GET') {
+      return handleHealth(env, corsHeaders);
+    }
+
+    // All other routes require the allowed origin
     if (origin !== env.ALLOWED_ORIGIN) {
       return Response.json(
         { success: false, error_code: 'CORS_REJECTED', message: 'Origin not allowed' },
@@ -26,14 +33,8 @@ export default {
       );
     }
 
-    const url = new URL(request.url);
-
     if (url.pathname === '/proxy' && request.method === 'POST') {
       return handleProxy(request, env, corsHeaders);
-    }
-
-    if (url.pathname === '/health' && request.method === 'GET') {
-      return handleHealth(env, corsHeaders);
     }
 
     return new Response('Not Found', { status: 404 });
