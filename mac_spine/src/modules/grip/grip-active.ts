@@ -254,7 +254,7 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
     const now = performance.now() - startTime;
 
-    // Record all cancelled touches
+    // Record cancelled touches as completed contacts
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       const pending = pendingTouches.get(touch.identifier);
@@ -270,26 +270,11 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
         });
         pendingTouches.delete(touch.identifier);
       }
-    }
 
-    // If grip was achieved, count it and give a clean slate
-    if (gripAchieved) {
-      gripCycleCount++;
-      gripAchieved = false;
-      clearAllCircles();
-      return;
-    }
-
-    // Grip wasn't achieved — remove only the cancelled touches so
-    // the user can keep adding fingers without a full release
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const touch = e.changedTouches[i];
-      const circle = activeTouches.get(touch.identifier);
-      if (circle) {
-        circle.remove();
-        activeTouches.delete(touch.identifier);
-      }
-      cancelledIds.delete(touch.identifier);
+      // Mark as cancelled but keep the circle visible — the finger is
+      // likely still on screen, the OS just stole the touch tracking.
+      // Circles persist until the next touchstart cleans up orphans.
+      cancelledIds.add(touch.identifier);
     }
   };
 
