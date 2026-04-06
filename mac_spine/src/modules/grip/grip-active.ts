@@ -177,10 +177,13 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
       }
     }
 
-    // Grip detection
-    if (activeTouches.size >= GRIP_MIN_FINGERS && !gripAchieved) {
+    // Grip detection: count active touches + frozen circles from this cycle
+    const totalFingers = activeTouches.size + frozenCircles.length;
+    if (totalFingers >= GRIP_MIN_FINGERS && !gripAchieved) {
       gripAchieved = true;
+      // Turn all circles green — both active and frozen
       activeTouches.forEach((el) => el.classList.add('grip-active__circle--grip'));
+      for (const el of frozenCircles) el.classList.add('grip-active__circle--grip');
 
       const hapticEnabled = profile?.preferences.haptic_enabled ?? true;
       if (hapticEnabled && supportsVibration()) vibrate(10);
@@ -195,13 +198,8 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (!running) return;
     e.preventDefault();
 
-    // Clean up frozen circles from previous cancelled cycle
-    if (frozenCircles.length > 0) {
-      for (const circle of frozenCircles) circle.remove();
-      frozenCircles.length = 0;
-    }
-
-    // If all remaining active circles are orphans, reset
+    // If all remaining active circles are orphans from a previous cancel,
+    // this is a new grip attempt — clean up everything
     if (cancelledIds.size > 0 && cancelledIds.size === activeTouches.size) {
       if (gripAchieved) gripCycleCount++;
       gripAchieved = false;
