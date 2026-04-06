@@ -281,12 +281,18 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
       cancelledIds.add(touch.identifier);
     }
 
-    // If all active touches are now cancelled, clean up immediately
-    // so the user sees a fast reset rather than stuck circles
+    // If all active touches are now cancelled, show brief visual
+    // feedback then clean up after a short delay
     if (cancelledIds.size > 0 && cancelledIds.size >= activeTouches.size) {
-      if (gripAchieved) gripCycleCount++;
+      const wasGrip = gripAchieved;
+      if (wasGrip) gripCycleCount++;
       gripAchieved = false;
-      clearAllCircles();
+
+      // Keep circles visible briefly so user sees the feedback,
+      // then fade out and clear for the next attempt
+      setTimeout(() => {
+        clearAllCircles();
+      }, wasGrip ? 400 : 150);
     }
   };
 
