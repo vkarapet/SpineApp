@@ -54,6 +54,8 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
   // Grip state — keyed by Touch.identifier (UI only, not used for data labeling)
   const activeTouches = new Map<number, HTMLElement>();
   const cancelledIds = new Set<number>();
+  // Frozen circles: cancelled but kept visible for feedback until next cycle
+  const frozenCircles: HTMLElement[] = [];
   let gripAchieved = false;
   let gripCycleCount = 0;
   let running = false;
@@ -135,6 +137,10 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     }
     activeTouches.clear();
     cancelledIds.clear();
+    for (const circle of frozenCircles) {
+      circle.remove();
+    }
+    frozenCircles.length = 0;
   }
 
   // Reconcile circle UI from e.touches — the authoritative list of
@@ -163,19 +169,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
       cancelledIds.delete(touch.identifier);
     }
 
-    // Remove circles for touches no longer tracked by the browser
+    // Remove circles for touches that are gone AND not frozen by cancel
     for (const [id, circle] of activeTouches) {
-      if (!currentIds.has(id)) {
+      if (!currentIds.has(id) && !cancelledIds.has(id)) {
         circle.remove();
         activeTouches.delete(id);
-        cancelledIds.delete(id);
       }
-    }
-
-    // If we lost fingers (due to cancel) and dropped below threshold, reset grip
-    if (activeTouches.size < GRIP_MIN_FINGERS && gripAchieved) {
-      gripAchieved = false;
-      activeTouches.forEach((el) => el.classList.remove('grip-active__circle--grip'));
     }
 
     // Grip detection
@@ -196,8 +195,13 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (!running) return;
     e.preventDefault();
 
-    // If all remaining circles are orphans from a previous cancel,
-    // clean up before starting the new grip attempt
+    // Clean up frozen circles from previous cancelled cycle
+    if (frozenCircles.length > 0) {
+      for (const circle of frozenCircles) circle.remove();
+      frozenCircles.length = 0;
+    }
+
+    // If all remaining active circles are orphans, reset
     if (cancelledIds.size > 0 && cancelledIds.size === activeTouches.size) {
       if (gripAchieved) gripCycleCount++;
       gripAchieved = false;
@@ -261,9 +265,10 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
 
     const now = performance.now() - startTime;
 
-    // Record cancelled touches as completed contacts
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
+
+      // Record cancelled touch data
       const pending = pendingTouches.get(touch.identifier);
       if (pending) {
         rawTouches.push({
@@ -278,13 +283,21 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
         pendingTouches.delete(touch.identifier);
       }
 
-      cancelledIds.add(touch.identifier);
+      // Freeze the circle: remove from activeTouches (so it doesn't
+      // affect grip detection) but keep the DOM element visible
+      const circle = activeTouches.get(touch.identifier);
+      if (circle) {
+        // Ensure it shows green if grip was achieved
+        if (gripAchieved) circle.classList.add('grip-active__circle--grip');
+        frozenCircles.push(circle);
+        activeTouches.delete(touch.identifier);
+      }
+      cancelledIds.delete(touch.identifier);
     }
 
-    // If all active touches are now cancelled, count the grip
-    // but keep circles visible until the next touchstart
-    if (cancelledIds.size > 0 && cancelledIds.size >= activeTouches.size) {
-      if (gripAchieved) gripCycleCount++;
+    // If grip was achieved and no active touches remain, count the cycle
+    if (gripAchieved && activeTouches.size === 0) {
+      gripCycleCount++;
       gripAchieved = false;
     }
   };
