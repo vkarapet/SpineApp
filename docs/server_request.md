@@ -89,10 +89,10 @@ Each assessment module (tapping, grip, TUG) has a field map that translates loca
 
 ### Implementation
 
-The Azure Function code is already written and lives in `mmat/server/`:
+The Cloudflare Worker code is already written and lives in `mmat/api_proxy/`:
 
 ```
-mmat/server/
+mmat/api_proxy/
 ├── host.json                       — Azure Functions runtime config
 ├── local.settings.json             — Environment variables (gitignored)
 ├── package.json                    — Dependencies (@azure/functions)
@@ -112,7 +112,7 @@ mmat/server/
 
 The source code is TypeScript and must be compiled to JavaScript before deployment.
 
-**Build step** (run from `mmat/server/`):
+**Build step** (run from `mmat/api_proxy/`):
 
 ```bash
 npm install        # install dependencies (first time only)
