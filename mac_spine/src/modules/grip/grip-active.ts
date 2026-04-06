@@ -198,6 +198,12 @@ export async function renderGripActive(container: HTMLElement): Promise<void> {
     if (!running) return;
     e.preventDefault();
 
+    // Clear frozen circles from a completed previous cycle
+    if (frozenCircles.length > 0 && !gripAchieved) {
+      for (const circle of frozenCircles) circle.remove();
+      frozenCircles.length = 0;
+    }
+
     // If all remaining active circles are orphans from a previous cancel,
     // this is a new grip attempt — clean up everything
     if (cancelledIds.size > 0 && cancelledIds.size === activeTouches.size) {
