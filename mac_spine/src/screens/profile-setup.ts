@@ -41,6 +41,7 @@ export function renderProfileSetup(container: HTMLElement): void {
     inputMode: 'text',
     required: true,
     placeholder: 'e.g. ABC123',
+    uppercase: true,
     validate: validateParticipantId,
     onChange: (_val, valid) => {
       participantIdValid = valid;

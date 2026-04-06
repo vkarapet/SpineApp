@@ -10,6 +10,7 @@ export interface FormFieldConfig {
   placeholder?: string;
   value?: string;
   readOnly?: boolean;
+  uppercase?: boolean;
   validate?: (value: string) => { valid: boolean; error?: string };
   onChange?: (value: string, valid: boolean) => void;
 }
@@ -34,6 +35,7 @@ export function createFormField(config: FormFieldConfig): FormFieldRef {
     placeholder,
     value,
     readOnly = false,
+    uppercase = false,
     validate,
     onChange,
   } = config;
@@ -57,6 +59,7 @@ export function createFormField(config: FormFieldConfig): FormFieldRef {
   if (required) input.required = true;
   if (placeholder) input.placeholder = placeholder;
   if (value) input.value = value;
+  if (uppercase) input.style.textTransform = 'uppercase';
   if (readOnly) {
     input.readOnly = true;
     container.classList.add('form-field--readonly');

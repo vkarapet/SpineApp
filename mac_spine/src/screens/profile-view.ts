@@ -32,6 +32,7 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
     type: 'text',
     inputMode: 'text',
     value: profile.participant_id,
+    uppercase: true,
     validate: validateParticipantId,
   });
 

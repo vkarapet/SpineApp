@@ -18,7 +18,7 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
 
   const profile: UserProfile = {
     id: 'current',
-    participant_id: input.participantId.trim(),
+    participant_id: input.participantId.trim().toUpperCase(),
     name: input.name?.trim() ?? '',
     consent_date: now,
     consent_version: CONSENT_VERSION,
@@ -55,7 +55,7 @@ export async function updateProfile(
   const updatedFields: string[] = [];
 
   if (participantId !== undefined) {
-    profile.participant_id = participantId.trim();
+    profile.participant_id = participantId.trim().toUpperCase();
     updatedFields.push('participant_id');
   }
   if (name !== undefined) {
