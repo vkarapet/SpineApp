@@ -3,65 +3,100 @@ import { isGripTouchRecord } from '../../types/assessment';
 import { GRIP_MIN_FINGERS } from '../../constants';
 
 /**
- * Maximum gap (ms) between consecutive touch starts within the same
- * grip attempt. Touches starting within this window of each other
- * are grouped into the same cycle. This accounts for the fact that
- * fingers rarely land at exactly the same millisecond.
- */
-const CYCLE_GAP_MS = 200;
-
-/**
  * Post-process raw paired touches into labeled GripTouchRecords.
  *
- * Groups touches into cycles based on proximity of start times
- * (within CYCLE_GAP_MS of each other). A cycle is a grip if it
- * contains GRIP_MIN_FINGERS or more touches. This approach is
- * robust to touchcancel events which artificially shorten end times.
+ * A grip cycle is a group of touches where at least GRIP_MIN_FINGERS
+ * were on screen simultaneously. Two touches overlap if one starts
+ * before the other ends (start_a < end_b AND start_b < end_a).
+ *
+ * Touches are grouped into cycles by connectivity: if touch A overlaps
+ * touch B and touch B overlaps touch C, all three are in the same cycle.
+ * A cycle is a grip if it contains GRIP_MIN_FINGERS or more touches.
+ *
+ * To handle touchcancel (which artificially shortens end times), each
+ * touch's effective end time is extended to at least the latest start
+ * time among all touches that overlap with it. This ensures that if
+ * finger C starts while A and B are physically on screen (even if A/B
+ * were cancelled), they're recognized as simultaneous.
  */
 export function labelGripCycles(
   rawTouches: Array<{ touch_id: number; start_t: number; start_x: number; start_y: number; end_t: number; end_x: number; end_y: number }>,
 ): GripTouchRecord[] {
   if (rawTouches.length === 0) return [];
 
-  // Sort by start time
-  const sorted = rawTouches.map((t, i) => ({ ...t, origIndex: i }));
-  sorted.sort((a, b) => a.start_t - b.start_t);
+  const n = rawTouches.length;
 
-  // Group into cycles: consecutive touches within CYCLE_GAP_MS
-  const cycles: Array<{ indices: number[]; isGrip: boolean }> = [];
-  let currentCycle: number[] = [sorted[0].origIndex];
-  let lastStartT = sorted[0].start_t;
+  // Compute effective end times: extend each touch's end_t to account
+  // for touchcancel. If another touch starts before this one ends,
+  // they overlap — so extend end_t to at least cover that start.
+  // We iteratively extend until stable.
+  const effectiveEnd = rawTouches.map(t => t.end_t);
 
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].start_t - lastStartT <= CYCLE_GAP_MS) {
-      // Still within the same cycle
-      currentCycle.push(sorted[i].origIndex);
-    } else {
-      // Gap too large — finalize previous cycle, start new one
-      cycles.push({
-        indices: currentCycle,
-        isGrip: currentCycle.length >= GRIP_MIN_FINGERS,
-      });
-      currentCycle = [sorted[i].origIndex];
+  // For each touch, extend its effective end to the max end of any
+  // overlapping touch (using start_t < effectiveEnd overlap check).
+  // Repeat until no changes (handles transitive overlaps).
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        // Check overlap: A starts before B effectively ends, and vice versa
+        const aStart = rawTouches[i].start_t;
+        const bStart = rawTouches[j].start_t;
+        const overlaps = aStart < effectiveEnd[j] && bStart < effectiveEnd[i];
+        if (overlaps) {
+          const maxEnd = Math.max(effectiveEnd[i], effectiveEnd[j]);
+          if (effectiveEnd[i] < maxEnd) { effectiveEnd[i] = maxEnd; changed = true; }
+          if (effectiveEnd[j] < maxEnd) { effectiveEnd[j] = maxEnd; changed = true; }
+        }
+      }
     }
-    lastStartT = sorted[i].start_t;
   }
-  // Finalize last cycle
-  cycles.push({
-    indices: currentCycle,
-    isGrip: currentCycle.length >= GRIP_MIN_FINGERS,
-  });
 
-  // Assign grip numbers (1-indexed, only for grip cycles)
+  // Build overlap graph and find connected components (cycles)
+  const parent = Array.from({ length: n }, (_, i) => i);
+  function find(x: number): number {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  }
+  function union(a: number, b: number): void {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  }
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const overlaps =
+        rawTouches[i].start_t < effectiveEnd[j] &&
+        rawTouches[j].start_t < effectiveEnd[i];
+      if (overlaps) union(i, j);
+    }
+  }
+
+  // Group indices by component
+  const components = new Map<number, number[]>();
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    if (!components.has(root)) components.set(root, []);
+    components.get(root)!.push(i);
+  }
+
+  // Sort cycles by earliest start time, assign grip numbers
+  const cycles = Array.from(components.values()).sort(
+    (a, b) => Math.min(...a.map(i => rawTouches[i].start_t)) -
+              Math.min(...b.map(i => rawTouches[i].start_t)),
+  );
+
   const labels = new Map<number, { is_grip: boolean; grip_number: number | null }>();
   let gripNumber = 0;
 
   for (const cycle of cycles) {
-    if (cycle.isGrip) gripNumber++;
-    for (const idx of cycle.indices) {
+    const isGrip = cycle.length >= GRIP_MIN_FINGERS;
+    if (isGrip) gripNumber++;
+    for (const idx of cycle) {
       labels.set(idx, {
-        is_grip: cycle.isGrip,
-        grip_number: cycle.isGrip ? gripNumber : null,
+        is_grip: isGrip,
+        grip_number: isGrip ? gripNumber : null,
       });
     }
   }
