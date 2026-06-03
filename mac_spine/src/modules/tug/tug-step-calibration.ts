@@ -10,7 +10,6 @@ import {
   TUG_STEP_CAL_THRESHOLD_MULTIPLIER,
   TUG_STEP_CAL_PREP_COUNTDOWN_MS,
   TUG_STEP_CAL_BURST_MAX_GAP_MS,
-  TUG_STEP_CAL_TAIL_TRIM_MS,
   TUG_STEP_CAL_OUTLIER_RATIO,
   TUG_STEP_MIN_INTERVAL_MS,
   TUG_STEP_PEAK_VALLEY_MAX_MS,
@@ -252,12 +251,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           verifyDetected = detectedCount;
           stage = 'verify-result';
         } else {
-          // Trim the tail: covers the hand-raise/lower to tap Stop. Without
-          // this, moving the phone away from the sternum to reach the button
-          // produces a large accel swing that pollutes the candidate set.
-          const maxT = samples.length > 0 ? samples[samples.length - 1].t : 0;
-          const trimmed = samples.filter((s) => s.t <= maxT - TUG_STEP_CAL_TAIL_TRIM_MS);
-          lastCapture = analyzeWithGroundTruth(trimmed, TUG_STEP_CAL_EXPECTED_STEPS);
+          lastCapture = analyzeWithGroundTruth(samples, TUG_STEP_CAL_EXPECTED_STEPS);
           stage = 'capture-review';
         }
         render();
