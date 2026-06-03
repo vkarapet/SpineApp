@@ -43,7 +43,8 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   const localUuid = generateUUID();
   const sessionStartISO = new Date().toISOString();
 
-  const sensorConfig = TUG_CONFIG;
+  const stepThreshold = profile.tug_step_calibration?.threshold_mps2 ?? TUG_CONFIG.stepInitialThreshold;
+  const sensorConfig = { ...TUG_CONFIG, stepInitialThreshold: stepThreshold };
 
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',

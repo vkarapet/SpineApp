@@ -37,6 +37,13 @@ export const TUG_CALIBRATION_SAMPLES = 60;
 export const TUG_STILLNESS_ACCEL_TOLERANCE = 0.5;    // m/s² from gravity magnitude
 export const TUG_STILLNESS_DURATION_MS = 3000;        // 3 seconds of stillness to auto-start
 
+// TUG step calibration
+export const TUG_STEP_CAL_EXPECTED_STEPS = 5;
+export const TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD = 0.5;
+export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.4;
+export const TUG_STEP_CAL_PREP_COUNTDOWN_MS = 3000;
+export const TUG_STEP_CAL_TAIL_TRIM_MS = 500;
+
 export const INTENDED_USE_STATEMENT =
   'MAC Spine is a research data collection tool intended for use in IRB-approved studies. ' +
   'It is not intended to diagnose, treat, cure, or prevent any disease. ' +

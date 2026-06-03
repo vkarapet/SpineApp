@@ -6,6 +6,14 @@ export interface UserPreferences {
   reminder_frequency: 'daily' | 'every_2_days' | 'weekly' | 'off';
 }
 
+export interface TugStepCalibration {
+  threshold_mps2: number;
+  median_peak_valley_mps2: number;
+  n_samples: number;
+  calibrated_at: string;
+  app_version: string;
+}
+
 export interface UserProfile {
   id: 'current';
   participant_id: string;
@@ -14,6 +22,7 @@ export interface UserProfile {
   consent_date: string;
   consent_version: string;
   preferences: UserPreferences;
+  tug_step_calibration?: TugStepCalibration;
   clock_offset?: number;
   schema_version?: number;
   created_at: string;
@@ -83,7 +92,8 @@ export interface AuditLogEntry {
     | 'consent_given'
     | 'data_exported'
     | 'account_signed_out'
-    | 'data_deleted';
+    | 'data_deleted'
+    | 'tug_step_calibration_saved';
   entity_id: string | null;
   details: Record<string, unknown>;
 }

@@ -8,17 +8,19 @@ import { renderTugPractice } from './tug-practice';
 import { renderTugCountdown } from './tug-countdown';
 import { renderTugActive } from './tug-active';
 import { renderTugResults } from './tug-results';
+import { renderTugStepCalibration } from './tug-step-calibration';
 
 export const tugModule: AssessmentModule = {
   id: 'tug_v1',
   name: 'Timed Up & Go',
-  version: '2.0.0',
+  version: '2.1.0',
   description: 'Measure functional mobility with a timed walk test',
 
   screens: {
     setup: renderTugSetup,
     instructions: renderTugInstructions,
     practice: renderTugPractice,
+    step_calibration: renderTugStepCalibration,
     countdown: renderTugCountdown,
     active: renderTugActive,
     results: renderTugResults,

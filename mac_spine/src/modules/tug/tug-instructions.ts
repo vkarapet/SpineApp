@@ -15,6 +15,12 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
     return;
   }
 
+  // Auto-navigate to step calibration if not yet done.
+  if (!profile?.tug_step_calibration) {
+    router.navigate('#/assessment/tug_v1/step_calibration');
+    return;
+  }
+
   const wrapper = createElement('main', { className: 'assessment-instructions' });
   wrapper.setAttribute('role', 'main');
 
@@ -39,6 +45,13 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
     variant: 'secondary',
     fullWidth: true,
     onClick: () => router.navigate('#/assessment/tug_v1/practice'),
+  });
+
+  const stepCalBtn = createButton({
+    text: 'Re-calibrate Step Detection',
+    variant: 'secondary',
+    fullWidth: true,
+    onClick: () => router.navigate('#/assessment/tug_v1/step_calibration'),
   });
 
   const soundSection = createElement('div', { className: 'tug-instructions__sound-section' });
@@ -68,7 +81,7 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
   const divider = createElement('hr', { className: 'tug-instructions__divider' });
 
   const body = createElement('div', { className: 'assessment-instructions__body' });
-  body.innerHTML = '<p>The phone will go in your pocket and automatically detect each phase:</p>';
+  body.innerHTML = '<p>The phone must go in your <strong>front trouser pocket</strong> — the same placement used during step calibration. Holding it in your hand or chest will produce unreliable step detection.</p>';
 
   const steps = createElement('div', { className: 'assessment-instructions__important' });
   steps.innerHTML = `
@@ -94,6 +107,7 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
   wrapper.appendChild(title);
   wrapper.appendChild(readyBtn);
   wrapper.appendChild(calibrateBtn);
+  wrapper.appendChild(stepCalBtn);
   wrapper.appendChild(soundSection);
   wrapper.appendChild(cancelBtn);
   wrapper.appendChild(divider);

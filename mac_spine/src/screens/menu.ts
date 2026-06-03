@@ -97,7 +97,7 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
   const modulesSection = createElement('section', { className: 'menu-screen__modules' });
   modulesSection.setAttribute('aria-label', 'Available assessments');
 
-  await addModuleCards(modulesSection);
+  await addModuleCards(modulesSection, profile);
 
   // View History button
   const historyBtn = createButton({
@@ -121,6 +121,7 @@ export async function renderMenu(container: HTMLElement): Promise<void> {
 
 async function addModuleCards(
   section: HTMLElement,
+  profile: import('../types/db-schemas').UserProfile,
 ): Promise<void> {
   const modules = moduleRegistry.getAllModules();
   for (const mod of modules) {
@@ -132,12 +133,21 @@ async function addModuleCards(
     const sparklineValues = sorted.map((r) => mod.getSparklineValue(r));
     const lastForModule = sorted[sorted.length - 1];
 
+    // Gate: TUG requires step calibration before the card is interactive.
+    const tugNeedsCal = mod.id.startsWith('tug_') && !profile.tug_step_calibration;
     const card = createModuleCard({
       name: mod.name,
       description: mod.description,
-      lastCompleted: lastForModule?.timestamp_start ?? null,
-      sparklineValues,
-      onClick: () => router.navigate(`#/assessment/${mod.id}/setup`),
+      lastCompleted: tugNeedsCal ? null : (lastForModule?.timestamp_start ?? null),
+      sparklineValues: tugNeedsCal ? [] : sparklineValues,
+      locked: tugNeedsCal,
+      lockedBadge: tugNeedsCal ? 'Calibration required' : undefined,
+      lockedMessage: tugNeedsCal ? 'Set up the walking calibration before you can take this test.' : undefined,
+      onClick: () => router.navigate(
+        tugNeedsCal
+          ? `#/assessment/${mod.id}/step_calibration`
+          : `#/assessment/${mod.id}/setup`,
+      ),
     });
     section.appendChild(card);
   }

@@ -7,24 +7,35 @@ export interface ModuleCardConfig {
   lastCompleted: string | null;
   sparklineValues: number[];
   onClick: () => void;
+  locked?: boolean;
+  lockedBadge?: string;
+  lockedMessage?: string;
 }
 
 export function createModuleCard(config: ModuleCardConfig): HTMLElement {
-  const { name, description, lastCompleted, sparklineValues, onClick } = config;
+  const { name, description, lastCompleted, sparklineValues, onClick, locked, lockedBadge, lockedMessage } = config;
 
   const card = createElement('button', {
-    className: 'module-card',
-    'aria-label': `Start ${name}`,
+    className: locked ? 'module-card module-card--locked' : 'module-card',
+    'aria-label': locked ? `${name}: ${lockedBadge ?? 'Locked'} — tap to set up` : `Start ${name}`,
   });
 
   const content = createElement('div', { className: 'module-card__content' });
-  content.appendChild(createElement('h3', {
+  const nameRow = createElement('div', { className: 'module-card__name-row' });
+  nameRow.appendChild(createElement('h3', {
     className: 'module-card__name',
     textContent: name,
   }));
+  if (locked && lockedBadge) {
+    nameRow.appendChild(createElement('span', {
+      className: 'module-card__badge',
+      textContent: lockedBadge,
+    }));
+  }
+  content.appendChild(nameRow);
   content.appendChild(createElement('p', {
     className: 'module-card__desc',
-    textContent: description,
+    textContent: locked && lockedMessage ? lockedMessage : description,
   }));
 
   if (lastCompleted) {
@@ -140,6 +151,29 @@ style.textContent = `
   .module-card__arrow {
     color: var(--color-secondary);
     flex-shrink: 0;
+  }
+  .module-card--locked {
+    opacity: 0.7;
+    border-style: dashed;
+  }
+  .module-card--locked .module-card__name {
+    color: var(--color-text-secondary);
+  }
+  .module-card__name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .module-card__badge {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--color-secondary);
+    color: var(--color-text);
   }
 `;
 document.head.appendChild(style);

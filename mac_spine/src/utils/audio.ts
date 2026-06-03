@@ -38,6 +38,31 @@ export class AudioManager {
     }
   }
 
+  /**
+   * Short procedurally-generated tick (no asset). Used for step-cal verify
+   * feedback. Safe to call rapidly; each tick gets its own oscillator.
+   */
+  playTick(): void {
+    if (!this.enabled || !this.context) return;
+    try {
+      const ctx = this.context;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1100, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } catch (err) {
+      console.error('Failed to play tick:', err);
+    }
+  }
+
   play(name: string): void {
     if (!this.enabled || !this.context) return;
 
