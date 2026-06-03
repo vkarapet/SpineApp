@@ -20,7 +20,7 @@ tug_local_uuid,tug_task,Session Info,text,Session UUID,,UUID v4 - used for dedup
 tug_timestamp,tug_task,,text,Session Start Timestamp,,ISO 8601 UTC (e.g. 2025-01-15T14:45:00.456Z),,,,,,y,,,
 tug_duration,tug_task,,text,Recording Duration (ms),,Total duration of sensor recording session,number,0,600000,,,,,,
 tug_time,tug_task,TUG Metrics,text,TUG Time (s),,"Clinical TUG time: stand-up to sit-down impact. Thresholds: <10s normal, 10-20s variable, >=13.5s fall-risk.",number,0,300,,,y,,,
-tug_standup_duration,tug_task,,text,Stand-Up Duration (ms),,Duration of rising-from-chair phase.,number,0,60000,,,,,,
+tug_time_to_first_step,tug_task,,text,Time to First Step (ms),,"Soft proxy for stand-up duration: time from go cue to first detected step.",number,0,60000,,,,,,
 tug_walk_out_steps,tug_task,Walk-Out Gait (first 3 m),text,Walk-Out Steps,,Step count during the first 3 m of walking.,integer,0,100,,,,,,
 tug_walk_out_distance,tug_task,,text,Walk-Out Distance (m),,Estimated distance during walk-out segment (should be ~3.0 m).,number,0,10,,,,,,
 tug_walk_out_duration,tug_task,,text,Walk-Out Duration (ms),,Duration of walk-out segment (stand-up complete to 3 m beep).,number,0,120000,,,,,,

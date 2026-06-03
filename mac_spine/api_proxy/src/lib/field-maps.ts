@@ -53,7 +53,7 @@ const tugFieldMap: ModuleFieldMap = {
     'session_metadata.screen_width_px': 'tug_screen_width',
     'session_metadata.screen_height_px': 'tug_screen_height',
     'session_metadata.app_version': 'tug_app_version',
-    'computed_metrics.standup_duration_ms': 'tug_standup_duration',
+    'computed_metrics.time_to_first_step_ms': 'tug_time_to_first_step',
     'computed_metrics.walk_out_steps': 'tug_walk_out_steps',
     'computed_metrics.walk_out_distance_m': 'tug_walk_out_distance',
     'computed_metrics.walk_out_duration_ms': 'tug_walk_out_duration',

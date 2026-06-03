@@ -177,10 +177,10 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     metricsSection.appendChild(gaitSection);
   }
 
-  // ── Stand-up time ────────────────────────────────────────────
-  if ((m.standup_duration_ms ?? 0) > 0) {
+  // ── Time to first step (soft proxy for stand-up duration) ────
+  if ((m.time_to_first_step_ms ?? 0) > 0) {
     metricsSection.appendChild(
-      createMetricCard('Stand-up time', `${((m.standup_duration_ms ?? 0) / 1000).toFixed(1)}s`),
+      createMetricCard('Time to first step', `${((m.time_to_first_step_ms ?? 0) / 1000).toFixed(1)}s`),
     );
   }
 

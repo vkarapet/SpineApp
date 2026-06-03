@@ -3,7 +3,7 @@
   "name": "Timed Up & Go",
   "version": "2.0.0",
   "redcap_instrument": "tug_task",
-  "description": "Standard Timed Up & Go (TUG) test. Participant places phone in front trouser pocket. The app detects stand-up and the first 3 m of walking (with stride/cadence metrics), plays an audio cue at 3 m, then waits for the sit-down impact spike to stop the timer (back-dated to the impact moment). Turn and walk-back phases are not measured electronically — only the overall TUG time and the clean 3 m walk-out gait segment are recorded.",
+  "description": "Standard Timed Up & Go (TUG) test. Participant places phone in front trouser pocket. After a stillness countdown, the test begins; the participant rises and walks 3 m. The app plays an audio cue at 3 m, then waits for the sit-down impact spike to stop the timer (back-dated to the impact moment). Stand-up and turn/walk-back phases are not measured electronically — only the overall TUG time, the time to the first step (soft proxy for stand-up), and the clean walk-out gait window (first step to 3 m beep) are recorded.",
   "fields": [
     {
       "local_key": "local_uuid",
@@ -37,12 +37,12 @@
       "primary_metric": true
     },
     {
-      "local_key": "computed_metrics.standup_duration_ms",
-      "redcap_field": "tug_standup_duration",
+      "local_key": "computed_metrics.time_to_first_step_ms",
+      "redcap_field": "tug_time_to_first_step",
       "type": "number",
       "unit": "milliseconds",
-      "example": 1800,
-      "description": "Duration of the stand-up phase (rising from chair) detected by accelerometer impact + sustained tilt."
+      "example": 1900,
+      "description": "Time from test start (go cue) to the first detected walking step. Soft proxy for stand-up + walk-initiation duration; robust because it only depends on the step detector, not on stand-up accel/tilt heuristics."
     },
     {
       "local_key": "computed_metrics.walk_out_steps",
@@ -66,7 +66,7 @@
       "type": "number",
       "unit": "milliseconds",
       "example": 3400,
-      "description": "Duration of the walk-out segment, from stand-up complete to 3 m beep."
+      "description": "Duration of the gait analysis window: first detected step to the 3 m beep. Used as the denominator for cadence and gait speed. Does NOT include the time before the first step."
     },
     {
       "local_key": "computed_metrics.walk_out_avg_stride_length_m",
@@ -74,7 +74,7 @@
       "type": "number",
       "unit": "metres",
       "example": 0.68,
-      "description": "Mean stride length over the walk-out segment (Weinberg estimator from vertical acceleration peaks/valleys)."
+      "description": "Mean stride length over the walk-out gait window (Weinberg estimator). First stride is excluded as it is contaminated by the stand-up rise."
     },
     {
       "local_key": "computed_metrics.walk_out_stride_cv",
@@ -82,7 +82,7 @@
       "type": "number",
       "unit": "ratio",
       "example": 0.082,
-      "description": "Coefficient of variation of stride length (SD / mean). Higher values indicate more irregular gait."
+      "description": "Coefficient of variation of stride length (SD / mean), excluding first stride. Higher values indicate more irregular gait."
     },
     {
       "local_key": "computed_metrics.walk_out_cadence_spm",
@@ -90,7 +90,7 @@
       "type": "number",
       "unit": "steps per minute",
       "example": 105.4,
-      "description": "Cadence over the walk-out segment: steps * 60 / duration_seconds."
+      "description": "Cadence within the gait window: (steps - 1) * 60 / window_seconds. First step is treated as the window boundary and excluded from the in-window count."
     },
     {
       "local_key": "computed_metrics.walk_out_avg_step_time_ms",
@@ -114,7 +114,7 @@
       "type": "number",
       "unit": "metres per second",
       "example": 0.90,
-      "description": "Gait speed over the walk-out segment: distance / duration_seconds. Clinical cutoff <0.8 m/s suggests mobility impairment."
+      "description": "Gait speed within the gait window: in-window distance / window_seconds. In-window distance excludes the first stride (it traversed the time before firstStep). Clinical cutoff <0.8 m/s suggests mobility impairment."
     },
     {
       "local_key": "session_metadata.fatigue_rating",
@@ -211,6 +211,7 @@
     }
   ],
   "removed_in_v2": [
+    "tug_standup_duration",
     "tug_total_steps",
     "tug_total_distance",
     "tug_avg_stride",

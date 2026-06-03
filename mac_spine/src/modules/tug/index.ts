@@ -43,7 +43,7 @@ export const tugModule: AssessmentModule = {
       'session_metadata.screen_height_px': 'screen_height',
       'session_metadata.app_version': 'app_version',
       // Walk-out gait metrics (3 m segment)
-      'computed_metrics.standup_duration_ms': 'tug_standup_duration',
+      'computed_metrics.time_to_first_step_ms': 'tug_time_to_first_step',
       'computed_metrics.walk_out_steps': 'tug_walk_out_steps',
       'computed_metrics.walk_out_distance_m': 'tug_walk_out_distance',
       'computed_metrics.walk_out_duration_ms': 'tug_walk_out_duration',
@@ -61,7 +61,7 @@ export const tugModule: AssessmentModule = {
     { key: 'walk_out_gait_speed_mps', label: 'Gait Speed', unit: 'm/s', higherIsBetter: true },
     { key: 'walk_out_cadence_spm', label: 'Cadence', unit: 'spm', higherIsBetter: true },
     { key: 'walk_out_avg_stride_length_m', label: 'Avg Stride', unit: 'm', higherIsBetter: true },
-    { key: 'standup_duration_ms', label: 'Stand Up Time', unit: 'ms', higherIsBetter: false },
+    { key: 'time_to_first_step_ms', label: 'Time to first step', unit: 'ms', higherIsBetter: false },
   ],
 
   getInstructions(): InstructionConfig {

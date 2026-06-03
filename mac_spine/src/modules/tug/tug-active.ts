@@ -150,8 +150,11 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   // Sensor engine (mode-specific config)
   const engine = new TugSensorEngine({
     onStateUpdate(state) {
-      // Update phase label
-      phaseLabel.textContent = TUG_PHASE_LABELS[state.phase] ?? state.phase;
+      // While in walking_out but no steps yet, the participant is rising.
+      const prelimLabel = state.phase === 'walking_out' && state.steps === 0
+        ? 'Stand and walk forward'
+        : (TUG_PHASE_LABELS[state.phase] ?? state.phase);
+      phaseLabel.textContent = prelimLabel;
 
       const isWalking = state.phase === 'walking_out';
       walkInfo.style.display = isWalking ? 'flex' : 'none';
@@ -285,7 +288,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
 
     // Compute metrics
     const phaseTransitions = engine.getPhaseTransitions();
-    const metrics = computeTugSensorMetrics(allRawData, phaseTransitions, engine.getPhaseData());
+    const metrics = computeTugSensorMetrics(allRawData, phaseTransitions, engine.getWalkOutData());
     const checksum = await computeChecksum(allRawData);
 
     const isFlagged = timedOut || manualStop;

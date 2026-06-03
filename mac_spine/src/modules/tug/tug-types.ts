@@ -4,10 +4,6 @@ export interface TugSessionSetup {
 
 export interface TugSensorConfig {
   gravityFilterAlpha: number;
-  standupAccelThreshold: number;
-  standupTiltThreshold: number;
-  standupTiltHoldMs: number;
-  standupMaxDurationMs: number;
   walkDistanceM: number;
   // Step detection
   stepInitialThreshold: number;
@@ -23,10 +19,6 @@ export interface TugSensorConfig {
 
 export const TUG_CONFIG: TugSensorConfig = {
   gravityFilterAlpha: 0.1,
-  standupAccelThreshold: 14.7,
-  standupTiltThreshold: 45,
-  standupTiltHoldMs: 200,
-  standupMaxDurationMs: 4000,
   walkDistanceM: 3.0,
   stepInitialThreshold: 1.2,
   stepMinIntervalMs: 300,
@@ -48,21 +40,18 @@ export type TugClinicalBand = 'normal' | 'moderate_risk' | 'high_risk';
 
 export type TugPhase =
   | 'idle'
-  | 'standing_up'
   | 'walking_out'
   | 'sitting_down'
   | 'complete';
 
 export const TUG_PHASE_LABELS: Record<TugPhase, string> = {
   idle: 'Ready',
-  standing_up: 'Standing Up',
   walking_out: 'Walking',
   sitting_down: 'Return and sit',
   complete: 'Complete',
 };
 
 export const TUG_PHASE_ORDER: TugPhase[] = [
-  'standing_up',
   'walking_out',
   'sitting_down',
   'complete',
@@ -75,12 +64,11 @@ export interface PhaseTransition {
   trigger: string;
 }
 
-export interface PhaseMetrics {
-  phase: TugPhase;
-  durationMs: number;
-  startT: number;
-  endT: number;
-  steps?: number;
-  distance?: number;
-  strideLengths?: number[];
+export interface WalkOutPhaseData {
+  steps: number;
+  distance: number;
+  strideLengths: number[];
+  stepIntervals: number[];
+  firstStepT: number | null;
+  lastStepT: number | null;
 }

@@ -1,7 +1,7 @@
 import type { RawSessionData, ComputedMetrics } from '../../types/assessment';
 import { isTimerEvent } from '../../types/assessment';
 import { TUG_NORMAL_THRESHOLD_S, TUG_HIGH_RISK_THRESHOLD_S } from '../../constants';
-import type { TugClinicalBand, TugPhase, PhaseTransition } from './tug-types';
+import type { TugClinicalBand, PhaseTransition, WalkOutPhaseData } from './tug-types';
 
 export function computeTugMetrics(rawData: RawSessionData): ComputedMetrics {
   const timerEvents = rawData.filter(isTimerEvent);
@@ -45,52 +45,46 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export function computeTugSensorMetrics(
   rawData: RawSessionData,
-  phaseTransitions: PhaseTransition[],
-  phaseData: Map<TugPhase, {
-    steps: number;
-    distance: number;
-    strideLengths: number[];
-    stepIntervals: number[];
-  }>,
+  _phaseTransitions: PhaseTransition[],
+  walkOut: WalkOutPhaseData,
 ): ComputedMetrics {
   const base = computeTugMetrics(rawData);
 
-  // Phase durations from transitions
-  const phaseDurations: Partial<Record<TugPhase, number>> = {};
-  for (let i = 0; i < phaseTransitions.length - 1; i++) {
-    const current = phaseTransitions[i];
-    const next = phaseTransitions[i + 1];
-    phaseDurations[current.to] = next.t - current.t;
-  }
-  if (phaseTransitions.length > 0) {
-    const last = phaseTransitions[phaseTransitions.length - 1];
-    if (last.to !== 'complete') {
-      phaseDurations[last.to] = base.duration_actual_ms - last.t;
-    }
-  }
+  const firstStepT = walkOut.firstStepT;
+  const totalSteps = walkOut.steps;
+  const strides = walkOut.strideLengths;
+  const stepIntervals = walkOut.stepIntervals;
 
-  const walkOut = phaseData.get('walking_out');
-  const walkOutDurationMs = phaseDurations.walking_out ?? 0;
-  const walkOutDurationS = walkOutDurationMs / 1000;
+  // Time to first step: from test start (t=0) to firstStep — soft proxy for
+  // stand-up duration. Robust because it just waits for the step detector.
+  const timeToFirstStepMs = firstStepT ?? 0;
 
-  const strides = walkOut?.strideLengths ?? [];
-  const stepIntervals = walkOut?.stepIntervals ?? [];
-  const walkOutSteps = walkOut?.steps ?? 0;
-  const walkOutDistance = walkOut?.distance ?? 0;
+  // Gait window: [firstStepT, lastStepT]. The first step is the boundary
+  // marker (it traversed the time before firstStepT, which we excluded), so
+  // it doesn't count toward in-window distance, step count, or stride stats.
+  const inWindowSteps = Math.max(0, totalSteps - 1);
+  const inWindowStrides = strides.slice(1);
+  const inWindowDistance = inWindowStrides.reduce((a, b) => a + b, 0);
+  const windowMs = firstStepT !== null && walkOut.lastStepT !== null
+    ? walkOut.lastStepT - firstStepT
+    : 0;
+  const windowS = windowMs / 1000;
 
-  const avgStride = mean(strides);
-  const strideCv = cv(strides);
+  const avgStride = mean(inWindowStrides);
+  const strideCv = cv(inWindowStrides);
   const avgStepTimeMs = mean(stepIntervals);
   const stepTimeCv = cv(stepIntervals);
-  const cadenceSpm = walkOutDurationS > 0 ? (walkOutSteps * 60) / walkOutDurationS : 0;
-  const gaitSpeed = walkOutDurationS > 0 ? walkOutDistance / walkOutDurationS : 0;
+  const cadenceSpm = windowS > 0 ? (inWindowSteps * 60) / windowS : 0;
+  const gaitSpeed = windowS > 0 ? inWindowDistance / windowS : 0;
 
   return {
     ...base,
-    standup_duration_ms: Math.round(phaseDurations.standing_up ?? 0),
-    walk_out_steps: walkOutSteps,
-    walk_out_distance_m: round2(walkOutDistance),
-    walk_out_duration_ms: Math.round(walkOutDurationMs),
+    time_to_first_step_ms: Math.round(timeToFirstStepMs),
+    // Whole walk-out totals (intuitive display values)
+    walk_out_steps: totalSteps,
+    walk_out_distance_m: round2(walkOut.distance),
+    // Gait-window duration (firstStep -> lastStep / 3 m beep)
+    walk_out_duration_ms: Math.round(windowMs),
     walk_out_avg_stride_length_m: round2(avgStride),
     walk_out_stride_cv: round3(strideCv),
     walk_out_cadence_spm: round2(cadenceSpm),

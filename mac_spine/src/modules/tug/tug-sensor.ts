@@ -1,11 +1,10 @@
-import type { TugPhase, PhaseTransition, TugSensorConfig } from './tug-types';
+import type { TugPhase, PhaseTransition, TugSensorConfig, WalkOutPhaseData } from './tug-types';
 import {
   type Vec3,
   type DetectedStep,
   magnitude,
   lowPassFilter,
   decomposeAcceleration,
-  computeTilt,
   StepDetector,
 } from './tug-signal-processing';
 
@@ -15,7 +14,6 @@ export interface TugSensorState {
   steps: number;
   distance: number;
   targetDistance: number;
-  tilt: number;
   accelMagnitude: number;
 }
 
@@ -29,7 +27,6 @@ export interface TugSensorCallbacks {
 
 export class TugSensorEngine {
   private gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
-  private restGravity: Vec3 = { x: 0, y: 0, z: 9.81 };
   private phase: TugPhase = 'idle';
   private stepDetector: StepDetector;
   private callbacks: TugSensorCallbacks;
@@ -38,15 +35,13 @@ export class TugSensorEngine {
   private startTime = 0;
   private phaseStartTime = 0;
 
-  // Standing up state
-  private standupAccelExceeded = false;
-  private standupTiltStart = 0;
-
-  // Walking state (walking_out only)
+  // Walking state
   private walkDistance = 0;
   private walkSteps = 0;
+  private walkStrideLengths: number[] = [];
   private walkStepIntervals: number[] = [];
-  private walkLastStepT = 0;
+  private walkFirstStepT: number | null = null;
+  private walkLastStepT: number | null = null;
   private walkCueFired = false;
 
   // Sitting down state
@@ -54,23 +49,15 @@ export class TugSensorEngine {
   private sitdownSpikeTime = 0;
   private restStartTime = 0;
 
-  // Phase transitions
   private transitions: PhaseTransition[] = [];
 
-  // Per-phase data (walking_out captures stride length list)
-  private phaseData: Map<TugPhase, {
-    steps: number;
-    distance: number;
-    strideLengths: number[];
-    stepIntervals: number[];
-  }> = new Map();
+  private walkOutData: WalkOutPhaseData = {
+    steps: 0, distance: 0, strideLengths: [], stepIntervals: [],
+    firstStepT: null, lastStepT: null,
+  };
 
-  // UI throttle
   private lastUIUpdate = 0;
-
-  // Accel magnitude (for raw display)
   private lastAccelMag = 9.81;
-  private lastTilt = 0;
 
   constructor(callbacks: TugSensorCallbacks, config: TugSensorConfig) {
     this.callbacks = callbacks;
@@ -84,20 +71,19 @@ export class TugSensorEngine {
 
   calibrate(gravityEstimate: Vec3): void {
     this.gravity = { ...gravityEstimate };
-    this.restGravity = { ...gravityEstimate };
   }
 
   start(): void {
-    this.phase = 'standing_up';
+    this.phase = 'walking_out';
     this.startTime = performance.now();
     this.phaseStartTime = this.startTime;
     this.transitions.push({
       from: 'idle',
-      to: 'standing_up',
+      to: 'walking_out',
       t: 0,
       trigger: 'test_start',
     });
-    this.initPhaseData('standing_up');
+    this.resetWalkOut();
   }
 
   handleMotionEvent(event: DeviceMotionEvent): void {
@@ -115,62 +101,20 @@ export class TugSensorEngine {
     this.gravity = lowPassFilter(accelRaw, this.gravity, this.config.gravityFilterAlpha);
 
     const decomposed = decomposeAcceleration(accelRaw, this.gravity);
-    const tilt = computeTilt(this.gravity, this.restGravity);
-    this.lastTilt = tilt;
-    const accelMag = magnitude(accelRaw);
-    this.lastAccelMag = accelMag;
+    this.lastAccelMag = magnitude(accelRaw);
 
-    this.processPhase(elapsed, decomposed.vertical, accelMag, tilt);
+    switch (this.phase) {
+      case 'walking_out':
+        this.processWalkingOut(elapsed, decomposed.vertical);
+        break;
+      case 'sitting_down':
+        this.processSittingDown(elapsed, elapsed - (this.phaseStartTime - this.startTime));
+        break;
+    }
 
     if (now - this.lastUIUpdate >= this.config.sensorUiUpdateMs) {
       this.lastUIUpdate = now;
       this.callbacks.onStateUpdate(this.getState(elapsed));
-    }
-  }
-
-  private processPhase(
-    elapsed: number,
-    verticalAccel: number,
-    accelMag: number,
-    tilt: number,
-  ): void {
-    const phaseElapsed = elapsed - (this.phaseStartTime - this.startTime);
-
-    switch (this.phase) {
-      case 'standing_up':
-        this.processStandingUp(elapsed, accelMag, tilt, phaseElapsed);
-        break;
-      case 'walking_out':
-        this.processWalkingOut(elapsed, verticalAccel);
-        break;
-      case 'sitting_down':
-        this.processSittingDown(elapsed, phaseElapsed);
-        break;
-    }
-  }
-
-  private processStandingUp(elapsed: number, accelMag: number, tilt: number, phaseElapsed: number): void {
-    if (accelMag >= this.config.standupAccelThreshold) {
-      this.standupAccelExceeded = true;
-    }
-
-    if (tilt >= this.config.standupTiltThreshold) {
-      if (this.standupTiltStart === 0) this.standupTiltStart = elapsed;
-    } else {
-      this.standupTiltStart = 0;
-    }
-
-    const tiltSustained =
-      this.standupTiltStart > 0 &&
-      (elapsed - this.standupTiltStart) >= this.config.standupTiltHoldMs;
-
-    if (this.standupAccelExceeded && tiltSustained && phaseElapsed >= 1000) {
-      this.transitionTo('walking_out', elapsed, 'standup_detected');
-      return;
-    }
-
-    if (phaseElapsed >= this.config.standupMaxDurationMs) {
-      this.transitionTo('walking_out', elapsed, 'standup_timeout');
     }
   }
 
@@ -180,26 +124,31 @@ export class TugSensorEngine {
     if (step) {
       this.walkSteps++;
       this.walkDistance += step.strideLength;
-      if (this.walkLastStepT > 0) {
+      this.walkStrideLengths.push(step.strideLength);
+
+      if (this.walkFirstStepT === null) {
+        this.walkFirstStepT = step.t;
+      } else if (this.walkLastStepT !== null) {
+        // Capture interval between consecutive steps (skips the first step).
         this.walkStepIntervals.push(step.t - this.walkLastStepT);
       }
       this.walkLastStepT = step.t;
-      this.updatePhaseData(this.phase, step);
+
       this.callbacks.onStepDetected(step);
     }
 
     if (!this.walkCueFired && this.walkDistance >= this.config.walkDistanceM) {
       this.walkCueFired = true;
+      this.snapshotWalkOut();
       this.callbacks.onWalkCompleteCue();
-      // Transition straight to sitting_down — the participant physically turns
-      // and walks back; the sensor just waits for the sit impact.
+      // Participant physically turns and walks back; sensor only waits for sit.
       this.transitionTo('sitting_down', elapsed, 'walk_out_complete');
     }
   }
 
   private processSittingDown(elapsed: number, phaseElapsed: number): void {
     if (this.checkSittingImpact(elapsed)) {
-      // Backdate to the impact spike — that's the actual sit-down moment.
+      // Backdate to the impact spike — the actual sit-down moment.
       this.transitionTo('complete', this.sitdownSpikeTime, 'sitting_detected');
       this.callbacks.onComplete(this.sitdownSpikeTime);
       return;
@@ -211,14 +160,10 @@ export class TugSensorEngine {
     }
   }
 
-  /** Detect sitting: acceleration spike (impact) followed by brief stillness. */
   private checkSittingImpact(elapsed: number): boolean {
     const gravMag = magnitude(this.gravity);
     const deviation = Math.abs(this.lastAccelMag - gravMag);
 
-    // Record the most recent impact spike as a candidate sit-down moment.
-    // Walking spikes won't be followed by 1.5s stillness, so only the real
-    // sit-down spike will lead to confirmation.
     if (deviation > this.config.sitdownSpikeThreshold) {
       this.sitdownSpikeSeen = true;
       this.sitdownSpikeTime = elapsed;
@@ -246,41 +191,37 @@ export class TugSensorEngine {
     this.phase = nextPhase;
     this.phaseStartTime = performance.now();
 
-    if (nextPhase === 'walking_out') {
-      this.stepDetector.reset();
-      this.walkDistance = 0;
-      this.walkSteps = 0;
-      this.walkStepIntervals = [];
-      this.walkLastStepT = 0;
-      this.walkCueFired = false;
-      this.initPhaseData(nextPhase);
-    } else if (nextPhase === 'sitting_down') {
+    if (nextPhase === 'sitting_down') {
       this.sitdownSpikeSeen = false;
       this.sitdownSpikeTime = 0;
       this.restStartTime = 0;
-      this.initPhaseData(nextPhase);
     }
   }
 
-  private initPhaseData(phase: TugPhase): void {
-    this.phaseData.set(phase, {
-      steps: 0,
-      distance: 0,
-      strideLengths: [],
-      stepIntervals: [],
-    });
+  private resetWalkOut(): void {
+    this.stepDetector.reset();
+    this.walkDistance = 0;
+    this.walkSteps = 0;
+    this.walkStrideLengths = [];
+    this.walkStepIntervals = [];
+    this.walkFirstStepT = null;
+    this.walkLastStepT = null;
+    this.walkCueFired = false;
+    this.walkOutData = {
+      steps: 0, distance: 0, strideLengths: [], stepIntervals: [],
+      firstStepT: null, lastStepT: null,
+    };
   }
 
-  private updatePhaseData(phase: TugPhase, step: DetectedStep): void {
-    const pd = this.phaseData.get(phase);
-    if (pd) {
-      pd.steps++;
-      pd.distance += step.strideLength;
-      pd.strideLengths.push(step.strideLength);
-      if (this.walkStepIntervals.length > 0) {
-        pd.stepIntervals = [...this.walkStepIntervals];
-      }
-    }
+  private snapshotWalkOut(): void {
+    this.walkOutData = {
+      steps: this.walkSteps,
+      distance: this.walkDistance,
+      strideLengths: [...this.walkStrideLengths],
+      stepIntervals: [...this.walkStepIntervals],
+      firstStepT: this.walkFirstStepT,
+      lastStepT: this.walkLastStepT,
+    };
   }
 
   private getState(elapsed: number): TugSensorState {
@@ -291,7 +232,6 @@ export class TugSensorEngine {
       steps: isWalking ? this.walkSteps : 0,
       distance: isWalking ? this.walkDistance : 0,
       targetDistance: this.config.walkDistanceM,
-      tilt: this.lastTilt,
       accelMagnitude: this.lastAccelMag,
     };
   }
@@ -300,13 +240,8 @@ export class TugSensorEngine {
     return [...this.transitions];
   }
 
-  getPhaseData(): Map<TugPhase, {
-    steps: number;
-    distance: number;
-    strideLengths: number[];
-    stepIntervals: number[];
-  }> {
-    return new Map(this.phaseData);
+  getWalkOutData(): WalkOutPhaseData {
+    return { ...this.walkOutData, strideLengths: [...this.walkOutData.strideLengths], stepIntervals: [...this.walkOutData.stepIntervals] };
   }
 
   getCurrentPhase(): TugPhase {

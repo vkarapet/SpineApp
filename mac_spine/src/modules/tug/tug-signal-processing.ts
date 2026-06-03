@@ -87,15 +87,6 @@ export function decomposeAcceleration(accelRaw: Vec3, gravity: Vec3): Decomposed
   };
 }
 
-// --- Tilt ---
-
-export function computeTilt(gravity: Vec3, restGravity: Vec3): number {
-  const gNorm = normalize(gravity);
-  const rNorm = normalize(restGravity);
-  const d = Math.max(-1, Math.min(1, dot(gNorm, rNorm)));
-  return Math.acos(d) * (180 / Math.PI);
-}
-
 // --- Weinberg stride length ---
 
 export function weinbergStride(aMax: number, aMin: number, K: number = TUG_WEINBERG_K): number {
