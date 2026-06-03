@@ -105,7 +105,7 @@ export class TugSensorEngine {
 
     switch (this.phase) {
       case 'walking_out':
-        this.processWalkingOut(elapsed, decomposed.vertical);
+        this.processWalkingOut(elapsed, decomposed.magnitude, decomposed.vertical);
         break;
       case 'sitting_down':
         this.processSittingDown(elapsed, elapsed - (this.phaseStartTime - this.startTime));
@@ -118,8 +118,8 @@ export class TugSensorEngine {
     }
   }
 
-  private processWalkingOut(elapsed: number, verticalAccel: number): void {
-    const step = this.stepDetector.processSample(elapsed, verticalAccel);
+  private processWalkingOut(elapsed: number, magnitude: number, verticalAccel: number): void {
+    const step = this.stepDetector.processSample(elapsed, magnitude, verticalAccel);
 
     if (step) {
       this.walkSteps++;

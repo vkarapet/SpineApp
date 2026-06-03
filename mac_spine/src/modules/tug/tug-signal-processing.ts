@@ -20,8 +20,11 @@ export interface DecomposedAccel {
 
 export interface DetectedStep {
   t: number;
+  /** Peak of the detection signal (user-accel magnitude) — used for threshold derivation. */
   peakAccel: number;
+  /** Valley of the detection signal (user-accel magnitude). */
   valleyAccel: number;
+  /** Weinberg stride length, computed from the vertical-bounce peak/valley in this interval. */
   strideLength: number;
 }
 
@@ -102,6 +105,22 @@ export interface StepDetectorConfig {
   peakValleyMaxMs: number;
 }
 
+/**
+ * Two-signal step detector.
+ *
+ * Detection signal: total user-acceleration magnitude (||raw - gravity||).
+ *   Robust to phone orientation; captures arm-swing energy when phone is
+ *   hand-held, hip-bounce energy when phone is in pocket. Used for finding
+ *   step timing and computing the peak-valley threshold.
+ *
+ * Stride signal: vertical user-acceleration (signed projection onto gravity).
+ *   Tracked in parallel for the Weinberg stride-length estimator, which was
+ *   derived against vertical bounce specifically.
+ *
+ * The detector's state machine runs on the smoothed detection signal. The
+ * stride signal's min/max are accumulated independently between confirmed
+ * steps; on confirmation, they yield the Weinberg stride length.
+ */
 export class StepDetector {
   private cfg: StepDetectorConfig;
 
@@ -114,6 +133,10 @@ export class StepDetector {
   private currentPeak = -Infinity;
   private currentPeakT = 0;
   private currentValley = Infinity;
+
+  // Stride-signal accumulators (independent of state machine).
+  private strideMin = Infinity;
+  private strideMax = -Infinity;
 
   private lastStepT = -Infinity;
   private stepCount = 0;
@@ -128,10 +151,15 @@ export class StepDetector {
     this.threshold = this.cfg.initialThreshold;
   }
 
-  processSample(t: number, verticalAccel: number): DetectedStep | null {
-    // Moving average smoothing
-    this.smoothBuffer.push(verticalAccel);
-    this.smoothSum += verticalAccel;
+  processSample(t: number, detectionSignal: number, strideSignal: number): DetectedStep | null {
+    // Track stride signal min/max for Weinberg stride length, regardless of
+    // detection state. Reset at every confirmed step.
+    if (strideSignal < this.strideMin) this.strideMin = strideSignal;
+    if (strideSignal > this.strideMax) this.strideMax = strideSignal;
+
+    // Smooth the detection signal.
+    this.smoothBuffer.push(detectionSignal);
+    this.smoothSum += detectionSignal;
     if (this.smoothBuffer.length > TUG_STEP_SMOOTH_WINDOW) {
       this.smoothSum -= this.smoothBuffer.shift()!;
     }
@@ -140,7 +168,6 @@ export class StepDetector {
     const derivative = smoothed - this.lastSmoothedValue;
     this.lastSmoothedValue = smoothed;
 
-    // Track peaks and valleys
     if (derivative > 0) {
       // Rising
       if (!this.rising) {
@@ -155,7 +182,6 @@ export class StepDetector {
     } else if (derivative < 0) {
       // Falling
       if (this.rising && this.currentPeak > -Infinity) {
-        // Was rising, now falling → peak detected; check if we have a step
         const peakValleyDiff = this.currentPeak - this.currentValley;
         const timeSinceLastStep = t - this.lastStepT;
         const peakToNowInterval = t - this.currentPeakT;
@@ -165,11 +191,13 @@ export class StepDetector {
           timeSinceLastStep >= this.cfg.minIntervalMs &&
           peakToNowInterval <= this.cfg.peakValleyMaxMs
         ) {
-          // Step detected
           this.stepCount++;
           this.lastStepT = t;
 
-          const stride = weinbergStride(this.currentPeak, this.currentValley);
+          // Stride from vertical bounce accumulated this interval (Weinberg).
+          const stride = this.strideMax > -Infinity && this.strideMin < Infinity
+            ? weinbergStride(this.strideMax, this.strideMin)
+            : 0;
 
           const step: DetectedStep = {
             t,
@@ -178,10 +206,12 @@ export class StepDetector {
             strideLength: stride,
           };
 
-          // Reset for next step
+          // Reset for next step on both tracks.
           this.currentPeak = smoothed;
           this.currentPeakT = t;
           this.currentValley = smoothed;
+          this.strideMin = strideSignal;
+          this.strideMax = strideSignal;
 
           return step;
         }
@@ -207,6 +237,8 @@ export class StepDetector {
     this.currentPeak = -Infinity;
     this.currentPeakT = 0;
     this.currentValley = Infinity;
+    this.strideMin = Infinity;
+    this.strideMax = -Infinity;
     this.lastStepT = -Infinity;
     this.stepCount = 0;
     this.threshold = this.cfg.initialThreshold;

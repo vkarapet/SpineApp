@@ -150,7 +150,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
     let baselineSampleCount = 0;
     let recordStartT = 0;
-    let samples: { t: number; vAccel: number }[] = [];
+    let samples: { t: number; magnitude: number; vertical: number }[] = [];
     let detectedCount = 0;
     let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -179,10 +179,10 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 
       const t = performance.now() - recordStartT;
       const dec = decomposeAcceleration(accelRaw, gravity);
-      samples.push({ t, vAccel: dec.vertical });
+      samples.push({ t, magnitude: dec.magnitude, vertical: dec.vertical });
 
       if (verifyDetector) {
-        const step = verifyDetector.processSample(t, dec.vertical);
+        const step = verifyDetector.processSample(t, dec.magnitude, dec.vertical);
         if (step) {
           detectedCount += 1;
           counter.textContent = `${detectedCount} / ${TUG_STEP_CAL_EXPECTED_STEPS}`;
@@ -384,10 +384,10 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
  *      walking step would clear this threshold with 100% margin.
  */
 function analyzeWithGroundTruth(
-  samples: { t: number; vAccel: number }[],
+  samples: { t: number; magnitude: number; vertical: number }[],
   expectedSteps: number,
 ): CaptureResult {
-  // Step 1: permissive candidate detection
+  // Step 1: permissive candidate detection on user-accel magnitude
   const detector = new StepDetector({
     initialThreshold: TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD,
     minIntervalMs: TUG_STEP_MIN_INTERVAL_MS,
@@ -395,7 +395,7 @@ function analyzeWithGroundTruth(
   });
   const candidates: CandidateEvent[] = [];
   for (const s of samples) {
-    const step = detector.processSample(s.t, s.vAccel);
+    const step = detector.processSample(s.t, s.magnitude, s.vertical);
     if (step) {
       candidates.push({ t: step.t, peakValleyDiff: step.peakAccel - step.valleyAccel });
     }
