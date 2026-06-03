@@ -10,6 +10,8 @@ import {
   TUG_STEP_CAL_THRESHOLD_MULTIPLIER,
   TUG_STEP_CAL_PREP_COUNTDOWN_MS,
   TUG_STEP_CAL_BURST_MAX_GAP_MS,
+  TUG_STEP_CAL_TAIL_TRIM_MS,
+  TUG_STEP_CAL_OUTLIER_RATIO,
   TUG_STEP_MIN_INTERVAL_MS,
   TUG_STEP_PEAK_VALLEY_MAX_MS,
 } from '../../constants';
@@ -250,7 +252,12 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           verifyDetected = detectedCount;
           stage = 'verify-result';
         } else {
-          lastCapture = analyzeWithGroundTruth(samples, TUG_STEP_CAL_EXPECTED_STEPS);
+          // Trim the tail: covers the hand-raise to tap Stop. Without this,
+          // raising the phone to reach the button produces a large horizontal
+          // accel swing that pollutes the candidate set.
+          const maxT = samples.length > 0 ? samples[samples.length - 1].t : 0;
+          const trimmed = samples.filter((s) => s.t <= maxT - TUG_STEP_CAL_TAIL_TRIM_MS);
+          lastCapture = analyzeWithGroundTruth(trimmed, TUG_STEP_CAL_EXPECTED_STEPS);
           stage = 'capture-review';
         }
         render();
@@ -406,8 +413,16 @@ function analyzeWithGroundTruth(
   // Step 2: find the longest temporal burst (events within BURST_MAX_GAP_MS of each other)
   const burst = findLongestBurst(candidates, TUG_STEP_CAL_BURST_MAX_GAP_MS);
 
-  // Step 3: select the N largest peak-valley diffs in the burst
-  const sortedByMagnitude = [...burst].sort((a, b) => b.peakValleyDiff - a.peakValleyDiff);
+  // Step 3a: reject burst-wide outliers (P-V > RATIO × burst-median). Catches
+  // a residual hand-raise event that survived the tail trim, or any other
+  // anomalously-large peak unrelated to walking.
+  const burstMedian = medianOf(burst.map((c) => c.peakValleyDiff));
+  const filtered = burstMedian > 0
+    ? burst.filter((c) => c.peakValleyDiff <= TUG_STEP_CAL_OUTLIER_RATIO * burstMedian)
+    : burst;
+
+  // Step 3b: select the N largest peak-valley diffs from the filtered set
+  const sortedByMagnitude = [...filtered].sort((a, b) => b.peakValleyDiff - a.peakValleyDiff);
   const selected = sortedByMagnitude.slice(0, expectedSteps);
   const selectedDiffs = selected.map((c) => c.peakValleyDiff);
 

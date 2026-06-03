@@ -42,6 +42,8 @@ export const TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD = 0.5;
 export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.3;  // 0.3 × median(P-V of identified steps)
 export const TUG_STEP_CAL_PREP_COUNTDOWN_MS = 3000;
 export const TUG_STEP_CAL_BURST_MAX_GAP_MS = 1500;     // max gap between events in the walking burst
+export const TUG_STEP_CAL_TAIL_TRIM_MS = 1000;          // drop the last N ms — covers the hand-raise to tap Stop
+export const TUG_STEP_CAL_OUTLIER_RATIO = 2.0;          // reject candidates with P-V > N × burst-median (hand-raise filter)
 
 export const INTENDED_USE_STATEMENT =
   'MAC Spine is a research data collection tool intended for use in IRB-approved studies. ' +
