@@ -13,7 +13,7 @@ import { renderTugStepCalibration } from './tug-step-calibration';
 export const tugModule: AssessmentModule = {
   id: 'tug_v1',
   name: 'Timed Up & Go',
-  version: '2.1.0',
+  version: '2.2.0',
   description: 'Measure functional mobility with a timed walk test',
 
   screens: {
@@ -69,9 +69,9 @@ export const tugModule: AssessmentModule = {
   getInstructions(): InstructionConfig {
     return {
       title: 'Timed Up & Go',
-      body: 'The phone goes in your pocket and automatically detects each phase of the walk test.',
+      body: 'Hold the phone in your hand and the app automatically detects each phase of the walk test.',
       importantPoints: [
-        'Place the phone in your front trouser pocket',
+        'Hold the phone in your hand, screen facing you',
         'Start seated in a chair with your back against the chair',
         'Sit still — the test starts automatically after 3 seconds',
         'Walk at a comfortable, safe pace',

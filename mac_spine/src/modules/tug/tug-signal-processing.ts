@@ -2,7 +2,6 @@ import {
   TUG_STEP_MIN_INTERVAL_MS,
   TUG_STEP_PEAK_VALLEY_MAX_MS,
   TUG_STEP_INITIAL_THRESHOLD,
-  TUG_STEP_THRESHOLD_ADAPT_RATE,
   TUG_WEINBERG_K,
   TUG_STEP_SMOOTH_WINDOW,
 } from '../../constants';
@@ -118,7 +117,7 @@ export class StepDetector {
 
   private lastStepT = -Infinity;
   private stepCount = 0;
-  private adaptiveThreshold: number;
+  private threshold: number;
 
   constructor(config?: Partial<StepDetectorConfig>) {
     this.cfg = {
@@ -126,7 +125,7 @@ export class StepDetector {
       minIntervalMs: config?.minIntervalMs ?? TUG_STEP_MIN_INTERVAL_MS,
       peakValleyMaxMs: config?.peakValleyMaxMs ?? TUG_STEP_PEAK_VALLEY_MAX_MS,
     };
-    this.adaptiveThreshold = this.cfg.initialThreshold;
+    this.threshold = this.cfg.initialThreshold;
   }
 
   processSample(t: number, verticalAccel: number): DetectedStep | null {
@@ -162,18 +161,13 @@ export class StepDetector {
         const peakToNowInterval = t - this.currentPeakT;
 
         if (
-          peakValleyDiff > this.adaptiveThreshold &&
+          peakValleyDiff > this.threshold &&
           timeSinceLastStep >= this.cfg.minIntervalMs &&
           peakToNowInterval <= this.cfg.peakValleyMaxMs
         ) {
           // Step detected
           this.stepCount++;
           this.lastStepT = t;
-
-          // Adapt threshold
-          this.adaptiveThreshold =
-            (1 - TUG_STEP_THRESHOLD_ADAPT_RATE) * this.adaptiveThreshold +
-            TUG_STEP_THRESHOLD_ADAPT_RATE * (0.4 * peakValleyDiff);
 
           const stride = weinbergStride(this.currentPeak, this.currentValley);
 
@@ -215,6 +209,6 @@ export class StepDetector {
     this.currentValley = Infinity;
     this.lastStepT = -Infinity;
     this.stepCount = 0;
-    this.adaptiveThreshold = this.cfg.initialThreshold;
+    this.threshold = this.cfg.initialThreshold;
   }
 }

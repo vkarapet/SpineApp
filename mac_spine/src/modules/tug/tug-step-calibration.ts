@@ -9,12 +9,13 @@ import {
   TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD,
   TUG_STEP_CAL_THRESHOLD_MULTIPLIER,
   TUG_STEP_CAL_PREP_COUNTDOWN_MS,
-  TUG_STEP_CAL_TAIL_TRIM_MS,
+  TUG_STEP_CAL_BURST_MAX_GAP_MS,
   TUG_STEP_MIN_INTERVAL_MS,
   TUG_STEP_PEAK_VALLEY_MAX_MS,
 } from '../../constants';
 import {
   type Vec3,
+  type DetectedStep,
   lowPassFilter,
   decomposeAcceleration,
   StepDetector,
@@ -25,10 +26,19 @@ import { router } from '../../main';
 
 type Stage = 'intro' | 'capture' | 'capture-review' | 'verify' | 'verify-result';
 
+interface CandidateEvent {
+  t: number;
+  peakValleyDiff: number;
+}
+
 interface CaptureResult {
-  peakValleyDiffs: number[];
-  median: number;
-  threshold: number;
+  candidates: CandidateEvent[];
+  selectedDiffs: number[];      // P-V diffs of the chosen N (=5) walking steps
+  median: number;               // median of the selected
+  minDiff: number;               // min of the selected — drives the threshold
+  threshold: number;             // 0.5 × minDiff
+  burstStartT: number | null;
+  burstEndT: number | null;
 }
 
 export async function renderTugStepCalibration(container: HTMLElement): Promise<void> {
@@ -40,17 +50,19 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     return;
   }
 
-  // First-run gate: if sensor permission/practice hasn't been completed yet,
-  // run the gravity calibration screen first.
+  // First-run gate: sensor permission/practice must be completed first.
   if (!profile.practice_completed) {
     router.navigate('#/assessment/tug_v1/practice', true);
     return;
   }
 
   audioManager.initOnGesture();
+  audioManager.setEnabled(profile.preferences.audio_enabled ?? true);
+  await audioManager.preloadAll();
 
   let stage: Stage = 'intro';
   let lastCapture: CaptureResult | null = null;
+  let verifyDetected = 0;
 
   const wrapper = createElement('main', { className: 'tug-stepcal' });
   wrapper.setAttribute('role', 'main');
@@ -60,26 +72,26 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     clearContainer(wrapper);
     switch (stage) {
       case 'intro': renderIntro(); break;
-      case 'capture': renderCapture(); break;
+      case 'capture': renderRecordingScreen('capture'); break;
       case 'capture-review': renderCaptureReview(); break;
-      case 'verify': renderVerify(); break;
+      case 'verify': renderRecordingScreen('verify'); break;
       case 'verify-result': renderVerifyResult(); break;
     }
   }
 
   function renderIntro(): void {
     wrapper.appendChild(createElement('h1', { textContent: 'Walking Calibration' }));
-    const body = createElement('div', { className: 'tug-stepcal__body' });
-    body.innerHTML = `
-      <p>We need to teach the app what your walking looks like so it can detect your steps reliably during the TUG test.</p>
-      <p><strong>This takes two short passes:</strong></p>
-      <ol class="tug-stepcal__list">
-        <li><strong>Capture:</strong> walk 5 normal steps with the phone in your pocket.</li>
-        <li><strong>Verify:</strong> walk 5 more steps; we'll play a tick for each detected step and you'll confirm if the count matched.</li>
-      </ol>
-      <p class="tug-stepcal__note"><strong>Phone in your front trouser pocket</strong> — same as during the real test. Calibration only applies to that placement.</p>
-    `;
-    wrapper.appendChild(body);
+    wrapper.appendChild(elFromHTML(`
+      <div class="tug-stepcal__body">
+        <p>We need to learn what your walking looks like so step detection is reliable during the TUG test.</p>
+        <p><strong>Two short passes:</strong></p>
+        <ol class="tug-stepcal__list">
+          <li><strong>Capture:</strong> walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps and bring your legs together.</li>
+          <li><strong>Verify:</strong> walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps. You'll hear a tick per detected step; you confirm the count.</li>
+        </ol>
+        <p class="tug-stepcal__note"><strong>Hold the phone in your hand</strong>, screen facing you, so you can see the prompts and the counter. Use the same placement during the TUG test.</p>
+      </div>
+    `));
 
     wrapper.appendChild(createButton({
       text: 'Start Calibration',
@@ -103,37 +115,91 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     }));
   }
 
-  function renderCapture(): void {
-    wrapper.appendChild(createElement('h1', { textContent: 'Capture Walking' }));
+  /**
+   * Shared recording screen used for both capture and verify. Differences:
+   *   - capture: no live ticks; on Stop, runs ground-truth analysis
+   *   - verify:  live ticks + on-screen counter; on Stop, navigates to result
+   */
+  function renderRecordingScreen(mode: 'capture' | 'verify'): void {
+    const isVerify = mode === 'verify';
+    wrapper.appendChild(createElement('h1', {
+      textContent: isVerify ? 'Verify Calibration' : 'Capture Walking',
+    }));
+
     wrapper.appendChild(elFromHTML(`
-      <p>Tap <strong>Start</strong>, then slip the phone into your front pocket and take <strong>${TUG_STEP_CAL_EXPECTED_STEPS} normal walking steps</strong>. Take out the phone and tap <strong>Stop</strong> when you finish.</p>
+      <p>Press <strong>Start</strong>, hold the phone in front of you, and stay still for the 3-second countdown.</p>
+      <p>At the <strong>GO</strong> cue, walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps${isVerify ? '' : ' and bring your legs together'}. Tap <strong>Stop</strong> when you finish.</p>
     `));
 
     const status = createElement('div', { className: 'tug-stepcal__status', textContent: 'Ready when you are.' });
     wrapper.appendChild(status);
 
-    let recording = false;
-    let samples: { t: number; vAccel: number }[] = [];
+    // Verify-only: counter "n / 5"
+    const counter = createElement('div', { className: 'tug-stepcal__counter' });
+    counter.textContent = `0 / ${TUG_STEP_CAL_EXPECTED_STEPS}`;
+    counter.style.display = 'none';
+    if (isVerify) wrapper.appendChild(counter);
+
+    // GO flash overlay
+    const goFlash = createElement('div', { className: 'tug-stepcal__go-flash', textContent: 'GO!' });
+    goFlash.style.display = 'none';
+    wrapper.appendChild(goFlash);
+
+    // State
+    let phase: 'idle' | 'baseline' | 'recording' = 'idle';
     let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
+    let baselineSampleCount = 0;
+    let recordStartT = 0;
+    let samples: { t: number; vAccel: number }[] = [];
+    let detectedCount = 0;
     let countdownTimer: ReturnType<typeof setInterval> | null = null;
-    let startTime = 0;
+
+    // Verify-only step detector (seeded from the saved capture threshold)
+    const verifyDetector = isVerify
+      ? new StepDetector({
+        initialThreshold: lastCapture?.threshold ?? TUG_CONFIG.stepInitialThreshold,
+        minIntervalMs: TUG_STEP_MIN_INTERVAL_MS,
+        peakValleyMaxMs: TUG_STEP_PEAK_VALLEY_MAX_MS,
+      })
+      : null;
 
     const motionHandler = (ev: DeviceMotionEvent) => {
-      if (!recording) return;
-      const t = performance.now() - startTime;
       const accelRaw: Vec3 = {
         x: ev.accelerationIncludingGravity?.x ?? 0,
         y: ev.accelerationIncludingGravity?.y ?? 0,
         z: ev.accelerationIncludingGravity?.z ?? 0,
       };
       gravity = lowPassFilter(accelRaw, gravity, TUG_CONFIG.gravityFilterAlpha);
+
+      if (phase === 'baseline') {
+        baselineSampleCount += 1;
+        return;
+      }
+      if (phase !== 'recording') return;
+
+      const t = performance.now() - recordStartT;
       const dec = decomposeAcceleration(accelRaw, gravity);
       samples.push({ t, vAccel: dec.vertical });
+
+      if (verifyDetector) {
+        const step = verifyDetector.processSample(t, dec.vertical);
+        if (step) {
+          detectedCount += 1;
+          counter.textContent = `${detectedCount} / ${TUG_STEP_CAL_EXPECTED_STEPS}`;
+          audioManager.playTick();
+        }
+      }
     };
 
     function cleanup(): void {
       window.removeEventListener('devicemotion', motionHandler);
       if (countdownTimer) clearInterval(countdownTimer);
+    }
+
+    function flashGo(): void {
+      audioManager.play('go');
+      goFlash.style.display = 'flex';
+      setTimeout(() => { goFlash.style.display = 'none'; }, 600);
     }
 
     const startBtn = createButton({
@@ -143,21 +209,29 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       onClick: () => {
         startBtn.disabled = true;
         startBtn.classList.add('btn--disabled');
-        // 3-second countdown so they can pocket the phone
+
+        // Begin baseline phase
+        phase = 'baseline';
+        samples = [];
+        detectedCount = 0;
+        baselineSampleCount = 0;
+        window.addEventListener('devicemotion', motionHandler);
+
         let remaining = Math.ceil(TUG_STEP_CAL_PREP_COUNTDOWN_MS / 1000);
-        status.textContent = `Pocket the phone now... ${remaining}`;
+        status.textContent = `Hold still... ${remaining}`;
         countdownTimer = setInterval(() => {
           remaining -= 1;
           if (remaining > 0) {
-            status.textContent = `Pocket the phone now... ${remaining}`;
+            status.textContent = `Hold still... ${remaining}`;
             return;
           }
           if (countdownTimer) clearInterval(countdownTimer);
-          status.textContent = `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} steps now. Tap Stop when done.`;
-          recording = true;
-          samples = [];
-          startTime = performance.now();
-          window.addEventListener('devicemotion', motionHandler);
+          // Switch to recording
+          phase = 'recording';
+          recordStartT = performance.now();
+          status.textContent = `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} steps now`;
+          if (isVerify) counter.style.display = 'block';
+          flashGo();
           stopBtn.disabled = false;
           stopBtn.classList.remove('btn--disabled');
         }, 1000);
@@ -170,13 +244,15 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       fullWidth: true,
       disabled: true,
       onClick: () => {
-        recording = false;
+        phase = 'idle';
         cleanup();
-        // Trim tail to remove phone-removal noise
-        const cutoffT = (performance.now() - startTime) - TUG_STEP_CAL_TAIL_TRIM_MS;
-        const trimmed = samples.filter((s) => s.t <= cutoffT);
-        lastCapture = analyzeSamples(trimmed);
-        stage = 'capture-review';
+        if (isVerify) {
+          verifyDetected = detectedCount;
+          stage = 'verify-result';
+        } else {
+          lastCapture = analyzeWithGroundTruth(samples, TUG_STEP_CAL_EXPECTED_STEPS);
+          stage = 'capture-review';
+        }
         render();
       },
     });
@@ -187,13 +263,32 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 
   function renderCaptureReview(): void {
     wrapper.appendChild(createElement('h1', { textContent: 'Capture Complete' }));
-    const detected = lastCapture?.peakValleyDiffs.length ?? 0;
-    const median = lastCapture?.median ?? 0;
+    const cand = lastCapture?.candidates.length ?? 0;
+    const selected = lastCapture?.selectedDiffs ?? [];
+    const minDiff = lastCapture?.minDiff ?? 0;
     const threshold = lastCapture?.threshold ?? 0;
 
+    if (selected.length < TUG_STEP_CAL_EXPECTED_STEPS) {
+      wrapper.appendChild(elFromHTML(`
+        <p>We only identified <strong>${selected.length}</strong> step-like events out of ${TUG_STEP_CAL_EXPECTED_STEPS} expected (${cand} total candidates). Please walk a bit more deliberately and try again.</p>
+      `));
+      wrapper.appendChild(createButton({
+        text: 'Re-record',
+        variant: 'primary',
+        fullWidth: true,
+        onClick: () => { lastCapture = null; stage = 'capture'; render(); },
+      }));
+      wrapper.appendChild(createButton({
+        text: 'Cancel',
+        variant: 'text',
+        onClick: () => router.navigate('#/menu'),
+      }));
+      return;
+    }
+
     wrapper.appendChild(elFromHTML(`
-      <p>Detected <strong>${detected}</strong> peak-valley events.</p>
-      <p class="tug-stepcal__note">Median swing: ${median.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s².</p>
+      <p>Identified <strong>${selected.length}</strong> walking steps from ${cand} candidate events.</p>
+      <p class="tug-stepcal__note">Smallest step swing: ${minDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.5 × smallest).</p>
       <p>Next we'll verify by playing a tick on each detected step as you walk.</p>
     `));
 
@@ -212,105 +307,10 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     }));
   }
 
-  function renderVerify(): void {
-    wrapper.appendChild(createElement('h1', { textContent: 'Verify Calibration' }));
-    wrapper.appendChild(elFromHTML(`
-      <p>Tap <strong>Start</strong>, pocket the phone, walk <strong>${TUG_STEP_CAL_EXPECTED_STEPS} steps</strong>. You'll hear a tick for each step the app detects. Take out the phone and tap <strong>Stop</strong> when done.</p>
-    `));
-
-    const status = createElement('div', { className: 'tug-stepcal__status', textContent: 'Ready when you are.' });
-    wrapper.appendChild(status);
-
-    const counter = createElement('div', { className: 'tug-stepcal__counter', textContent: '0' });
-    counter.style.display = 'none';
-    wrapper.appendChild(counter);
-
-    let recording = false;
-    let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
-    let startTime = 0;
-    let detectedSteps = 0;
-    let countdownTimer: ReturnType<typeof setInterval> | null = null;
-
-    const detector = new StepDetector({
-      initialThreshold: lastCapture?.threshold ?? TUG_CONFIG.stepInitialThreshold,
-      minIntervalMs: TUG_STEP_MIN_INTERVAL_MS,
-      peakValleyMaxMs: TUG_STEP_PEAK_VALLEY_MAX_MS,
-    });
-
-    const motionHandler = (ev: DeviceMotionEvent) => {
-      if (!recording) return;
-      const t = performance.now() - startTime;
-      const accelRaw: Vec3 = {
-        x: ev.accelerationIncludingGravity?.x ?? 0,
-        y: ev.accelerationIncludingGravity?.y ?? 0,
-        z: ev.accelerationIncludingGravity?.z ?? 0,
-      };
-      gravity = lowPassFilter(accelRaw, gravity, TUG_CONFIG.gravityFilterAlpha);
-      const dec = decomposeAcceleration(accelRaw, gravity);
-      const step = detector.processSample(t, dec.vertical);
-      if (step) {
-        detectedSteps += 1;
-        counter.textContent = String(detectedSteps);
-        audioManager.playTick();
-      }
-    };
-
-    function cleanup(): void {
-      window.removeEventListener('devicemotion', motionHandler);
-      if (countdownTimer) clearInterval(countdownTimer);
-    }
-
-    const startBtn = createButton({
-      text: 'Start',
-      variant: 'primary',
-      fullWidth: true,
-      onClick: () => {
-        startBtn.disabled = true;
-        startBtn.classList.add('btn--disabled');
-        let remaining = Math.ceil(TUG_STEP_CAL_PREP_COUNTDOWN_MS / 1000);
-        status.textContent = `Pocket the phone now... ${remaining}`;
-        countdownTimer = setInterval(() => {
-          remaining -= 1;
-          if (remaining > 0) {
-            status.textContent = `Pocket the phone now... ${remaining}`;
-            return;
-          }
-          if (countdownTimer) clearInterval(countdownTimer);
-          status.textContent = `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} steps now.`;
-          counter.style.display = 'block';
-          recording = true;
-          startTime = performance.now();
-          window.addEventListener('devicemotion', motionHandler);
-          stopBtn.disabled = false;
-          stopBtn.classList.remove('btn--disabled');
-        }, 1000);
-      },
-    });
-
-    const stopBtn = createButton({
-      text: 'Stop',
-      variant: 'secondary',
-      fullWidth: true,
-      disabled: true,
-      onClick: () => {
-        recording = false;
-        cleanup();
-        verifyDetected = detectedSteps;
-        stage = 'verify-result';
-        render();
-      },
-    });
-
-    wrapper.appendChild(startBtn);
-    wrapper.appendChild(stopBtn);
-  }
-
-  let verifyDetected = 0;
-
   function renderVerifyResult(): void {
     wrapper.appendChild(createElement('h1', { textContent: 'How did we do?' }));
     wrapper.appendChild(elFromHTML(`
-      <p>The app detected <strong>${verifyDetected}</strong> step${verifyDetected === 1 ? '' : 's'}.</p>
+      <p>The app detected <strong>${verifyDetected}</strong> step${verifyDetected === 1 ? '' : 's'} out of ${TUG_STEP_CAL_EXPECTED_STEPS}.</p>
       <p>Did each tick match a step you actually took?</p>
     `));
 
@@ -323,7 +323,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         const cal: TugStepCalibration = {
           threshold_mps2: round3(lastCapture.threshold),
           median_peak_valley_mps2: round3(lastCapture.median),
-          n_samples: lastCapture.peakValleyDiffs.length,
+          n_samples: lastCapture.selectedDiffs.length,
           calibrated_at: new Date().toISOString(),
           app_version: APP_VERSION,
         };
@@ -335,7 +335,12 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         await addAuditEntry({
           action: 'tug_step_calibration_saved',
           entity_id: p.participant_id,
-          details: { threshold_mps2: cal.threshold_mps2, median_peak_valley_mps2: cal.median_peak_valley_mps2, n_samples: cal.n_samples },
+          details: {
+            threshold_mps2: cal.threshold_mps2,
+            min_peak_valley_mps2: round3(lastCapture.minDiff),
+            median_peak_valley_mps2: cal.median_peak_valley_mps2,
+            n_samples: cal.n_samples,
+          },
         });
         router.navigate('#/assessment/tug_v1/instructions');
       },
@@ -359,27 +364,86 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 }
 
 /**
- * Analyze a buffered window of vertical acceleration samples for step-like
- * peak-valley pairs. Uses a permissive detector (no adaptation) so we capture
- * all candidate events; the median of their peak-valley diffs gives the
- * participant's typical swing.
+ * Ground-truth-anchored calibration analysis.
+ *
+ * Given a recording where the participant performed exactly N walking steps
+ * (plus a leg-together event and possibly other noise), find the N events
+ * that are most likely the walking steps and derive the runtime threshold.
+ *
+ * Strategy:
+ *   1. Candidate pass with a permissive detector (no adaptation, very low
+ *      threshold) — captures the walking steps, the leg-together event, and
+ *      any small spurious events.
+ *   2. Find the temporal "walking burst": the longest contiguous run of
+ *      candidate events with gaps no larger than BURST_MAX_GAP_MS. The
+ *      walking pattern is rhythmic and clustered in time; sporadic noise
+ *      events are separated by larger gaps.
+ *   3. Within the burst, take the N largest peak-valley diffs. The leg-
+ *      together event tends to be a smaller swing and will fall out.
+ *   4. threshold = 0.5 × min(selected diffs). Conservative — every observed
+ *      walking step would clear this threshold with 100% margin.
  */
-function analyzeSamples(samples: { t: number; vAccel: number }[]): CaptureResult {
+function analyzeWithGroundTruth(
+  samples: { t: number; vAccel: number }[],
+  expectedSteps: number,
+): CaptureResult {
+  // Step 1: permissive candidate detection
   const detector = new StepDetector({
     initialThreshold: TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD,
     minIntervalMs: TUG_STEP_MIN_INTERVAL_MS,
     peakValleyMaxMs: TUG_STEP_PEAK_VALLEY_MAX_MS,
   });
-  const diffs: number[] = [];
+  const candidates: CandidateEvent[] = [];
   for (const s of samples) {
     const step = detector.processSample(s.t, s.vAccel);
     if (step) {
-      diffs.push(step.peakAccel - step.valleyAccel);
+      candidates.push({ t: step.t, peakValleyDiff: step.peakAccel - step.valleyAccel });
     }
   }
-  const median = medianOf(diffs);
-  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * median;
-  return { peakValleyDiffs: diffs, median, threshold };
+
+  // Step 2: find the longest temporal burst (events within BURST_MAX_GAP_MS of each other)
+  const burst = findLongestBurst(candidates, TUG_STEP_CAL_BURST_MAX_GAP_MS);
+
+  // Step 3: select the N largest peak-valley diffs in the burst
+  const sortedByMagnitude = [...burst].sort((a, b) => b.peakValleyDiff - a.peakValleyDiff);
+  const selected = sortedByMagnitude.slice(0, expectedSteps);
+  const selectedDiffs = selected.map((c) => c.peakValleyDiff);
+
+  // Step 4: threshold from min of selected
+  const minDiff = selectedDiffs.length > 0 ? Math.min(...selectedDiffs) : 0;
+  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * minDiff;
+  const median = medianOf(selectedDiffs);
+
+  return {
+    candidates,
+    selectedDiffs,
+    median,
+    minDiff,
+    threshold,
+    burstStartT: burst.length > 0 ? burst[0].t : null,
+    burstEndT: burst.length > 0 ? burst[burst.length - 1].t : null,
+  };
+}
+
+/** Find the longest contiguous run of events with gaps <= maxGapMs. */
+function findLongestBurst(events: CandidateEvent[], maxGapMs: number): CandidateEvent[] {
+  if (events.length === 0) return [];
+  const sorted = [...events].sort((a, b) => a.t - b.t);
+  let bestStart = 0;
+  let bestLen = 1;
+  let curStart = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].t - sorted[i - 1].t <= maxGapMs) {
+      const curLen = i - curStart + 1;
+      if (curLen > bestLen) {
+        bestLen = curLen;
+        bestStart = curStart;
+      }
+    } else {
+      curStart = i;
+    }
+  }
+  return sorted.slice(bestStart, bestStart + bestLen);
 }
 
 function medianOf(xs: number[]): number {
@@ -400,6 +464,9 @@ function elFromHTML(html: string): HTMLElement {
   tmpl.innerHTML = html.trim();
   return tmpl.content.firstElementChild as HTMLElement;
 }
+
+// Reference to silence unused-import warning for type re-export consumers
+void (null as unknown as DetectedStep);
 
 const style = document.createElement('style');
 style.textContent = `
@@ -448,6 +515,19 @@ style.textContent = `
     text-align: center;
     color: var(--color-primary);
     line-height: 1;
+  }
+  .tug-stepcal__go-flash {
+    position: fixed;
+    inset: 0;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: clamp(4rem, 20vw, 10rem);
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    pointer-events: none;
   }
 `;
 document.head.appendChild(style);
