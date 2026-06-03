@@ -295,7 +295,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 
     wrapper.appendChild(elFromHTML(`
       <p>Identified <strong>${selected.length}</strong> walking steps from ${cand} candidate events.</p>
-      <p class="tug-stepcal__note">Median step swing: ${medianDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.3 × median).</p>
+      <p class="tug-stepcal__note">Median step swing: ${medianDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.5 × min).</p>
       <p>Next we'll verify by playing a tick on each detected step as you walk.</p>
     `));
 
@@ -426,12 +426,12 @@ function analyzeWithGroundTruth(
   const selected = sortedByMagnitude.slice(0, expectedSteps);
   const selectedDiffs = selected.map((c) => c.peakValleyDiff);
 
-  // Step 4: threshold from median of selected (more selective than min for
-  // signals like user-accel magnitude that can have a second smaller peak
-  // per step from arm-swing reversal or push-off).
+  // Step 4: threshold = MULTIPLIER × min(selected). Vertical bounce at the
+  // sternum is a clean once-per-step signal, so the weakest observed step
+  // sets a safe floor — anything walking-like will clear it with margin.
   const minDiff = selectedDiffs.length > 0 ? Math.min(...selectedDiffs) : 0;
   const median = medianOf(selectedDiffs);
-  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * median;
+  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * minDiff;
 
   return {
     candidates,
