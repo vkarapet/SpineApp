@@ -24,7 +24,7 @@ export const TUG_HIGH_RISK_THRESHOLD_S = 13.5;
 export const TUG_MAX_DURATION_MS = 120_000;
 
 // TUG Sensor — Step detection (defaults for StepDetector; overridden by TUG_CONFIG in tug-types.ts)
-export const TUG_STEP_MIN_INTERVAL_MS = 300;
+export const TUG_STEP_MIN_INTERVAL_MS = 400;
 export const TUG_STEP_PEAK_VALLEY_MAX_MS = 500;
 export const TUG_STEP_INITIAL_THRESHOLD = 2.0;        // m/s²
 export const TUG_WEINBERG_K = 0.45;
@@ -39,7 +39,7 @@ export const TUG_STILLNESS_DURATION_MS = 3000;        // 3 seconds of stillness 
 // TUG step calibration
 export const TUG_STEP_CAL_EXPECTED_STEPS = 5;
 export const TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD = 0.5;
-export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.5;  // 0.5 × min(P-V of identified steps)
+export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.5;  // 0.5 × median(P-V of identified steps)
 export const TUG_STEP_CAL_PREP_COUNTDOWN_MS = 3000;
 export const TUG_STEP_CAL_BURST_MAX_GAP_MS = 1500;     // max gap between events in the walking burst
 

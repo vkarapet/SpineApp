@@ -265,7 +265,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     wrapper.appendChild(createElement('h1', { textContent: 'Capture Complete' }));
     const cand = lastCapture?.candidates.length ?? 0;
     const selected = lastCapture?.selectedDiffs ?? [];
-    const minDiff = lastCapture?.minDiff ?? 0;
+    const medianDiff = lastCapture?.median ?? 0;
     const threshold = lastCapture?.threshold ?? 0;
 
     if (selected.length < TUG_STEP_CAL_EXPECTED_STEPS) {
@@ -288,7 +288,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 
     wrapper.appendChild(elFromHTML(`
       <p>Identified <strong>${selected.length}</strong> walking steps from ${cand} candidate events.</p>
-      <p class="tug-stepcal__note">Smallest step swing: ${minDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.5 × smallest).</p>
+      <p class="tug-stepcal__note">Median step swing: ${medianDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.5 × median).</p>
       <p>Next we'll verify by playing a tick on each detected step as you walk.</p>
     `));
 
@@ -337,9 +337,10 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           entity_id: p.participant_id,
           details: {
             threshold_mps2: cal.threshold_mps2,
-            min_peak_valley_mps2: round3(lastCapture.minDiff),
             median_peak_valley_mps2: cal.median_peak_valley_mps2,
+            min_peak_valley_mps2: round3(lastCapture.minDiff),
             n_samples: cal.n_samples,
+            min_interval_ms: TUG_STEP_MIN_INTERVAL_MS,
           },
         });
         router.navigate('#/assessment/tug_v1/instructions');
@@ -409,10 +410,12 @@ function analyzeWithGroundTruth(
   const selected = sortedByMagnitude.slice(0, expectedSteps);
   const selectedDiffs = selected.map((c) => c.peakValleyDiff);
 
-  // Step 4: threshold from min of selected
+  // Step 4: threshold from median of selected (more selective than min for
+  // signals like user-accel magnitude that can have a second smaller peak
+  // per step from arm-swing reversal or push-off).
   const minDiff = selectedDiffs.length > 0 ? Math.min(...selectedDiffs) : 0;
-  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * minDiff;
   const median = medianOf(selectedDiffs);
+  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * median;
 
   return {
     candidates,

@@ -21,7 +21,7 @@ export const TUG_CONFIG: TugSensorConfig = {
   gravityFilterAlpha: 0.1,
   walkDistanceM: 3.0,
   stepInitialThreshold: 1.2,
-  stepMinIntervalMs: 300,
+  stepMinIntervalMs: 400,
   stepPeakValleyMaxMs: 500,
   sitdownSpikeThreshold: 3.0,
   sitdownRestAccelTolerance: 0.5,
