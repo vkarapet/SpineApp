@@ -81,12 +81,12 @@ export async function renderTugInstructions(container: HTMLElement): Promise<voi
   const divider = createElement('hr', { className: 'tug-instructions__divider' });
 
   const body = createElement('div', { className: 'assessment-instructions__body' });
-  body.innerHTML = '<p>Hold the phone in your hand, screen facing you, throughout the test — the same placement used during step calibration.</p>';
+  body.innerHTML = '<p>Hold the phone flat against the center of your chest (sternum) throughout the test — the same placement used during step calibration.</p>';
 
   const steps = createElement('div', { className: 'assessment-instructions__important' });
   steps.innerHTML = `
     <ol class="tug-instructions__steps">
-      <li><strong>Do not turn off the screen</strong> &mdash; hold the phone in your hand with the screen on</li>
+      <li><strong>Do not turn off the screen</strong> &mdash; hold the phone against your sternum with the screen on</li>
       <li>Sit in a chair with your back against the chair</li>
       <li>Sit still &mdash; the test starts automatically after 3 seconds</li>
       <li>When you hear the start tone, stand up and walk forward</li>

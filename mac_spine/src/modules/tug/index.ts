@@ -69,9 +69,9 @@ export const tugModule: AssessmentModule = {
   getInstructions(): InstructionConfig {
     return {
       title: 'Timed Up & Go',
-      body: 'Hold the phone in your hand and the app automatically detects each phase of the walk test.',
+      body: 'Hold the phone against your sternum and the app automatically detects each phase of the walk test.',
       importantPoints: [
-        'Hold the phone in your hand, screen facing you',
+        'Hold the phone flat against the center of your chest (sternum)',
         'Start seated in a chair with your back against the chair',
         'Sit still — the test starts automatically after 3 seconds',
         'Walk at a comfortable, safe pace',

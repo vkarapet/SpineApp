@@ -91,7 +91,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           <li><strong>Capture:</strong> walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps and bring your legs together.</li>
           <li><strong>Verify:</strong> walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps. You'll hear a tick per detected step; you confirm the count.</li>
         </ol>
-        <p class="tug-stepcal__note"><strong>Hold the phone in your hand</strong>, screen facing you, so you can see the prompts and the counter. Use the same placement during the TUG test.</p>
+        <p class="tug-stepcal__note"><strong>Hold the phone flat against the center of your chest (sternum)</strong> with one hand, screen facing outward. Use the same placement during the TUG test.</p>
       </div>
     `));
 
@@ -129,7 +129,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     }));
 
     wrapper.appendChild(elFromHTML(`
-      <p>Press <strong>Start</strong>, hold the phone in front of you, and stay still for the 3-second countdown.</p>
+      <p>Press <strong>Start</strong>, hold the phone flat against your sternum, and stay still for the 3-second countdown.</p>
       <p>At the <strong>GO</strong> cue, walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps${isVerify ? '' : ' and bring your legs together'}. Tap <strong>Stop</strong> when you finish.</p>
     `));
 
@@ -184,7 +184,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       samples.push({ t, horizontal: dec.horizontal, vertical: dec.vertical });
 
       if (verifyDetector) {
-        const step = verifyDetector.processSample(t, dec.horizontal, dec.vertical);
+        const step = verifyDetector.processSample(t, dec.vertical, dec.vertical);
         if (step) {
           detectedCount += 1;
           counter.textContent = `${detectedCount} / ${TUG_STEP_CAL_EXPECTED_STEPS}`;
@@ -252,9 +252,9 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           verifyDetected = detectedCount;
           stage = 'verify-result';
         } else {
-          // Trim the tail: covers the hand-raise to tap Stop. Without this,
-          // raising the phone to reach the button produces a large horizontal
-          // accel swing that pollutes the candidate set.
+          // Trim the tail: covers the hand-raise/lower to tap Stop. Without
+          // this, moving the phone away from the sternum to reach the button
+          // produces a large accel swing that pollutes the candidate set.
           const maxT = samples.length > 0 ? samples[samples.length - 1].t : 0;
           const trimmed = samples.filter((s) => s.t <= maxT - TUG_STEP_CAL_TAIL_TRIM_MS);
           lastCapture = analyzeWithGroundTruth(trimmed, TUG_STEP_CAL_EXPECTED_STEPS);
@@ -395,8 +395,8 @@ function analyzeWithGroundTruth(
   samples: { t: number; horizontal: number; vertical: number }[],
   expectedSteps: number,
 ): CaptureResult {
-  // Step 1: permissive candidate detection on horizontal-plane user-accel
-  // magnitude (arm-swing energy, isolated from vertical bounce).
+  // Step 1: permissive candidate detection on vertical user-accel
+  // (gravity-projected component — the body-bounce signal at the sternum).
   const detector = new StepDetector({
     initialThreshold: TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD,
     minIntervalMs: TUG_STEP_MIN_INTERVAL_MS,
@@ -404,7 +404,7 @@ function analyzeWithGroundTruth(
   });
   const candidates: CandidateEvent[] = [];
   for (const s of samples) {
-    const step = detector.processSample(s.t, s.horizontal, s.vertical);
+    const step = detector.processSample(s.t, s.vertical, s.vertical);
     if (step) {
       candidates.push({ t: step.t, peakValleyDiff: step.peakAccel - step.valleyAccel });
     }

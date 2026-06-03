@@ -31,8 +31,8 @@ export async function renderTugCountdown(container: HTMLElement): Promise<void> 
   });
   prompt.innerHTML = `
     <div class="tug-countdown__icon">&#128241;</div>
-    <h2>Hold the phone in your hand</h2>
-    <p>Sit still in the chair, screen facing you.</p>
+    <h2>Hold the phone against your sternum</h2>
+    <p>Sit still in the chair, phone flat against the center of your chest.</p>
     <p class="tug-countdown__sub">The test will start automatically<br>when you are still for 3 seconds.</p>
   `;
 

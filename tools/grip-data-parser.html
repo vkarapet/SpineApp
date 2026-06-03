@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grip Data Parser</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; padding: 2rem; max-width: 960px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; color: #7A003C; }
+  .subtitle { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+  textarea { width: 100%; height: 150px; padding: 0.6rem; border: 1px solid #ccc; border-radius: 6px; font-family: 'SF Mono', 'Consolas', monospace; font-size: 0.85rem; resize: vertical; }
+  button { margin-top: 1rem; padding: 0.7rem 2rem; background: #7A003C; color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+  button:hover { background: #5c002d; }
+  #output { margin-top: 2rem; }
+  .summary { margin-bottom: 1.5rem; padding: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .summary h2 { font-size: 1.1rem; color: #7A003C; margin-bottom: 0.5rem; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+  .summary-item { text-align: center; }
+  .summary-value { font-size: 1.5rem; font-weight: 700; color: #7A003C; }
+  .summary-label { font-size: 0.8rem; color: #666; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+  th { background: #7A003C; color: #fff; padding: 0.7rem 0.75rem; text-align: left; font-size: 0.85rem; }
+  td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fdf6f0; }
+  .mono { font-family: 'SF Mono', 'Consolas', monospace; }
+  .grip-row { background: #f0faf0; }
+  .non-grip-row { background: #fef5f5; }
+  .error { color: #d32f2f; margin-top: 1rem; font-weight: 600; }
+  .detail-toggle { margin-top: 1rem; padding: 0.5rem 1.2rem; background: #495965; font-size: 0.85rem; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  .detail-toggle:hover { background: #374550; }
+  .hidden { display: none; }
+  .timeline-container { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
+  .timeline-container h2 { font-size: 1.1rem; color: #7A003C; margin-bottom: 1rem; }
+  .timeline-canvas { width: 100%; }
+</style>
+</head>
+<body>
+
+<h1>Grip Data Parser</h1>
+<p class="subtitle">Paste raw grip JSON data to analyse grip cycles, finger counts, and timing</p>
+
+<label for="test-duration">Test duration (seconds)</label>
+<input type="number" id="test-duration" value="10" min="1" max="300" step="1" style="width:120px; padding:0.6rem; border:1px solid #ccc; border-radius:6px; font-size:1rem; margin-bottom:1rem;">
+
+<label for="raw-input">Raw grip data (JSON array)</label>
+<textarea id="raw-input" placeholder='[{"touch_id":0,"start_t":265.2,...},...]'></textarea>
+
+<button onclick="parse()">Parse</button>
+
+<div id="output"></div>
+
+<script>
+function parse() {
+  const TEST_DURATION_MS = (parseFloat(document.getElementById('test-duration').value) || 10) * 1000;
+  const input = document.getElementById('raw-input').value.trim();
+  const output = document.getElementById('output');
+  output.innerHTML = '';
+
+  let records;
+  try {
+    records = JSON.parse(input);
+    if (!Array.isArray(records)) throw new Error('Expected a JSON array');
+  } catch (e) {
+    output.innerHTML = `<p class="error">Invalid JSON: ${e.message}</p>`;
+    return;
+  }
+
+  if (records.length === 0) {
+    output.innerHTML = '<p class="error">No records found.</p>';
+    return;
+  }
+
+  // Group by grip_number
+  const grips = new Map();
+  const nonGrips = [];
+
+  for (const r of records) {
+    if (r.grip_number !== null && r.grip_number !== undefined) {
+      if (!grips.has(r.grip_number)) grips.set(r.grip_number, []);
+      grips.get(r.grip_number).push(r);
+    } else {
+      nonGrips.push(r);
+    }
+  }
+
+  const gripNumbers = Array.from(grips.keys()).sort((a, b) => a - b);
+  const totalGrips = gripNumbers.length;
+
+  // Compute stats per grip
+  const gripStats = gripNumbers.map(num => {
+    const touches = grips.get(num);
+    const fingers = touches.length;
+    const startTimes = touches.map(t => t.start_t);
+    const endTimes = touches.map(t => t.end_t);
+    const earliestStart = Math.min(...startTimes);
+    const latestStart = Math.max(...startTimes);
+    const latestEnd = Math.max(...endTimes);
+    const startSpread = latestStart - earliestStart;
+    const totalDuration = latestEnd - earliestStart;
+
+    return { num, fingers, earliestStart, latestStart, startSpread, totalDuration, touches };
+  });
+
+  // Overall stats
+  const allStartTimes = gripStats.map(g => g.earliestStart);
+  const intervals = [];
+  for (let i = 1; i < allStartTimes.length; i++) {
+    intervals.push(allStartTimes[i] - allStartTimes[i - 1]);
+  }
+  const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 0;
+  const testDurationSec = TEST_DURATION_MS / 1000;
+  const frequency = totalGrips / testDurationSec;
+
+  // Summary
+  let html = `<div class="summary"><h2>Summary</h2><div class="summary-grid">
+    <div class="summary-item"><div class="summary-value">${totalGrips}</div><div class="summary-label">Grips detected</div></div>
+    <div class="summary-item"><div class="summary-value">${nonGrips.length}</div><div class="summary-label">Non-grip touches</div></div>
+    <div class="summary-item"><div class="summary-value">${records.length}</div><div class="summary-label">Total contacts</div></div>
+    <div class="summary-item"><div class="summary-value">${frequency.toFixed(2)}</div><div class="summary-label">Grips/sec (Hz)</div></div>
+    <div class="summary-item"><div class="summary-value">${avgInterval > 0 ? avgInterval.toFixed(0) : '—'}</div><div class="summary-label">Avg interval (ms)</div></div>
+  </div></div>`;
+
+  // Timeline chart
+  html += `<div class="timeline-container">
+    <h2>Touch Timeline</h2>
+    <canvas id="timeline-canvas" class="timeline-canvas"></canvas>
+  </div>`;
+
+  // Grip summary table
+  html += `<table><thead><tr>
+    <th>Grip</th><th>Fingers</th><th>Start (ms)</th><th>Start spread (ms)</th><th>Duration (ms)</th><th>Touch IDs</th>
+  </tr></thead><tbody>`;
+
+  for (const g of gripStats) {
+    const touchIds = g.touches.map(t => t.touch_id).sort((a, b) => a - b).join(', ');
+    html += `<tr class="grip-row">
+      <td><strong>${g.num}</strong></td>
+      <td>${g.fingers}</td>
+      <td class="mono">${g.earliestStart.toFixed(1)}</td>
+      <td class="mono">${g.startSpread.toFixed(1)}</td>
+      <td class="mono">${g.totalDuration.toFixed(1)}</td>
+      <td class="mono">${touchIds}</td>
+    </tr>`;
+  }
+
+  if (nonGrips.length > 0) {
+    const nonGripIds = nonGrips.map(t => t.touch_id).sort((a, b) => a - b).join(', ');
+    html += `<tr class="non-grip-row">
+      <td><em>—</em></td>
+      <td>${nonGrips.length}</td>
+      <td class="mono">${Math.min(...nonGrips.map(t => t.start_t)).toFixed(1)}</td>
+      <td colspan="2"><em>Non-grip contacts</em></td>
+      <td class="mono">${nonGripIds}</td>
+    </tr>`;
+  }
+
+  html += '</tbody></table>';
+
+  // Detail toggle
+  html += `<button class="detail-toggle" onclick="toggleDetail()">Show individual contacts</button>`;
+  html += `<div id="detail-table" class="hidden" style="margin-top:1rem;">`;
+  html += `<table><thead><tr>
+    <th>Grip</th><th>Touch ID</th><th>Start (ms)</th><th>End (ms)</th>
+    <th>Start X</th><th>Start Y</th><th>End X</th><th>End Y</th>
+  </tr></thead><tbody>`;
+
+  for (const r of records) {
+    const rowClass = r.is_grip ? 'grip-row' : 'non-grip-row';
+    html += `<tr class="${rowClass}">
+      <td>${r.grip_number ?? '—'}</td>
+      <td class="mono">${r.touch_id}</td>
+      <td class="mono">${r.start_t.toFixed(1)}</td>
+      <td class="mono">${r.end_t.toFixed(1)}</td>
+      <td class="mono">${r.start_x.toFixed(1)}</td>
+      <td class="mono">${r.start_y.toFixed(1)}</td>
+      <td class="mono">${r.end_x.toFixed(1)}</td>
+      <td class="mono">${r.end_y.toFixed(1)}</td>
+    </tr>`;
+  }
+
+  html += '</tbody></table></div>';
+
+  output.innerHTML = html;
+
+  // Draw timeline after DOM is updated
+  requestAnimationFrame(() => drawTimeline(records, TEST_DURATION_MS));
+}
+
+function drawTimeline(records, testDurationMs) {
+  const canvas = document.getElementById('timeline-canvas');
+  if (!canvas) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const containerWidth = canvas.parentElement.clientWidth - 48; // account for padding
+  const rowHeight = 36;
+  const labelWidth = 80;
+  const topPadding = 30;
+  const bottomPadding = 50;
+
+  // Find unique touch IDs sorted
+  const touchIds = [...new Set(records.map(r => r.touch_id))].sort((a, b) => a - b);
+  const chartHeight = topPadding + touchIds.length * rowHeight + bottomPadding;
+
+  canvas.width = containerWidth * dpr;
+  canvas.height = chartHeight * dpr;
+  canvas.style.width = containerWidth + 'px';
+  canvas.style.height = chartHeight + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const plotLeft = labelWidth;
+  const plotRight = containerWidth - 20;
+  const plotWidth = plotRight - plotLeft;
+
+  const TEST_DURATION_MS = testDurationMs;
+
+  // Time range: 0 to TEST_DURATION_MS
+  const tMin = 0;
+  const tMax = TEST_DURATION_MS;
+  function tToX(t) { return plotLeft + (t - tMin) / (tMax - tMin) * plotWidth; }
+  function idToY(id) { return topPadding + touchIds.indexOf(id) * rowHeight + rowHeight / 2; }
+
+  // Background
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, containerWidth, chartHeight);
+
+  // Grid lines (every 1 second)
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 1;
+  for (let t = 0; t <= tMax; t += 1000) {
+    const x = tToX(t);
+    ctx.beginPath();
+    ctx.moveTo(x, topPadding - 5);
+    ctx.lineTo(x, topPadding + touchIds.length * rowHeight);
+    ctx.stroke();
+  }
+
+  // Row backgrounds (alternating)
+  for (let i = 0; i < touchIds.length; i++) {
+    if (i % 2 === 0) {
+      ctx.fillStyle = '#fafafa';
+      ctx.fillRect(plotLeft, topPadding + i * rowHeight, plotWidth, rowHeight);
+    }
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#495965';
+  ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const id of touchIds) {
+    ctx.fillText(`Finger ${id + 1}`, plotLeft - 10, idToY(id));
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#495965';
+  const xAxisY = topPadding + touchIds.length * rowHeight + 10;
+  for (let t = 0; t <= tMax; t += 1000) {
+    ctx.fillText((t / 1000).toFixed(0) + 's', tToX(t), xAxisY);
+  }
+
+  // X-axis title
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Time', plotLeft + plotWidth / 2, xAxisY + 20);
+
+  // Draw touch bars
+  const barHeight = 14;
+  const minBarWidth = 4; // minimum visible width for very short touches
+
+  for (const r of records) {
+    const y = idToY(r.touch_id);
+    const x1 = tToX(r.start_t);
+    let x2 = tToX(r.end_t);
+
+    // Ensure minimum visible width
+    if (x2 - x1 < minBarWidth) x2 = x1 + minBarWidth;
+
+    if (r.is_grip) {
+      // Grip touches: green
+      ctx.fillStyle = 'rgba(46, 125, 50, 0.7)';
+      ctx.strokeStyle = '#2e7d32';
+    } else {
+      // Non-grip touches: grey
+      ctx.fillStyle = 'rgba(158, 158, 158, 0.5)';
+      ctx.strokeStyle = '#9e9e9e';
+    }
+
+    // Bar
+    const radius = barHeight / 2;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x1, y - barHeight / 2, x2 - x1, barHeight, radius);
+    ctx.fill();
+    ctx.stroke();
+
+    // Start circle
+    ctx.beginPath();
+    ctx.arc(x1, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = r.is_grip ? '#2e7d32' : '#757575';
+    ctx.fill();
+  }
+
+  // Grip region shading
+  const grips = new Map();
+  for (const r of records) {
+    if (r.grip_number !== null && r.grip_number !== undefined) {
+      if (!grips.has(r.grip_number)) grips.set(r.grip_number, []);
+      grips.get(r.grip_number).push(r);
+    }
+  }
+
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#2e7d32';
+  for (const [, touches] of grips) {
+    const xStart = tToX(Math.min(...touches.map(t => t.start_t)));
+    const xEnd = tToX(Math.max(...touches.map(t => t.end_t)));
+    ctx.fillRect(xStart - 2, topPadding - 2, Math.max(xEnd - xStart + 4, minBarWidth + 4), touchIds.length * rowHeight + 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // Grip number labels at top
+  ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = '#2e7d32';
+  for (const [num, touches] of grips) {
+    const midX = (tToX(Math.min(...touches.map(t => t.start_t))) + tToX(Math.max(...touches.map(t => t.end_t)))) / 2;
+    ctx.fillText(`G${num}`, midX, topPadding - 8);
+  }
+}
+
+function toggleDetail() {
+  const el = document.getElementById('detail-table');
+  const btn = el.previousElementSibling;
+  if (el.classList.contains('hidden')) {
+    el.classList.remove('hidden');
+    btn.textContent = 'Hide individual contacts';
+  } else {
+    el.classList.add('hidden');
+    btn.textContent = 'Show individual contacts';
+  }
+}
+</script>
+
+</body>
+</html>

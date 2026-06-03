@@ -105,7 +105,7 @@ export class TugSensorEngine {
 
     switch (this.phase) {
       case 'walking_out':
-        this.processWalkingOut(elapsed, decomposed.horizontal, decomposed.vertical);
+        this.processWalkingOut(elapsed, decomposed.vertical, decomposed.vertical);
         break;
       case 'sitting_down':
         this.processSittingDown(elapsed, elapsed - (this.phaseStartTime - this.startTime));
