@@ -288,7 +288,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 
     wrapper.appendChild(elFromHTML(`
       <p>Identified <strong>${selected.length}</strong> walking steps from ${cand} candidate events.</p>
-      <p class="tug-stepcal__note">Median step swing: ${medianDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.5 × median).</p>
+      <p class="tug-stepcal__note">Median step swing: ${medianDiff.toFixed(2)} m/s². Computed threshold: ${threshold.toFixed(2)} m/s² (= 0.3 × median).</p>
       <p>Next we'll verify by playing a tick on each detected step as you walk.</p>
     `));
 
