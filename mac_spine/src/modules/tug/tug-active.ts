@@ -7,7 +7,7 @@ import { vibrate, supportsVibration, getDeviceOS, getBrowserInfo, getViewportDim
 import { computeTugSensorMetrics } from './tug-metrics';
 import { tugSessionSetup } from './tug-setup';
 import { TugSensorEngine } from './tug-sensor';
-import { TUG_PHASE_LABELS, TUG_CONFIG_POCKET, TUG_CONFIG_HAND } from './tug-types';
+import { TUG_PHASE_LABELS, TUG_CONFIG } from './tug-types';
 import type { TugPhase } from './tug-types';
 import { TUG_MAX_DURATION_MS, TUG_SENSOR_SAVE_INTERVAL_MS, APP_VERSION } from '../../constants';
 import type { RawTimerEvent, RawMotionEvent, RawEvent } from '../../types/assessment';
@@ -43,8 +43,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   const localUuid = generateUUID();
   const sessionStartISO = new Date().toISOString();
 
-  const phoneMode = profile.preferences.tug_phone_mode ?? 'pocket';
-  const sensorConfig = phoneMode === 'hand' ? TUG_CONFIG_HAND : TUG_CONFIG_POCKET;
+  const sensorConfig = TUG_CONFIG;
 
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',
@@ -57,7 +56,6 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     browser: getBrowserInfo(),
     app_version: APP_VERSION,
     walking_aid: tugSessionSetup.walkingAid,
-    phone_placement: phoneMode,
   };
 
   // Pre-allocate event arrays
@@ -111,10 +109,10 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   progressContainer.appendChild(progressBar);
   progressContainer.appendChild(progressLabel);
 
-  // Turn info — shown during turning phases
-  const turnInfo = createElement('div', { className: 'tug-sensor__turn-info' });
-  turnInfo.style.display = 'none';
-  turnInfo.textContent = `Turn: 0° / ${Math.round(sensorConfig.turnMinAngle)}°`;
+  // Return-and-sit prompt — shown after the walk-out beep
+  const returnPrompt = createElement('div', { className: 'tug-sensor__return-prompt' });
+  returnPrompt.style.display = 'none';
+  returnPrompt.textContent = 'Turn around, walk back, and sit down';
 
   // Emergency stop button
   const stopBtn = createElement('button', {
@@ -155,8 +153,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       // Update phase label
       phaseLabel.textContent = TUG_PHASE_LABELS[state.phase] ?? state.phase;
 
-      // Show/hide walk info
-      const isWalking = state.phase === 'walking_out' || state.phase === 'walking_back';
+      const isWalking = state.phase === 'walking_out';
       walkInfo.style.display = isWalking ? 'flex' : 'none';
       progressContainer.style.display = isWalking ? 'flex' : 'none';
 
@@ -168,13 +165,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
         progressLabel.textContent = `${state.distance.toFixed(1)} / ${state.targetDistance.toFixed(1)}m`;
       }
 
-      // Show/hide turn info
-      const isTurning = state.phase === 'turning_out' || state.phase === 'turning_sit';
-      turnInfo.style.display = isTurning ? 'block' : 'none';
-
-      if (isTurning) {
-        turnInfo.textContent = `Turn: ${Math.round(state.cumulativeYaw)}° / ${Math.round(state.targetYaw)}°`;
-      }
+      returnPrompt.style.display = state.phase === 'sitting_down' ? 'block' : 'none';
     },
 
     onPhaseChange(_from: TugPhase, to: TugPhase) {
@@ -186,7 +177,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       if (supportsVibration()) vibrate(10);
     },
 
-    onTurnCue() {
+    onWalkCompleteCue() {
       audioManager.play('beep');
       if (supportsVibration()) vibrate(50);
     },
@@ -281,7 +272,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     stopBtn.style.display = 'none';
     walkInfo.style.display = 'none';
     progressContainer.style.display = 'none';
-    turnInfo.style.display = 'none';
+    returnPrompt.style.display = 'none';
 
     const endMsg = createElement('div', {
       className: 'tug-active__end-msg',
@@ -345,7 +336,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   wrapper.appendChild(timerDisplay);
   wrapper.appendChild(walkInfo);
   wrapper.appendChild(progressContainer);
-  wrapper.appendChild(turnInfo);
+  wrapper.appendChild(returnPrompt);
   wrapper.appendChild(stopBtn);
   container.appendChild(wrapper);
 
@@ -537,11 +528,13 @@ style.textContent = `
     color: var(--color-text);
     z-index: 1;
   }
-  .tug-sensor__turn-info {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text);
+  .tug-sensor__return-prompt {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
     z-index: 6;
+    text-align: center;
+    padding: 0 var(--space-4);
   }
 `;
 document.head.appendChild(style);

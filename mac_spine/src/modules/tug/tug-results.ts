@@ -2,9 +2,17 @@ import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { createSaveDiscardSlider } from '../../components/save-discard-slider';
 import { showDiscardDialog } from '../../components/discard-dialog';
-import { getAllResults, saveResult, addAuditEntry } from '../../core/db';
+import { getAllResults, getProfile, saveResult, addAuditEntry } from '../../core/db';
 import { getClinicalBand, getClinicalLabel } from './tug-metrics';
-import { TUG_PHASE_LABELS, WALKING_AID_LABELS } from './tug-types';
+import { WALKING_AID_LABELS } from './tug-types';
+import {
+  getNormativeForAge,
+  getTrafficLight,
+  describeBand,
+  TUG_FALL_RISK_S,
+  type TrafficLight,
+} from './tug-normative';
+import { computeAge } from '../../utils/age';
 import { lastTugResult } from './tug-active';
 import { router } from '../../main';
 import type { AssessmentResult } from '../../types/db-schemas';
@@ -20,6 +28,12 @@ function countTodayDiscards(results: AssessmentResult[], taskPrefix: string): nu
       new Date(r.timestamp_start).toLocaleDateString() === todayStr,
   ).length;
 }
+
+const TRAFFIC_COLORS: Record<TrafficLight, { bg: string; text: string; label: string }> = {
+  green:  { bg: '#E8F0EB', text: '#0E5B3D', label: 'Within typical range' },
+  yellow: { bg: '#FEF5E5', text: '#8B6914', label: 'Above typical range' },
+  red:    { bg: '#F9E8EC', text: '#7A003C', label: 'Fall-risk threshold' },
+};
 
 const BAND_COLORS: Record<string, { bg: string; text: string }> = {
   normal: { bg: '#E8F0EB', text: '#0E5B3D' },
@@ -40,7 +54,13 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
   const timeS = m.tug_time_s;
   const band = getClinicalBand(timeS);
   const bandLabel = getClinicalLabel(band);
-  const colors = BAND_COLORS[band];
+  const bandColors = BAND_COLORS[band];
+
+  const profile = await getProfile();
+  const age = computeAge(profile?.date_of_birth);
+  const normative = getNormativeForAge(age);
+  const traffic = getTrafficLight(timeS, age);
+  const trafficColors = TRAFFIC_COLORS[traffic];
 
   // Release wake lock if still held
   const wl = (window as unknown as Record<string, unknown>).__tugWakeLock as WakeLockSentinel | undefined;
@@ -59,14 +79,57 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
 
   const metricsSection = createElement('section', { className: 'assessment-results__metrics' });
 
-  // Time
-  metricsSection.appendChild(
-    createMetricCard('Your time', `${timeS.toFixed(1)} seconds`),
-  );
+  // ── Headline time + traffic light pill ──────────────────────
+  const headline = createElement('div', { className: 'tug-results__headline' });
+  headline.style.background = trafficColors.bg;
+  const timeRow = createElement('div', { className: 'tug-results__time-row' });
+  const timeBig = createElement('span', {
+    className: 'tug-results__time-big',
+    textContent: `${timeS.toFixed(1)}s`,
+  });
+  timeBig.style.color = trafficColors.text;
+  const pill = createElement('span', {
+    className: 'tug-results__pill',
+    textContent: trafficColors.label,
+  });
+  pill.style.color = trafficColors.text;
+  pill.style.borderColor = trafficColors.text;
+  timeRow.appendChild(timeBig);
+  timeRow.appendChild(pill);
+  headline.appendChild(createElement('span', {
+    className: 'tug-results__label',
+    textContent: 'Your TUG time',
+  }));
+  headline.appendChild(timeRow);
+  metricsSection.appendChild(headline);
 
-  // Clinical band
+  // ── Normative comparison ─────────────────────────────────────
+  const normCard = createElement('div', { className: 'tug-results__normative' });
+  if (normative) {
+    const text = createElement('div', { textContent: describeBand(normative) });
+    normCard.appendChild(text);
+    if (normative.source === 'Indicative') {
+      const caveat = createElement('div', {
+        className: 'tug-results__normative-caveat',
+        textContent: 'Indicative range from pooled studies; clinical TUG cutoffs are validated for older adults.',
+      });
+      normCard.appendChild(caveat);
+    }
+    const cutoff = createElement('div', {
+      className: 'tug-results__normative-caveat',
+      textContent: `Fall-risk threshold: ≥ ${TUG_FALL_RISK_S}s (Shumway-Cook).`,
+    });
+    normCard.appendChild(cutoff);
+  } else {
+    normCard.appendChild(createElement('div', {
+      textContent: 'Typical for healthy adults under 60: ~6-7s. Add your date of birth in Profile for an age-matched comparison.',
+    }));
+  }
+  metricsSection.appendChild(normCard);
+
+  // ── Clinical band card ───────────────────────────────────────
   const bandCard = createElement('div', { className: 'assessment-results__metric-card' });
-  bandCard.style.background = colors.bg;
+  bandCard.style.background = bandColors.bg;
   bandCard.appendChild(
     createElement('span', {
       className: 'assessment-results__metric-label',
@@ -77,7 +140,7 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     className: 'assessment-results__metric-value',
     textContent: bandLabel,
   });
-  bandValue.style.color = colors.text;
+  bandValue.style.color = bandColors.text;
   bandCard.appendChild(bandValue);
   metricsSection.appendChild(bandCard);
 
@@ -94,104 +157,34 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     metricsSection.appendChild(flagCard);
   }
 
-  // ─── Phase Breakdown ────────────────────────────────────────
-  if (m.phases_completed > 0) {
-    const phaseSection = createElement('section', { className: 'tug-results__phase-section' });
-    phaseSection.appendChild(
-      createElement('h2', {
-        className: 'tug-results__section-title',
-        textContent: 'Phase Breakdown',
-      }),
-    );
-
-    const phaseTable = createElement('div', { className: 'tug-results__phase-table' });
-
-    const phases: { key: string; label: string; durationKey: string }[] = [
-      { key: 'standing_up', label: TUG_PHASE_LABELS.standing_up, durationKey: 'standup_duration_ms' },
-      { key: 'walking_out', label: TUG_PHASE_LABELS.walking_out, durationKey: 'walk_out_duration_ms' },
-      { key: 'turning_out', label: TUG_PHASE_LABELS.turning_out, durationKey: 'turn_out_duration_ms' },
-      { key: 'walking_back', label: TUG_PHASE_LABELS.walking_back, durationKey: 'walk_back_duration_ms' },
-      { key: 'turning_sit', label: 'Turn (return)', durationKey: 'turn_sit_duration_ms' },
-      { key: 'sitting_down', label: TUG_PHASE_LABELS.sitting_down, durationKey: 'sitdown_duration_ms' },
-    ];
-
-    for (const phase of phases) {
-      const durationMs = m[phase.durationKey] ?? 0;
-      if (durationMs === 0) continue;
-      const row = createElement('div', { className: 'tug-results__phase-row' });
-      row.appendChild(createElement('span', { textContent: phase.label }));
-      row.appendChild(createElement('span', {
-        className: 'tug-results__phase-duration',
-        textContent: `${(durationMs / 1000).toFixed(1)}s`,
-      }));
-      phaseTable.appendChild(row);
-    }
-
-    phaseSection.appendChild(phaseTable);
-    metricsSection.appendChild(phaseSection);
-
-    // ─── Gait Analysis ───────────────────────────────────────────
+  // ── Walking gait (3 m walk-out segment) ──────────────────────
+  if ((m.walk_out_steps ?? 0) > 0) {
     const gaitSection = createElement('section', { className: 'tug-results__phase-section' });
     gaitSection.appendChild(
       createElement('h2', {
         className: 'tug-results__section-title',
-        textContent: 'Gait Analysis',
+        textContent: 'Walking Gait (first 3 m)',
       }),
     );
-
     const gaitGrid = createElement('div', { className: 'tug-results__gait-grid' });
-    gaitGrid.appendChild(createMetricCard('Total steps', String(m.total_steps ?? 0)));
-    gaitGrid.appendChild(createMetricCard('Total distance', `${(m.total_distance_m ?? 0).toFixed(1)}m`));
-    gaitGrid.appendChild(createMetricCard('Avg stride', `${(m.avg_stride_length_m ?? 0).toFixed(2)}m`));
+    gaitGrid.appendChild(createMetricCard('Gait speed', `${(m.walk_out_gait_speed_mps ?? 0).toFixed(2)} m/s`));
+    gaitGrid.appendChild(createMetricCard('Cadence', `${Math.round(m.walk_out_cadence_spm ?? 0)} spm`));
+    gaitGrid.appendChild(createMetricCard('Avg stride', `${(m.walk_out_avg_stride_length_m ?? 0).toFixed(2)} m`));
+    gaitGrid.appendChild(createMetricCard('Stride CV', `${((m.walk_out_stride_cv ?? 0) * 100).toFixed(1)}%`));
+    gaitGrid.appendChild(createMetricCard('Step time CV', `${((m.walk_out_step_time_cv ?? 0) * 100).toFixed(1)}%`));
+    gaitGrid.appendChild(createMetricCard('Steps', String(m.walk_out_steps ?? 0)));
     gaitSection.appendChild(gaitGrid);
     metricsSection.appendChild(gaitSection);
-
-    // ─── Outbound vs Return ──────────────────────────────────────
-    if ((m.walk_out_steps ?? 0) > 0 || (m.walk_back_steps ?? 0) > 0) {
-      const compareSection = createElement('section', { className: 'tug-results__phase-section' });
-      compareSection.appendChild(
-        createElement('h2', {
-          className: 'tug-results__section-title',
-          textContent: 'Outbound vs Return',
-        }),
-      );
-
-      const compareTable = createElement('div', { className: 'tug-results__compare-table' });
-
-      // Header row
-      const headerRow = createElement('div', { className: 'tug-results__compare-row tug-results__compare-header' });
-      headerRow.appendChild(createElement('span', { textContent: '' }));
-      headerRow.appendChild(createElement('span', { textContent: 'Outbound' }));
-      headerRow.appendChild(createElement('span', { textContent: 'Return' }));
-      compareTable.appendChild(headerRow);
-
-      // Steps row
-      const stepsRow = createElement('div', { className: 'tug-results__compare-row' });
-      stepsRow.appendChild(createElement('span', { textContent: 'Steps' }));
-      stepsRow.appendChild(createElement('span', { textContent: String(m.walk_out_steps ?? 0) }));
-      stepsRow.appendChild(createElement('span', { textContent: String(m.walk_back_steps ?? 0) }));
-      compareTable.appendChild(stepsRow);
-
-      // Distance row
-      const distRow = createElement('div', { className: 'tug-results__compare-row' });
-      distRow.appendChild(createElement('span', { textContent: 'Distance' }));
-      distRow.appendChild(createElement('span', { textContent: `${(m.walk_out_distance_m ?? 0).toFixed(1)}m` }));
-      distRow.appendChild(createElement('span', { textContent: `${(m.walk_back_distance_m ?? 0).toFixed(1)}m` }));
-      compareTable.appendChild(distRow);
-
-      // Duration row
-      const durRow = createElement('div', { className: 'tug-results__compare-row' });
-      durRow.appendChild(createElement('span', { textContent: 'Duration' }));
-      durRow.appendChild(createElement('span', { textContent: `${((m.walk_out_duration_ms ?? 0) / 1000).toFixed(1)}s` }));
-      durRow.appendChild(createElement('span', { textContent: `${((m.walk_back_duration_ms ?? 0) / 1000).toFixed(1)}s` }));
-      compareTable.appendChild(durRow);
-
-      compareSection.appendChild(compareTable);
-      metricsSection.appendChild(compareSection);
-    }
   }
 
-  // Comparison with previous TUG sessions
+  // ── Stand-up time ────────────────────────────────────────────
+  if ((m.standup_duration_ms ?? 0) > 0) {
+    metricsSection.appendChild(
+      createMetricCard('Stand-up time', `${((m.standup_duration_ms ?? 0) / 1000).toFixed(1)}s`),
+    );
+  }
+
+  // ── Comparison with previous TUG sessions ────────────────────
   const allResults = await getAllResults();
   const todayDiscards = countTodayDiscards(allResults, 'tug');
   const discardLimitReached = todayDiscards >= MAX_DAILY_DISCARDS;
@@ -217,7 +210,6 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     if (Math.abs(change) < 5) {
       comparisonText = 'About the same as last time';
     } else if (change < 0) {
-      // Lower time is better for TUG
       comparisonText = `${Math.abs(change).toFixed(0)}% faster than last time`;
     } else {
       comparisonText = `${Math.abs(change).toFixed(0)}% slower than last time`;
@@ -228,7 +220,7 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     metricsSection.appendChild(comparison);
   }
 
-  // Actions — disabled until save/discard decision
+  // Actions
   const homeBtn = createButton({
     text: 'Return to Home',
     variant: 'primary',
@@ -369,6 +361,53 @@ function createMetricCard(label: string, value: string): HTMLElement {
 
 const style = document.createElement('style');
 style.textContent = `
+  .tug-results__headline {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+  }
+  .tug-results__label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: var(--font-weight-semibold);
+  }
+  .tug-results__time-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .tug-results__time-big {
+    font-size: clamp(2.5rem, 10vw, 4rem);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .tug-results__pill {
+    border: 1.5px solid;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+  .tug-results__normative {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .tug-results__normative-caveat {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
   .tug-results__flag-warning {
     padding: var(--space-3) var(--space-4);
     background: #FEF5E5;
@@ -388,24 +427,6 @@ style.textContent = `
     color: var(--color-text);
     margin: 0 0 var(--space-2) 0;
   }
-  .tug-results__phase-table {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-  }
-  .tug-results__phase-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: var(--font-size-sm);
-    padding: var(--space-1) 0;
-  }
-  .tug-results__phase-duration {
-    font-weight: var(--font-weight-semibold);
-    font-variant-numeric: tabular-nums;
-  }
   .tug-results__gait-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -416,31 +437,6 @@ style.textContent = `
   }
   .tug-results__gait-grid .assessment-results__metric-value {
     font-size: var(--font-size-base);
-  }
-  .tug-results__compare-table {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-  }
-  .tug-results__compare-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    font-size: var(--font-size-sm);
-    padding: var(--space-1) 0;
-    text-align: center;
-  }
-  .tug-results__compare-row span:first-child {
-    text-align: left;
-    font-weight: var(--font-weight-medium);
-  }
-  .tug-results__compare-header {
-    font-weight: var(--font-weight-semibold);
-    border-bottom: 1px solid var(--color-border, #D5D0CC);
-    padding-bottom: var(--space-2);
-    margin-bottom: var(--space-1);
   }
 `;
 document.head.appendChild(style);

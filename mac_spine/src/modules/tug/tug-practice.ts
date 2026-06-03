@@ -183,12 +183,6 @@ function showCalibrationResults(
     </div>
   `;
 
-  if (!hasGyroscope) {
-    const warning = createElement('div', { className: 'tug-practice__gyro-warning' });
-    warning.textContent = 'Without a gyroscope, turn detection may be less accurate.';
-    results.appendChild(warning);
-  }
-
   const backBtn = createButton({
     text: 'Back to Instructions',
     variant: 'primary',

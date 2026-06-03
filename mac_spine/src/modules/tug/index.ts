@@ -12,7 +12,7 @@ import { renderTugResults } from './tug-results';
 export const tugModule: AssessmentModule = {
   id: 'tug_v1',
   name: 'Timed Up & Go',
-  version: '1.0.0',
+  version: '2.0.0',
   description: 'Measure functional mobility with a timed walk test',
 
   screens: {
@@ -34,7 +34,6 @@ export const tugModule: AssessmentModule = {
       'session_metadata.fatigue_rating': 'tug_fatigue',
       'session_metadata.medication_taken': 'tug_medication',
       'session_metadata.walking_aid': 'tug_walking_aid',
-      'session_metadata.phone_placement': 'tug_phone_placement',
       flagged: 'tug_flagged',
       flag_reason: 'tug_flag_reason',
       raw_data: 'tug_raw_json',
@@ -43,33 +42,26 @@ export const tugModule: AssessmentModule = {
       'session_metadata.screen_width_px': 'screen_width',
       'session_metadata.screen_height_px': 'screen_height',
       'session_metadata.app_version': 'app_version',
-      // Sensor metrics
-      'computed_metrics.total_steps': 'tug_total_steps',
-      'computed_metrics.total_distance_m': 'tug_total_distance',
-      'computed_metrics.avg_stride_length_m': 'tug_avg_stride',
+      // Walk-out gait metrics (3 m segment)
+      'computed_metrics.standup_duration_ms': 'tug_standup_duration',
       'computed_metrics.walk_out_steps': 'tug_walk_out_steps',
       'computed_metrics.walk_out_distance_m': 'tug_walk_out_distance',
       'computed_metrics.walk_out_duration_ms': 'tug_walk_out_duration',
-      'computed_metrics.walk_back_steps': 'tug_walk_back_steps',
-      'computed_metrics.walk_back_distance_m': 'tug_walk_back_distance',
-      'computed_metrics.walk_back_duration_ms': 'tug_walk_back_duration',
-      'computed_metrics.turn_out_yaw_deg': 'tug_turn_out_yaw',
-      'computed_metrics.turn_out_duration_ms': 'tug_turn_out_duration',
-      'computed_metrics.turn_sit_yaw_deg': 'tug_turn_sit_yaw',
-      'computed_metrics.turn_sit_duration_ms': 'tug_turn_sit_duration',
-      'computed_metrics.standup_duration_ms': 'tug_standup_duration',
-      'computed_metrics.sitdown_duration_ms': 'tug_sitdown_duration',
-      'computed_metrics.phases_completed': 'tug_phases_completed',
+      'computed_metrics.walk_out_avg_stride_length_m': 'tug_walk_out_avg_stride',
+      'computed_metrics.walk_out_stride_cv': 'tug_walk_out_stride_cv',
+      'computed_metrics.walk_out_cadence_spm': 'tug_walk_out_cadence',
+      'computed_metrics.walk_out_avg_step_time_ms': 'tug_walk_out_avg_step_time',
+      'computed_metrics.walk_out_step_time_cv': 'tug_walk_out_step_time_cv',
+      'computed_metrics.walk_out_gait_speed_mps': 'tug_walk_out_gait_speed',
     },
   },
 
   metrics: [
     { key: 'tug_time_s', label: 'TUG Time', unit: 's', higherIsBetter: false },
-    { key: 'total_steps', label: 'Total Steps', unit: '', higherIsBetter: false },
-    { key: 'total_distance_m', label: 'Total Distance', unit: 'm', higherIsBetter: false },
-    { key: 'avg_stride_length_m', label: 'Avg Stride', unit: 'm', higherIsBetter: false },
+    { key: 'walk_out_gait_speed_mps', label: 'Gait Speed', unit: 'm/s', higherIsBetter: true },
+    { key: 'walk_out_cadence_spm', label: 'Cadence', unit: 'spm', higherIsBetter: true },
+    { key: 'walk_out_avg_stride_length_m', label: 'Avg Stride', unit: 'm', higherIsBetter: true },
     { key: 'standup_duration_ms', label: 'Stand Up Time', unit: 'ms', higherIsBetter: false },
-    { key: 'sitdown_duration_ms', label: 'Sit Down Time', unit: 'ms', higherIsBetter: false },
   ],
 
   getInstructions(): InstructionConfig {
@@ -124,9 +116,9 @@ export const tugModule: AssessmentModule = {
     const bandLabel = getClinicalLabel(band);
     const aid = WALKING_AID_LABELS[result.session_metadata.walking_aid ?? 'none'] ?? 'no aid';
 
-    let summary = `${timeS.toFixed(1)}s \u2022 ${bandLabel} \u2022 ${aid}`;
-    if (m.total_steps) {
-      summary += ` \u2022 ${m.total_steps} steps`;
+    let summary = `${timeS.toFixed(1)}s • ${bandLabel} • ${aid}`;
+    if (m.walk_out_cadence_spm) {
+      summary += ` • ${Math.round(m.walk_out_cadence_spm)} spm`;
     }
     return summary;
   },

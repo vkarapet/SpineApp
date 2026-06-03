@@ -5,6 +5,7 @@ import type { UserProfile, UserPreferences } from '../types/db-schemas';
 export interface ProfileInput {
   participantId: string;
   name?: string;
+  dateOfBirth?: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -20,6 +21,7 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
     id: 'current',
     participant_id: input.participantId.trim().toUpperCase(),
     name: input.name?.trim() ?? '',
+    date_of_birth: input.dateOfBirth?.trim() || undefined,
     consent_date: now,
     consent_version: CONSENT_VERSION,
     preferences: { ...DEFAULT_PREFERENCES },
@@ -48,6 +50,7 @@ export async function createProfile(input: ProfileInput): Promise<UserProfile> {
 export async function updateProfile(
   participantId?: string,
   name?: string,
+  dateOfBirth?: string,
 ): Promise<UserProfile | undefined> {
   const profile = await getProfile();
   if (!profile) return undefined;
@@ -61,6 +64,10 @@ export async function updateProfile(
   if (name !== undefined) {
     profile.name = name.trim();
     updatedFields.push('name');
+  }
+  if (dateOfBirth !== undefined) {
+    profile.date_of_birth = dateOfBirth.trim() || undefined;
+    updatedFields.push('date_of_birth');
   }
 
   profile.updated_at = new Date().toISOString();

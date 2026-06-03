@@ -4,13 +4,13 @@ export interface UserPreferences {
   audio_enabled: boolean;
   haptic_enabled: boolean;
   reminder_frequency: 'daily' | 'every_2_days' | 'weekly' | 'off';
-  tug_phone_mode?: 'pocket' | 'hand';
 }
 
 export interface UserProfile {
   id: 'current';
   participant_id: string;
   name: string;
+  date_of_birth?: string;
   consent_date: string;
   consent_version: string;
   preferences: UserPreferences;
@@ -36,7 +36,6 @@ export interface SessionMetadata {
   browser: string;
   app_version: string;
   walking_aid?: 'none' | 'cane' | 'walker' | 'other';
-  phone_placement?: 'pocket' | 'hand';
 }
 
 export interface AssessmentResult {

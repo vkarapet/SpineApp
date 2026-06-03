@@ -58,8 +58,18 @@ export function renderProfileSetup(container: HTMLElement): void {
     placeholder: 'Your name (local only)',
   });
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const dobField = createFormField({
+    id: 'date-of-birth',
+    label: 'Date of birth (optional)',
+    type: 'date',
+  });
+  dobField.input.setAttribute('min', '1900-01-01');
+  dobField.input.setAttribute('max', todayISO);
+
   form.appendChild(participantIdField.container);
   form.appendChild(nameField.container);
+  form.appendChild(dobField.container);
 
   const submitBtn = createButton({
     text: 'Continue',
@@ -76,6 +86,7 @@ export function renderProfileSetup(container: HTMLElement): void {
         await createProfile({
           participantId: participantIdField.getValue(),
           name: nameField.getValue() || undefined,
+          dateOfBirth: dobField.getValue() || undefined,
         });
         router.navigate('#/menu');
       } catch (err) {

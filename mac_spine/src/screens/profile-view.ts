@@ -45,13 +45,27 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
     value: profile.name,
   });
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const dobField = createFormField({
+    id: 'edit-date-of-birth',
+    label: 'Date of birth (optional)',
+    type: 'date',
+    value: profile.date_of_birth ?? '',
+  });
+  dobField.input.setAttribute('min', '1900-01-01');
+  dobField.input.setAttribute('max', todayISO);
+
   const saveBtn = createButton({
     text: 'Save Changes',
     variant: 'primary',
     fullWidth: true,
     onClick: async () => {
       if (!participantIdField.isValid()) return;
-      await updateProfile(participantIdField.getValue(), nameField.getValue());
+      await updateProfile(
+        participantIdField.getValue(),
+        nameField.getValue(),
+        dobField.getValue(),
+      );
       showToast('Profile updated', 'success');
       router.navigate('#/menu');
     },
@@ -59,6 +73,7 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
 
   main.appendChild(participantIdField.container);
   main.appendChild(nameField.container);
+  main.appendChild(dobField.container);
   main.appendChild(saveBtn);
 
   container.appendChild(header);

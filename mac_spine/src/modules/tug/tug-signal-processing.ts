@@ -96,63 +96,12 @@ export function computeTilt(gravity: Vec3, restGravity: Vec3): number {
   return Math.acos(d) * (180 / Math.PI);
 }
 
-// --- Yaw rate ---
-
-export function computeYawRate(rotationRate: Vec3, gravity: Vec3): number {
-  // Project rotation rate onto gravity axis to isolate yaw (vertical rotation)
-  const gravNorm = normalize(gravity);
-  return dot(rotationRate, gravNorm);
-}
-
 // --- Weinberg stride length ---
 
 export function weinbergStride(aMax: number, aMin: number, K: number = TUG_WEINBERG_K): number {
   const diff = aMax - aMin;
   if (diff <= 0) return 0;
   return K * Math.pow(diff, 0.25);
-}
-
-// --- Sliding Window RMS ---
-
-export class SlidingWindowRMS {
-  private buffer: number[] = [];
-  private sumSquares = 0;
-  private windowSize: number;
-
-  constructor(windowSizeSamples: number) {
-    this.windowSize = windowSizeSamples;
-  }
-
-  update(value: number): number {
-    this.buffer.push(value * value);
-    this.sumSquares += value * value;
-    if (this.buffer.length > this.windowSize) {
-      this.sumSquares -= this.buffer.shift()!;
-    }
-    return Math.sqrt(this.sumSquares / this.buffer.length);
-  }
-
-  getRMS(): number {
-    if (this.buffer.length === 0) return 0;
-    return Math.sqrt(this.sumSquares / this.buffer.length);
-  }
-
-  reset(): void {
-    this.buffer = [];
-    this.sumSquares = 0;
-  }
-}
-
-// --- Percentile utility ---
-
-export function percentile(values: number[], p: number): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const idx = (p / 100) * (sorted.length - 1);
-  const lower = Math.floor(idx);
-  const upper = Math.ceil(idx);
-  if (lower === upper) return sorted[lower];
-  return sorted[lower] + (sorted[upper] - sorted[lower]) * (idx - lower);
 }
 
 // --- Step Detector ---
