@@ -39,7 +39,7 @@ export const TUG_STILLNESS_DURATION_MS = 3000;        // 3 seconds of stillness 
 // TUG step calibration
 export const TUG_STEP_CAL_EXPECTED_STEPS = 5;
 export const TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD = 0.5;
-export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.5;  // 0.5 × min(P-V of identified steps)
+export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.3;  // 0.3 × min(P-V of identified steps)
 export const TUG_STEP_CAL_PREP_COUNTDOWN_MS = 3000;
 export const TUG_STEP_CAL_BURST_MAX_GAP_MS = 1500;     // max gap between events in the walking burst
 export const TUG_STEP_CAL_TAIL_TRIM_MS = 1000;          // drop the last N ms — covers the hand-raise to tap Stop
