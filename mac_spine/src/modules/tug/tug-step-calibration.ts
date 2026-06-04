@@ -11,6 +11,7 @@ import {
   TUG_STEP_CAL_PREP_COUNTDOWN_MS,
   TUG_STEP_CAL_BURST_MAX_GAP_MS,
   TUG_STEP_CAL_OUTLIER_RATIO,
+  TUG_STEP_CAL_DOUBLET_MAX_GAP_MS,
   TUG_STEP_MIN_INTERVAL_MS,
   TUG_STEP_PEAK_VALLEY_MAX_MS,
 } from '../../constants';
@@ -338,8 +339,14 @@ function analyzeWithGroundTruth(
     }
   }
 
-  // Step 2: find the longest temporal burst (events within BURST_MAX_GAP_MS of each other)
-  const burst = findLongestBurst(candidates, TUG_STEP_CAL_BURST_MAX_GAP_MS);
+  // Step 2: cluster doublets. At the chest each step produces a heel-strike
+  // peak and a smaller mid-stance/push-off peak ~150–250 ms later. Merge
+  // adjacent candidates whose peaks are within DOUBLET_MAX_GAP_MS — keep the
+  // larger sub-peak's time and P-V as the representative step event.
+  const clustered = clusterDoublets(candidates, TUG_STEP_CAL_DOUBLET_MAX_GAP_MS);
+
+  // Step 3: find the longest temporal burst (events within BURST_MAX_GAP_MS of each other)
+  const burst = findLongestBurst(clustered, TUG_STEP_CAL_BURST_MAX_GAP_MS);
 
   // Step 3a: reject burst-wide outliers (P-V > RATIO × burst-median). Catches
   // a residual hand-raise event that survived the tail trim, or any other
@@ -455,6 +462,31 @@ function buildSparkline(samples: VerticalSample[], markerTimes: number[]): HTMLE
   wrap.appendChild(legend);
 
   return wrap;
+}
+
+/**
+ * Merge adjacent candidates whose peaks are within maxGapMs of each other.
+ * Each cluster collapses to a single event taking the time and P-V of its
+ * largest member — that's the heel-strike spike of the doublet, the most
+ * reliable proxy for the actual footfall.
+ */
+function clusterDoublets(events: CandidateEvent[], maxGapMs: number): CandidateEvent[] {
+  if (events.length === 0) return [];
+  const sorted = [...events].sort((a, b) => a.t - b.t);
+  const out: CandidateEvent[] = [];
+  let current = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    if (next.t - current.t <= maxGapMs) {
+      // Same step: keep the larger of the two as the representative.
+      current = next.peakValleyDiff > current.peakValleyDiff ? next : current;
+    } else {
+      out.push(current);
+      current = next;
+    }
+  }
+  out.push(current);
+  return out;
 }
 
 /** Find the longest contiguous run of events with gaps <= maxGapMs. */
