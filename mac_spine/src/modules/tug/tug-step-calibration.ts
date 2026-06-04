@@ -334,7 +334,7 @@ function analyzeWithGroundTruth(
   for (const s of samples) {
     const step = detector.processSample(s.t, s.vertical, s.vertical);
     if (step) {
-      candidates.push({ t: step.t, peakValleyDiff: step.peakAccel - step.valleyAccel });
+      candidates.push({ t: step.peakT, peakValleyDiff: step.peakAccel - step.valleyAccel });
     }
   }
 

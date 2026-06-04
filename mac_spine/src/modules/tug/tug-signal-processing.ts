@@ -19,7 +19,10 @@ export interface DecomposedAccel {
 }
 
 export interface DetectedStep {
+  /** Time the step was confirmed (after the valley following the peak). */
   t: number;
+  /** Time of the peak in the detection signal — the visual "bump" of the step. */
+  peakT: number;
   /** Peak of the detection signal (user-accel magnitude) — used for threshold derivation. */
   peakAccel: number;
   /** Valley of the detection signal (user-accel magnitude). */
@@ -201,6 +204,7 @@ export class StepDetector {
 
           const step: DetectedStep = {
             t,
+            peakT: this.currentPeakT,
             peakAccel: this.currentPeak,
             valleyAccel: this.currentValley,
             strideLength: stride,
