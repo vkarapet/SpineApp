@@ -16,6 +16,9 @@ import { computeAge } from '../../utils/age';
 import { lastTugResult } from './tug-active';
 import { router } from '../../main';
 import type { AssessmentResult } from '../../types/db-schemas';
+import { TUG_CONFIG } from './tug-types';
+import { replayMotionForVisualization, buildAccelSparkline, ensureSparkStyles } from './tug-template';
+import { isMotionEvent } from '../../types/assessment';
 
 const MAX_DAILY_DISCARDS = 2;
 
@@ -182,6 +185,34 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
     metricsSection.appendChild(
       createMetricCard('Time to first step', `${((m.time_to_first_step_ms ?? 0) / 1000).toFixed(1)}s`),
     );
+  }
+
+  // ── Whole-trial accel trace with replayed step detections ────
+  if (profile?.tug_step_calibration) {
+    const motionEvents = (result.raw_data ?? []).filter(isMotionEvent);
+    if (motionEvents.length >= 10) {
+      const startT = motionEvents[0].t;
+      const endT = motionEvents[motionEvents.length - 1].t;
+      const { samples, stepTimes } = replayMotionForVisualization(
+        motionEvents,
+        profile.tug_step_calibration,
+        TUG_CONFIG.gravityFilterAlpha,
+        startT,
+        endT,
+      );
+      ensureSparkStyles();
+      const traceSection = createElement('section', { className: 'tug-results__phase-section' });
+      traceSection.appendChild(
+        createElement('h2', {
+          className: 'tug-results__section-title',
+          textContent: 'Whole-trial accel trace',
+        }),
+      );
+      traceSection.appendChild(buildAccelSparkline(samples, stepTimes, {
+        legend: `${((endT - startT) / 1000).toFixed(1)} s of recording • ${stepTimes.length} steps detected by replay`,
+      }));
+      metricsSection.appendChild(traceSection);
+    }
   }
 
   // ── Comparison with previous TUG sessions ────────────────────

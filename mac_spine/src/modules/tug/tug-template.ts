@@ -18,8 +18,13 @@ import {
   TUG_TROUGH_PROMINENCE_RATIO,
   TUG_WEINBERG_K,
 } from '../../constants';
-import { weinbergStride } from './tug-signal-processing';
-import type { DetectedStep } from './tug-signal-processing';
+import {
+  type Vec3,
+  type DetectedStep,
+  weinbergStride,
+  lowPassFilter,
+  decomposeAcceleration,
+} from './tug-signal-processing';
 
 export interface VerticalSample {
   t: number;
@@ -419,3 +424,222 @@ export class TemplateStepDetector {
 
 // silence unused — re-exported for callers
 export const TEMPLATE_MIN_INTERVAL_MS = TUG_TEMPLATE_MIN_INTERVAL_MS;
+
+// ────────────────────────────────────────────── auto-terminate helpers
+
+/** Standard deviation of `vertical` over the last `windowMs` of samples ending at index `endIdx`. */
+export function trailingStd(samples: VerticalSample[], endIdx: number, windowMs: number): number {
+  if (endIdx < 0 || endIdx >= samples.length) return 0;
+  const endT = samples[endIdx].t;
+  let n = 0;
+  let sum = 0;
+  let sumSq = 0;
+  for (let i = endIdx; i >= 0; i--) {
+    if (endT - samples[i].t > windowMs) break;
+    sum += samples[i].vertical;
+    sumSq += samples[i].vertical * samples[i].vertical;
+    n += 1;
+  }
+  if (n < 2) return 0;
+  const mean = sum / n;
+  const variance = Math.max(0, sumSq / n - mean * mean);
+  return Math.sqrt(variance);
+}
+
+/**
+ * Trim samples to a window around the active walking region by detecting where
+ * the trailing-1s std rises above `walkOnRatio × baselineStd` and falls below
+ * `walkOffRatio × baselineStd`. Adds a small pad on either side.
+ */
+export function trimToWalkingRegion(
+  samples: VerticalSample[],
+  baselineStd: number,
+  opts: { windowMs: number; walkOnRatio: number; walkOffRatio: number; padMs: number },
+): VerticalSample[] {
+  if (samples.length === 0 || baselineStd <= 0) return samples;
+  const onThreshold = opts.walkOnRatio * baselineStd;
+  const offThreshold = opts.walkOffRatio * baselineStd;
+
+  let startIdx = -1;
+  let endIdx = samples.length - 1;
+  for (let i = 0; i < samples.length; i++) {
+    const s = trailingStd(samples, i, opts.windowMs);
+    if (startIdx < 0 && s >= onThreshold) startIdx = i;
+    if (startIdx >= 0 && s < offThreshold) {
+      // Confirm: sustained for `windowMs` more samples.
+      const checkUntilT = samples[i].t + opts.windowMs;
+      let stayed = true;
+      for (let j = i + 1; j < samples.length && samples[j].t <= checkUntilT; j++) {
+        if (trailingStd(samples, j, opts.windowMs) >= offThreshold) { stayed = false; break; }
+      }
+      if (stayed) { endIdx = i; break; }
+    }
+  }
+  if (startIdx < 0) return samples;
+  const startT = samples[startIdx].t - opts.padMs;
+  const endT = samples[endIdx].t + opts.padMs;
+  return samples.filter((s) => s.t >= startT && s.t <= endT);
+}
+
+// ─────────────────────────────────────── replay motion events for results
+
+interface MotionEventLike { t: number; ax: number; ay: number; az: number }
+
+/**
+ * Render a vertical-accel sparkline with optional step-time markers.
+ * Returns an HTMLElement ready to append. Reused on the calibration review
+ * screen (for raw W-pairs) and on the TUG results screen (for replayed
+ * runtime detections).
+ */
+export function buildAccelSparkline(
+  samples: VerticalSample[],
+  stepTimes: number[],
+  opts: { width?: number; height?: number; legend?: string } = {},
+): HTMLElement {
+  const W = opts.width ?? 320;
+  const H = opts.height ?? 140;
+  const PAD_X = 4;
+  const PAD_Y = 8;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'tug-accel-spark';
+  if (samples.length < 2) {
+    wrap.textContent = 'No signal recorded.';
+    return wrap;
+  }
+
+  const t0 = samples[0].t;
+  const t1 = samples[samples.length - 1].t;
+  const dt = Math.max(1, t1 - t0);
+
+  let vMin = Infinity;
+  let vMax = -Infinity;
+  for (const s of samples) {
+    if (s.vertical < vMin) vMin = s.vertical;
+    if (s.vertical > vMax) vMax = s.vertical;
+  }
+  const vSpan = Math.max(0.5, vMax - vMin);
+
+  const xOf = (t: number) => PAD_X + ((t - t0) / dt) * (W - 2 * PAD_X);
+  const yOf = (v: number) => PAD_Y + (1 - (v - vMin) / vSpan) * (H - 2 * PAD_Y);
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'tug-accel-spark__svg');
+
+  for (const t of stepTimes) {
+    const line = document.createElementNS(ns, 'line');
+    const x = xOf(t);
+    line.setAttribute('x1', String(x));
+    line.setAttribute('x2', String(x));
+    line.setAttribute('y1', String(PAD_Y));
+    line.setAttribute('y2', String(H - PAD_Y));
+    line.setAttribute('class', 'tug-accel-spark__marker');
+    svg.appendChild(line);
+  }
+
+  const poly = document.createElementNS(ns, 'polyline');
+  const pts: string[] = [];
+  for (const s of samples) pts.push(`${xOf(s.t).toFixed(1)},${yOf(s.vertical).toFixed(1)}`);
+  poly.setAttribute('points', pts.join(' '));
+  poly.setAttribute('class', 'tug-accel-spark__line');
+  svg.appendChild(poly);
+
+  for (const t of stepTimes) {
+    let nearest = samples[0];
+    let bestDt = Math.abs(samples[0].t - t);
+    for (const s of samples) {
+      const d = Math.abs(s.t - t);
+      if (d < bestDt) { bestDt = d; nearest = s; }
+    }
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('cx', String(xOf(nearest.t)));
+    dot.setAttribute('cy', String(yOf(nearest.vertical)));
+    dot.setAttribute('r', '3.5');
+    dot.setAttribute('class', 'tug-accel-spark__dot');
+    svg.appendChild(dot);
+  }
+
+  wrap.appendChild(svg);
+
+  const legend = document.createElement('div');
+  legend.className = 'tug-accel-spark__legend';
+  legend.textContent = opts.legend ?? `${(dt / 1000).toFixed(1)} s • ${stepTimes.length} steps detected`;
+  wrap.appendChild(legend);
+
+  return wrap;
+}
+
+/** Inject shared sparkline styles once (idempotent). */
+let _sparkStylesInjected = false;
+export function ensureSparkStyles(): void {
+  if (_sparkStylesInjected) return;
+  _sparkStylesInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+    .tug-accel-spark {
+      background: var(--color-bg-secondary);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      display: flex; flex-direction: column; gap: var(--space-2);
+    }
+    .tug-accel-spark__svg { width: 100%; height: 140px; display: block; }
+    .tug-accel-spark__line {
+      fill: none; stroke: var(--color-primary); stroke-width: 1.5;
+      vector-effect: non-scaling-stroke;
+    }
+    .tug-accel-spark__marker {
+      stroke: var(--color-accent, #FDBF57); stroke-width: 2; opacity: 0.6;
+      vector-effect: non-scaling-stroke;
+    }
+    .tug-accel-spark__dot {
+      fill: var(--color-accent, #FDBF57); stroke: var(--color-primary); stroke-width: 1;
+    }
+    .tug-accel-spark__legend {
+      font-size: var(--font-size-sm); text-align: center;
+      color: var(--color-text-secondary, var(--color-primary));
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Replay raw motion events through gravity filter + vertical projection to
+ * reconstruct the vertical-accel trace as seen by the runtime detector, then
+ * run the TemplateStepDetector to recover detected step times. Used by the
+ * results screen to render a post-hoc trace + step markers.
+ */
+export function replayMotionForVisualization(
+  events: MotionEventLike[],
+  calibration: { template: number[]; correlation_floor: number },
+  gravityFilterAlpha: number,
+  startT: number,
+  endT: number,
+): { samples: VerticalSample[]; stepTimes: number[] } {
+  const samples: VerticalSample[] = [];
+  let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
+  let gravityInit = false;
+
+  for (const ev of events) {
+    if (ev.t < startT || ev.t > endT) continue;
+    const accelRaw: Vec3 = { x: ev.ax, y: ev.ay, z: ev.az };
+    if (!gravityInit) { gravity = accelRaw; gravityInit = true; }
+    gravity = lowPassFilter(accelRaw, gravity, gravityFilterAlpha);
+    const dec = decomposeAcceleration(accelRaw, gravity);
+    samples.push({ t: ev.t, vertical: dec.vertical });
+  }
+
+  const detector = new TemplateStepDetector({
+    template: calibration.template,
+    correlationFloor: calibration.correlation_floor,
+    minIntervalMs: TUG_TEMPLATE_MIN_INTERVAL_MS,
+  });
+  const stepTimes: number[] = [];
+  for (const s of samples) {
+    const step = detector.processSample(s.t, s.vertical);
+    if (step) stepTimes.push(step.peakT);
+  }
+  return { samples, stepTimes };
+}

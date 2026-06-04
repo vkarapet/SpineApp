@@ -53,6 +53,13 @@ export const TUG_TEMPLATE_MIN_BATCHES = 2;
 export const TUG_TEMPLATE_MAX_BATCHES = 4;
 export const TUG_TEMPLATE_CONVERGENCE_DELTA = 0.05;    // delta < 5 % between successive batches → converged
 
+// Calibration auto-terminate (stillness detection)
+export const TUG_CAL_BASELINE_WINDOW_MS = 1000;        // last N ms of countdown used as noise baseline
+export const TUG_CAL_STILLNESS_WINDOW_MS = 1000;       // sliding std window during recording
+export const TUG_CAL_WALK_ON_RATIO = 4.0;              // std > N × baseline_std → walking has started
+export const TUG_CAL_WALK_OFF_RATIO = 2.0;             // std < N × baseline_std (sustained) → walking has ended
+export const TUG_CAL_TRIM_PAD_MS = 150;                // pad around the auto-detected walking region
+
 export const INTENDED_USE_STATEMENT =
   'MAC Spine is a research data collection tool intended for use in IRB-approved studies. ' +
   'It is not intended to diagnose, treat, cure, or prevent any disease. ' +

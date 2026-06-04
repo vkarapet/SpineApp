@@ -11,6 +11,11 @@ import {
   TUG_TEMPLATE_MIN_BATCHES,
   TUG_TEMPLATE_MAX_BATCHES,
   TUG_TEMPLATE_CONVERGENCE_DELTA,
+  TUG_CAL_BASELINE_WINDOW_MS,
+  TUG_CAL_STILLNESS_WINDOW_MS,
+  TUG_CAL_WALK_ON_RATIO,
+  TUG_CAL_WALK_OFF_RATIO,
+  TUG_CAL_TRIM_PAD_MS,
 } from '../../constants';
 import {
   type Vec3,
@@ -22,19 +27,27 @@ import {
   type TroughPair,
   processBatch,
   findTroughPairs,
+  trailingStd,
+  trimToWalkingRegion,
 } from './tug-template';
 import { TUG_CONFIG } from './tug-types';
 import type { TugStepCalibration } from '../../types/db-schemas';
 import { router } from '../../main';
 
-type Stage = 'intro' | 'capture' | 'batch-review';
+type Stage = 'intro' | 'capture' | 'batch-review' | 'batch-rejected';
 
 interface BatchSnapshot {
-  samples: VerticalSample[];        // raw vertical-accel trace from this batch
+  samples: VerticalSample[];        // trimmed walking region of this batch
   pairs: TroughPair[];              // detected W's
   delta: number | null;             // L2 change vs prior template (null on batch 1)
   totalSteps: number;
   correlationFloor: number;
+}
+
+interface RejectedBatch {
+  samples: VerticalSample[];
+  pairs: TroughPair[];
+  reason: string;
 }
 
 export async function renderTugStepCalibration(container: HTMLElement): Promise<void> {
@@ -60,6 +73,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
   let template: number[] = [];
   let windowPool: number[][] = [];
   const batches: BatchSnapshot[] = [];
+  let rejectedBatch: RejectedBatch | null = null;
 
   const wrapper = createElement('main', { className: 'tug-stepcal' });
   wrapper.setAttribute('role', 'main');
@@ -71,6 +85,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       case 'intro': renderIntro(); break;
       case 'capture': renderCaptureScreen(); break;
       case 'batch-review': renderBatchReview(); break;
+      case 'batch-rejected': renderBatchRejected(); break;
     }
   }
 
@@ -79,7 +94,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     wrapper.appendChild(elFromHTML(`
       <div class="tug-stepcal__body">
         <p>We learn what your walking looks like so step detection is reliable during the TUG test.</p>
-        <p>You'll walk <strong>${TUG_STEP_CAL_EXPECTED_STEPS} normal steps</strong> at a time. We'll show you the recording after each set; if the detector hasn't settled yet, you walk ${TUG_STEP_CAL_EXPECTED_STEPS} more, then ${TUG_STEP_CAL_EXPECTED_STEPS} more (up to ${TUG_TEMPLATE_MAX_BATCHES} sets), until your step shape stabilises.</p>
+        <p>You'll walk <strong>${TUG_STEP_CAL_EXPECTED_STEPS} normal steps</strong> at a time, then <strong>stand still for 1 second</strong> — recording auto-stops on stillness so the hand-motion of tapping Stop doesn't get recorded. If the step shape hasn't settled yet, you walk another ${TUG_STEP_CAL_EXPECTED_STEPS} (up to ${TUG_TEMPLATE_MAX_BATCHES} sets).</p>
         <p class="tug-stepcal__note"><strong>Hold the phone flat against the centre of your chest (sternum)</strong> with one hand, screen facing outward. Use the same placement during the TUG test.</p>
       </div>
     `));
@@ -114,7 +129,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
 
     wrapper.appendChild(elFromHTML(`
       <p>Press <strong>Start</strong>, hold the phone flat against your sternum, and stay still for the 3-second countdown.</p>
-      <p>At the <strong>GO</strong> cue, walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps and stop. Tap <strong>Stop</strong> when you finish.</p>
+      <p>At the <strong>GO</strong> cue, walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps and then <strong>stand still</strong>. Recording stops automatically when you stop moving (or tap <strong>Stop</strong>).</p>
     `));
 
     const status = createElement('div', { className: 'tug-stepcal__status', textContent: 'Ready when you are.' });
@@ -127,8 +142,12 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     let phase: 'idle' | 'baseline' | 'recording' = 'idle';
     let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
     let recordStartT = 0;
+    let baselineStartT = 0;
+    let baselineSamples: VerticalSample[] = [];
     let samples: VerticalSample[] = [];
     let countdownTimer: ReturnType<typeof setInterval> | null = null;
+    let walkingDetected = false;
+    let stillSince: number | null = null;
 
     const motionHandler = (ev: DeviceMotionEvent) => {
       const accelRaw: Vec3 = {
@@ -137,11 +156,35 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         z: ev.accelerationIncludingGravity?.z ?? 0,
       };
       gravity = lowPassFilter(accelRaw, gravity, TUG_CONFIG.gravityFilterAlpha);
-
-      if (phase !== 'recording') return;
-      const t = performance.now() - recordStartT;
       const dec = decomposeAcceleration(accelRaw, gravity);
+
+      if (phase === 'baseline') {
+        const t = performance.now() - baselineStartT;
+        baselineSamples.push({ t, vertical: dec.vertical });
+        return;
+      }
+      if (phase !== 'recording') return;
+
+      const t = performance.now() - recordStartT;
       samples.push({ t, vertical: dec.vertical });
+
+      // Auto-terminate: compare trailing std to baseline.
+      const baseStd = computeBaselineStd(baselineSamples);
+      if (baseStd <= 0) return;
+      const win = TUG_CAL_STILLNESS_WINDOW_MS;
+      const trailing = trailingStd(samples, samples.length - 1, win);
+      if (!walkingDetected) {
+        if (trailing >= TUG_CAL_WALK_ON_RATIO * baseStd) walkingDetected = true;
+      } else {
+        if (trailing < TUG_CAL_WALK_OFF_RATIO * baseStd) {
+          if (stillSince === null) stillSince = t;
+          if (t - stillSince >= TUG_CAL_STILLNESS_WINDOW_MS) {
+            finishBatch(false);
+          }
+        } else {
+          stillSince = null;
+        }
+      }
     };
 
     function cleanup(): void {
@@ -155,6 +198,49 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       setTimeout(() => { goFlash.style.display = 'none'; }, 600);
     }
 
+    function finishBatch(manualStop: boolean): void {
+      if (phase !== 'recording') return;
+      phase = 'idle';
+      cleanup();
+
+      const baseStd = computeBaselineStd(baselineSamples);
+      const trimmed = baseStd > 0
+        ? trimToWalkingRegion(samples, baseStd, {
+          windowMs: TUG_CAL_STILLNESS_WINDOW_MS,
+          walkOnRatio: TUG_CAL_WALK_ON_RATIO,
+          walkOffRatio: TUG_CAL_WALK_OFF_RATIO,
+          padMs: TUG_CAL_TRIM_PAD_MS,
+        })
+        : samples;
+
+      const pairs = findTroughPairs(trimmed);
+      if (pairs.length !== TUG_STEP_CAL_EXPECTED_STEPS) {
+        rejectedBatch = {
+          samples: trimmed,
+          pairs,
+          reason: pairs.length === 0
+            ? 'No walking steps were detected.'
+            : `Detected ${pairs.length} steps instead of ${TUG_STEP_CAL_EXPECTED_STEPS}. ${manualStop ? '' : 'The walk may have ended early or extra motion was picked up.'}`,
+        };
+        stage = 'batch-rejected';
+        render();
+        return;
+      }
+
+      const prev = template.length > 0 ? template : null;
+      const res = processBatch(trimmed, windowPool, prev);
+      template = res.template;
+      batches.push({
+        samples: trimmed,
+        pairs: res.pairs,
+        delta: res.delta,
+        totalSteps: res.totalSteps,
+        correlationFloor: res.correlationFloor,
+      });
+      stage = 'batch-review';
+      render();
+    }
+
     const startBtn = createButton({
       text: 'Start',
       variant: 'primary',
@@ -164,7 +250,11 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         startBtn.classList.add('btn--disabled');
 
         phase = 'baseline';
+        baselineSamples = [];
         samples = [];
+        walkingDetected = false;
+        stillSince = null;
+        baselineStartT = performance.now();
         window.addEventListener('devicemotion', motionHandler);
 
         let remaining = Math.ceil(TUG_STEP_CAL_PREP_COUNTDOWN_MS / 1000);
@@ -178,7 +268,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           if (countdownTimer) clearInterval(countdownTimer);
           phase = 'recording';
           recordStartT = performance.now();
-          status.textContent = `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} steps now`;
+          status.textContent = `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} steps, then stand still`;
           flashGo();
           stopBtn.disabled = false;
           stopBtn.classList.remove('btn--disabled');
@@ -191,26 +281,59 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       variant: 'secondary',
       fullWidth: true,
       disabled: true,
-      onClick: () => {
-        phase = 'idle';
-        cleanup();
-        const prev = template.length > 0 ? template : null;
-        const res = processBatch(samples, windowPool, prev);
-        template = res.template;
-        batches.push({
-          samples,
-          pairs: res.pairs,
-          delta: res.delta,
-          totalSteps: res.totalSteps,
-          correlationFloor: res.correlationFloor,
-        });
-        stage = 'batch-review';
-        render();
-      },
+      onClick: () => finishBatch(true),
     });
 
     wrapper.appendChild(startBtn);
     wrapper.appendChild(stopBtn);
+  }
+
+  function renderBatchRejected(): void {
+    if (!rejectedBatch) { stage = 'capture'; render(); return; }
+    wrapper.appendChild(createElement('h1', { textContent: 'Set discarded' }));
+    wrapper.appendChild(elFromHTML(`<p>${rejectedBatch.reason} This set was not added to your template.</p>`));
+    wrapper.appendChild(buildSparkline(rejectedBatch.samples, rejectedBatch.pairs));
+    wrapper.appendChild(createButton({
+      text: `Try set ${batches.length + 1} again`,
+      variant: 'primary',
+      fullWidth: true,
+      onClick: () => { rejectedBatch = null; stage = 'capture'; render(); },
+    }));
+    if (batches.length >= TUG_TEMPLATE_MIN_BATCHES) {
+      wrapper.appendChild(createButton({
+        text: 'Save with what we have',
+        variant: 'secondary',
+        fullWidth: true,
+        onClick: saveAndExit,
+      }));
+    }
+    wrapper.appendChild(createButton({
+      text: 'Restart',
+      variant: 'text',
+      onClick: () => {
+        template = [];
+        windowPool = [];
+        batches.length = 0;
+        rejectedBatch = null;
+        stage = 'capture';
+        render();
+      },
+    }));
+  }
+
+  function computeBaselineStd(baseline: VerticalSample[]): number {
+    if (baseline.length < 4) return 0;
+    // Use only the last TUG_CAL_BASELINE_WINDOW_MS of countdown.
+    const endT = baseline[baseline.length - 1].t;
+    const window = baseline.filter((s) => endT - s.t <= TUG_CAL_BASELINE_WINDOW_MS);
+    if (window.length < 4) return 0;
+    let sum = 0;
+    let sumSq = 0;
+    for (const s of window) { sum += s.vertical; sumSq += s.vertical * s.vertical; }
+    const n = window.length;
+    const mean = sum / n;
+    const variance = Math.max(0, sumSq / n - mean * mean);
+    return Math.sqrt(variance);
   }
 
   function renderBatchReview(): void {
@@ -229,6 +352,10 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       const norm = Math.min(1, last.delta / (TUG_TEMPLATE_CONVERGENCE_DELTA * 2));
       confidencePct = Math.round((1 - norm) * 100);
     }
+
+    // Regression warning: did this batch make the template worse?
+    const prev = batches.length >= 2 ? batches[batches.length - 2] : null;
+    const regressed = prev !== null && prev.delta !== null && last.delta !== null && last.delta > prev.delta;
 
     // Detected count this batch
     wrapper.appendChild(elFromHTML(`
@@ -259,6 +386,11 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
           </div>
         </div>
       `));
+      if (regressed) {
+        wrapper.appendChild(elFromHTML(`
+          <p class="tug-stepcal__note">This set made the template noisier than the previous one. Consider walking another set, or restart if it keeps regressing.</p>
+        `));
+      }
     } else {
       wrapper.appendChild(elFromHTML(`<p class="tug-stepcal__note">Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps to start measuring stability.</p>`));
     }
