@@ -7,9 +7,12 @@ export interface UserPreferences {
 }
 
 export interface TugStepCalibration {
-  threshold_mps2: number;
-  median_peak_valley_mps2: number;
-  n_samples: number;
+  template: number[];              // normalized mean W template (zero-mean, unit-norm)
+  template_dt_ms: number;          // sample spacing of template
+  correlation_floor: number;       // runtime correlation must exceed this to count as a step
+  n_steps_used: number;            // total W windows averaged
+  n_batches: number;               // number of 5-step batches collected
+  final_delta: number | null;      // template L2 change between last two batches; null on N=1
   calibrated_at: string;
   app_version: string;
 }

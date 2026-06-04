@@ -5,10 +5,6 @@ export interface TugSessionSetup {
 export interface TugSensorConfig {
   gravityFilterAlpha: number;
   walkDistanceM: number;
-  // Step detection
-  stepInitialThreshold: number;
-  stepMinIntervalMs: number;
-  stepPeakValleyMaxMs: number;
   // Sit down
   sitdownSpikeThreshold: number;
   sitdownRestAccelTolerance: number;
@@ -20,9 +16,6 @@ export interface TugSensorConfig {
 export const TUG_CONFIG: TugSensorConfig = {
   gravityFilterAlpha: 0.1,
   walkDistanceM: 3.0,
-  stepInitialThreshold: 1.2,
-  stepMinIntervalMs: 400,
-  stepPeakValleyMaxMs: 500,
   sitdownSpikeThreshold: 3.0,
   sitdownRestAccelTolerance: 0.5,
   sitdownRestDurationMs: 1500,

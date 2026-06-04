@@ -23,12 +23,8 @@ export const TUG_NORMAL_THRESHOLD_S = 10;
 export const TUG_HIGH_RISK_THRESHOLD_S = 13.5;
 export const TUG_MAX_DURATION_MS = 120_000;
 
-// TUG Sensor — Step detection (defaults for StepDetector; overridden by TUG_CONFIG in tug-types.ts)
-export const TUG_STEP_MIN_INTERVAL_MS = 400;
-export const TUG_STEP_PEAK_VALLEY_MAX_MS = 500;
-export const TUG_STEP_INITIAL_THRESHOLD = 2.0;        // m/s²
+// TUG Sensor — Weinberg stride constant
 export const TUG_WEINBERG_K = 0.45;
-export const TUG_STEP_SMOOTH_WINDOW = 5;
 
 // TUG Sensor — Data management
 export const TUG_SENSOR_SAVE_INTERVAL_MS = 3000;
@@ -36,14 +32,26 @@ export const TUG_CALIBRATION_SAMPLES = 60;
 export const TUG_STILLNESS_ACCEL_TOLERANCE = 0.5;    // m/s² from gravity magnitude
 export const TUG_STILLNESS_DURATION_MS = 3000;        // 3 seconds of stillness to auto-start
 
-// TUG step calibration
-export const TUG_STEP_CAL_EXPECTED_STEPS = 5;
-export const TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD = 0.5;
-export const TUG_STEP_CAL_THRESHOLD_MULTIPLIER = 0.3;  // 0.3 × min(P-V of identified steps)
+// TUG step calibration (template-matching)
+export const TUG_STEP_CAL_EXPECTED_STEPS = 5;          // per batch
 export const TUG_STEP_CAL_PREP_COUNTDOWN_MS = 3000;
-export const TUG_STEP_CAL_BURST_MAX_GAP_MS = 1500;     // max gap between events in the walking burst
-export const TUG_STEP_CAL_OUTLIER_RATIO = 2.0;          // reject candidates with P-V > N × burst-median
-export const TUG_STEP_CAL_DOUBLET_MAX_GAP_MS = 250;    // merge candidates within N ms into one step (heel-strike + mid-stance doublet)
+
+// Template shape & sampling
+export const TUG_TEMPLATE_LEN = 36;                    // samples per template
+export const TUG_TEMPLATE_DT_MS = 17;                  // ~60 Hz; full template ≈ 600 ms
+export const TUG_TEMPLATE_WARP_FACTORS = [0.85, 0.92, 1.0, 1.08, 1.15];
+export const TUG_TEMPLATE_MIN_INTERVAL_MS = 350;       // refractory between detected steps at runtime
+
+// Trough-pair detection (used during calibration capture)
+export const TUG_TROUGH_PAIR_MIN_GAP_MS = 80;
+export const TUG_TROUGH_PAIR_MAX_GAP_MS = 280;
+export const TUG_TROUGH_PAIR_MIN_INTERVAL_MS = 350;
+export const TUG_TROUGH_PROMINENCE_RATIO = 0.18;       // min trough prominence as fraction of recording range
+
+// Batch calibration convergence
+export const TUG_TEMPLATE_MIN_BATCHES = 2;
+export const TUG_TEMPLATE_MAX_BATCHES = 4;
+export const TUG_TEMPLATE_CONVERGENCE_DELTA = 0.05;    // delta < 5 % between successive batches → converged
 
 export const INTENDED_USE_STATEMENT =
   'MAC Spine is a research data collection tool intended for use in IRB-approved studies. ' +

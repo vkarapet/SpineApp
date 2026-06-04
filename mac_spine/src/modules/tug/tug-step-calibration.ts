@@ -6,47 +6,35 @@ import { requestMotionPermission } from '../../utils/motion-permission';
 import {
   APP_VERSION,
   TUG_STEP_CAL_EXPECTED_STEPS,
-  TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD,
-  TUG_STEP_CAL_THRESHOLD_MULTIPLIER,
   TUG_STEP_CAL_PREP_COUNTDOWN_MS,
-  TUG_STEP_CAL_BURST_MAX_GAP_MS,
-  TUG_STEP_CAL_OUTLIER_RATIO,
-  TUG_STEP_CAL_DOUBLET_MAX_GAP_MS,
-  TUG_STEP_MIN_INTERVAL_MS,
-  TUG_STEP_PEAK_VALLEY_MAX_MS,
+  TUG_TEMPLATE_DT_MS,
+  TUG_TEMPLATE_MIN_BATCHES,
+  TUG_TEMPLATE_MAX_BATCHES,
+  TUG_TEMPLATE_CONVERGENCE_DELTA,
 } from '../../constants';
 import {
   type Vec3,
-  type DetectedStep,
   lowPassFilter,
   decomposeAcceleration,
-  StepDetector,
 } from './tug-signal-processing';
+import {
+  type VerticalSample,
+  type TroughPair,
+  processBatch,
+  findTroughPairs,
+} from './tug-template';
 import { TUG_CONFIG } from './tug-types';
 import type { TugStepCalibration } from '../../types/db-schemas';
 import { router } from '../../main';
 
-type Stage = 'intro' | 'capture' | 'capture-review';
+type Stage = 'intro' | 'capture' | 'batch-review';
 
-interface CandidateEvent {
-  t: number;
-  peakValleyDiff: number;
-}
-
-interface CaptureResult {
-  candidates: CandidateEvent[];
-  selected: CandidateEvent[];   // chosen N (=5) walking steps, with timestamps
-  selectedDiffs: number[];
-  median: number;
-  minDiff: number;
-  threshold: number;             // MULTIPLIER × minDiff
-  burstStartT: number | null;
-  burstEndT: number | null;
-}
-
-interface VerticalSample {
-  t: number;
-  vertical: number;
+interface BatchSnapshot {
+  samples: VerticalSample[];        // raw vertical-accel trace from this batch
+  pairs: TroughPair[];              // detected W's
+  delta: number | null;             // L2 change vs prior template (null on batch 1)
+  totalSteps: number;
+  correlationFloor: number;
 }
 
 export async function renderTugStepCalibration(container: HTMLElement): Promise<void> {
@@ -69,8 +57,9 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
   await audioManager.preloadAll();
 
   let stage: Stage = 'intro';
-  let lastCapture: CaptureResult | null = null;
-  let lastSamples: VerticalSample[] = [];
+  let template: number[] = [];
+  let windowPool: number[][] = [];
+  const batches: BatchSnapshot[] = [];
 
   const wrapper = createElement('main', { className: 'tug-stepcal' });
   wrapper.setAttribute('role', 'main');
@@ -81,7 +70,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     switch (stage) {
       case 'intro': renderIntro(); break;
       case 'capture': renderCaptureScreen(); break;
-      case 'capture-review': renderCaptureReview(); break;
+      case 'batch-review': renderBatchReview(); break;
     }
   }
 
@@ -89,9 +78,9 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     wrapper.appendChild(createElement('h1', { textContent: 'Walking Calibration' }));
     wrapper.appendChild(elFromHTML(`
       <div class="tug-stepcal__body">
-        <p>We need to learn what your walking looks like so step detection is reliable during the TUG test.</p>
-        <p>Press Start, hold still during a 3-second countdown, then walk <strong>${TUG_STEP_CAL_EXPECTED_STEPS} normal steps</strong> and bring your legs together. Tap Stop. We'll show you the recording so you can confirm each step was detected.</p>
-        <p class="tug-stepcal__note"><strong>Hold the phone flat against the center of your chest (sternum)</strong> with one hand, screen facing outward. Use the same placement during the TUG test.</p>
+        <p>We learn what your walking looks like so step detection is reliable during the TUG test.</p>
+        <p>You'll walk <strong>${TUG_STEP_CAL_EXPECTED_STEPS} normal steps</strong> at a time. We'll show you the recording after each set; if the detector hasn't settled yet, you walk ${TUG_STEP_CAL_EXPECTED_STEPS} more, then ${TUG_STEP_CAL_EXPECTED_STEPS} more (up to ${TUG_TEMPLATE_MAX_BATCHES} sets), until your step shape stabilises.</p>
+        <p class="tug-stepcal__note"><strong>Hold the phone flat against the centre of your chest (sternum)</strong> with one hand, screen facing outward. Use the same placement during the TUG test.</p>
       </div>
     `));
 
@@ -118,11 +107,14 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
   }
 
   function renderCaptureScreen(): void {
-    wrapper.appendChild(createElement('h1', { textContent: 'Capture Walking' }));
+    const batchNum = batches.length + 1;
+    wrapper.appendChild(createElement('h1', {
+      textContent: `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} steps (set ${batchNum})`,
+    }));
 
     wrapper.appendChild(elFromHTML(`
       <p>Press <strong>Start</strong>, hold the phone flat against your sternum, and stay still for the 3-second countdown.</p>
-      <p>At the <strong>GO</strong> cue, walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps and bring your legs together. Tap <strong>Stop</strong> when you finish.</p>
+      <p>At the <strong>GO</strong> cue, walk ${TUG_STEP_CAL_EXPECTED_STEPS} normal steps and stop. Tap <strong>Stop</strong> when you finish.</p>
     `));
 
     const status = createElement('div', { className: 'tug-stepcal__status', textContent: 'Ready when you are.' });
@@ -135,7 +127,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     let phase: 'idle' | 'baseline' | 'recording' = 'idle';
     let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
     let recordStartT = 0;
-    let samples: { t: number; horizontal: number; vertical: number }[] = [];
+    let samples: VerticalSample[] = [];
     let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
     const motionHandler = (ev: DeviceMotionEvent) => {
@@ -147,10 +139,9 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       gravity = lowPassFilter(accelRaw, gravity, TUG_CONFIG.gravityFilterAlpha);
 
       if (phase !== 'recording') return;
-
       const t = performance.now() - recordStartT;
       const dec = decomposeAcceleration(accelRaw, gravity);
-      samples.push({ t, horizontal: dec.horizontal, vertical: dec.vertical });
+      samples.push({ t, vertical: dec.vertical });
     };
 
     function cleanup(): void {
@@ -203,9 +194,17 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       onClick: () => {
         phase = 'idle';
         cleanup();
-        lastSamples = samples.map((s) => ({ t: s.t, vertical: s.vertical }));
-        lastCapture = analyzeWithGroundTruth(samples, TUG_STEP_CAL_EXPECTED_STEPS);
-        stage = 'capture-review';
+        const prev = template.length > 0 ? template : null;
+        const res = processBatch(samples, windowPool, prev);
+        template = res.template;
+        batches.push({
+          samples,
+          pairs: res.pairs,
+          delta: res.delta,
+          totalSteps: res.totalSteps,
+          correlationFloor: res.correlationFloor,
+        });
+        stage = 'batch-review';
         render();
       },
     });
@@ -214,179 +213,145 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     wrapper.appendChild(stopBtn);
   }
 
-  function renderCaptureReview(): void {
-    wrapper.appendChild(createElement('h1', { textContent: 'Review Detection' }));
-    const cand = lastCapture?.candidates.length ?? 0;
-    const selected = lastCapture?.selected ?? [];
-    const medianDiff = lastCapture?.median ?? 0;
-    const threshold = lastCapture?.threshold ?? 0;
+  function renderBatchReview(): void {
+    const last = batches[batches.length - 1];
+    const batchNum = batches.length;
+    wrapper.appendChild(createElement('h1', { textContent: `Set ${batchNum} review` }));
 
-    if (selected.length < TUG_STEP_CAL_EXPECTED_STEPS) {
-      wrapper.appendChild(elFromHTML(`
-        <p>We only identified <strong>${selected.length}</strong> step-like events out of ${TUG_STEP_CAL_EXPECTED_STEPS} expected (${cand} total candidates). Please walk a bit more deliberately and try again.</p>
-      `));
-      wrapper.appendChild(createButton({
-        text: 'Re-record',
-        variant: 'primary',
-        fullWidth: true,
-        onClick: () => { lastCapture = null; lastSamples = []; stage = 'capture'; render(); },
-      }));
-      wrapper.appendChild(createButton({
-        text: 'Cancel',
-        variant: 'text',
-        onClick: () => router.navigate('#/menu'),
-      }));
-      return;
+    // Convergence state
+    const converged = last.delta !== null && last.delta <= TUG_TEMPLATE_CONVERGENCE_DELTA;
+    const canSave = batches.length >= TUG_TEMPLATE_MIN_BATCHES;
+    const mustSave = batches.length >= TUG_TEMPLATE_MAX_BATCHES;
+
+    // Confidence: 100% at delta=0, 0% at delta=CONVERGENCE_DELTA*2.
+    let confidencePct: number | null = null;
+    if (last.delta !== null) {
+      const norm = Math.min(1, last.delta / (TUG_TEMPLATE_CONVERGENCE_DELTA * 2));
+      confidencePct = Math.round((1 - norm) * 100);
     }
 
+    // Detected count this batch
     wrapper.appendChild(elFromHTML(`
-      <p>The line below is your vertical chest acceleration during the recording. Each marker is a step the detector identified.</p>
-      <p><strong>Check that each marker lines up with one of your ${TUG_STEP_CAL_EXPECTED_STEPS} steps</strong>, and that no real step was missed.</p>
+      <p>Set ${batchNum}: detected <strong>${last.pairs.length}</strong> steps (of ${TUG_STEP_CAL_EXPECTED_STEPS} expected).</p>
+      <p>Total walking samples collected: <strong>${last.totalSteps}</strong>.</p>
     `));
 
-    wrapper.appendChild(buildSparkline(lastSamples, selected.map((s) => s.t)));
+    // Trace + markers
+    wrapper.appendChild(buildSparkline(last.samples, last.pairs));
 
-    wrapper.appendChild(elFromHTML(`
-      <p class="tug-stepcal__note">${selected.length} steps identified out of ${cand} candidates. Median step swing ${medianDiff.toFixed(2)} m/s²; threshold ${threshold.toFixed(2)} m/s².</p>
-    `));
+    // Template preview
+    if (template.length > 0) {
+      wrapper.appendChild(createElement('div', {
+        className: 'tug-stepcal__template-label',
+        textContent: 'Your average step shape so far:',
+      }));
+      wrapper.appendChild(buildTemplatePreview(template));
+    }
+
+    // Confidence / status
+    if (confidencePct !== null) {
+      wrapper.appendChild(elFromHTML(`
+        <div class="tug-stepcal__confidence">
+          <div class="tug-stepcal__confidence-bar"><div class="tug-stepcal__confidence-fill" style="width:${confidencePct}%"></div></div>
+          <div class="tug-stepcal__confidence-text">
+            Template stability: <strong>${confidencePct}%</strong>
+            ${converged ? ' &mdash; converged' : ' &mdash; not settled yet'}
+          </div>
+        </div>
+      `));
+    } else {
+      wrapper.appendChild(elFromHTML(`<p class="tug-stepcal__note">Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps to start measuring stability.</p>`));
+    }
+
+    // Buttons
+    if (mustSave) {
+      wrapper.appendChild(createButton({
+        text: 'Save calibration',
+        variant: 'primary',
+        fullWidth: true,
+        onClick: saveAndExit,
+      }));
+    } else if (canSave && converged) {
+      wrapper.appendChild(createButton({
+        text: 'Save calibration',
+        variant: 'primary',
+        fullWidth: true,
+        onClick: saveAndExit,
+      }));
+      wrapper.appendChild(createButton({
+        text: `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps`,
+        variant: 'secondary',
+        fullWidth: true,
+        onClick: () => { stage = 'capture'; render(); },
+      }));
+    } else {
+      wrapper.appendChild(createButton({
+        text: `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps`,
+        variant: 'primary',
+        fullWidth: true,
+        onClick: () => { stage = 'capture'; render(); },
+      }));
+      if (canSave) {
+        wrapper.appendChild(createButton({
+          text: 'Save anyway',
+          variant: 'secondary',
+          fullWidth: true,
+          onClick: saveAndExit,
+        }));
+      }
+    }
 
     wrapper.appendChild(createButton({
-      text: 'Looks right — save calibration',
-      variant: 'primary',
-      fullWidth: true,
-      onClick: async () => {
-        if (!lastCapture) return;
-        const cal: TugStepCalibration = {
-          threshold_mps2: round3(lastCapture.threshold),
-          median_peak_valley_mps2: round3(lastCapture.median),
-          n_samples: lastCapture.selectedDiffs.length,
-          calibrated_at: new Date().toISOString(),
-          app_version: APP_VERSION,
-        };
-        const p = await getProfile();
-        if (!p) return;
-        p.tug_step_calibration = cal;
-        p.updated_at = new Date().toISOString();
-        await saveProfile(p);
-        await addAuditEntry({
-          action: 'tug_step_calibration_saved',
-          entity_id: p.participant_id,
-          details: {
-            threshold_mps2: cal.threshold_mps2,
-            median_peak_valley_mps2: cal.median_peak_valley_mps2,
-            min_peak_valley_mps2: round3(lastCapture.minDiff),
-            n_samples: cal.n_samples,
-            min_interval_ms: TUG_STEP_MIN_INTERVAL_MS,
-          },
-        });
-        router.navigate('#/assessment/tug_v1/instructions');
+      text: 'Restart',
+      variant: 'text',
+      onClick: () => {
+        template = [];
+        windowPool = [];
+        batches.length = 0;
+        stage = 'capture';
+        render();
       },
     }));
+  }
 
-    wrapper.appendChild(createButton({
-      text: 'Re-record',
-      variant: 'secondary',
-      fullWidth: true,
-      onClick: () => { lastCapture = null; lastSamples = []; stage = 'capture'; render(); },
-    }));
-
-    wrapper.appendChild(createButton({
-      text: 'Cancel',
-      variant: 'text',
-      onClick: () => router.navigate('#/menu'),
-    }));
+  async function saveAndExit(): Promise<void> {
+    if (template.length === 0 || batches.length === 0) return;
+    const last = batches[batches.length - 1];
+    const cal: TugStepCalibration = {
+      template: template.map((x) => Math.round(x * 1e4) / 1e4),
+      template_dt_ms: TUG_TEMPLATE_DT_MS,
+      correlation_floor: Math.round(last.correlationFloor * 1e4) / 1e4,
+      n_steps_used: last.totalSteps,
+      n_batches: batches.length,
+      final_delta: last.delta,
+      calibrated_at: new Date().toISOString(),
+      app_version: APP_VERSION,
+    };
+    const p = await getProfile();
+    if (!p) return;
+    p.tug_step_calibration = cal;
+    p.updated_at = new Date().toISOString();
+    await saveProfile(p);
+    await addAuditEntry({
+      action: 'tug_step_calibration_saved',
+      entity_id: p.participant_id,
+      details: {
+        correlation_floor: cal.correlation_floor,
+        n_steps_used: cal.n_steps_used,
+        n_batches: cal.n_batches,
+        final_delta: cal.final_delta,
+        template_dt_ms: cal.template_dt_ms,
+      },
+    });
+    router.navigate('#/assessment/tug_v1/instructions');
   }
 
   render();
 }
 
-/**
- * Ground-truth-anchored calibration analysis.
- *
- * Given a recording where the participant performed exactly N walking steps
- * (plus a leg-together event and possibly other noise), find the N events
- * that are most likely the walking steps and derive the runtime threshold.
- *
- * Strategy:
- *   1. Candidate pass with a permissive detector (no adaptation, very low
- *      threshold) — captures the walking steps, the leg-together event, and
- *      any small spurious events.
- *   2. Find the temporal "walking burst": the longest contiguous run of
- *      candidate events with gaps no larger than BURST_MAX_GAP_MS. The
- *      walking pattern is rhythmic and clustered in time; sporadic noise
- *      events are separated by larger gaps.
- *   3. Within the burst, take the N largest peak-valley diffs. The leg-
- *      together event tends to be a smaller swing and will fall out.
- *   4. threshold = 0.5 × min(selected diffs). Conservative — every observed
- *      walking step would clear this threshold with 100% margin.
- */
-function analyzeWithGroundTruth(
-  samples: { t: number; horizontal: number; vertical: number }[],
-  expectedSteps: number,
-): CaptureResult {
-  // Step 1: permissive candidate detection on vertical user-accel
-  // (gravity-projected component — the body-bounce signal at the sternum).
-  const detector = new StepDetector({
-    initialThreshold: TUG_STEP_CAL_CAPTURE_INIT_THRESHOLD,
-    minIntervalMs: TUG_STEP_MIN_INTERVAL_MS,
-    peakValleyMaxMs: TUG_STEP_PEAK_VALLEY_MAX_MS,
-  });
-  const candidates: CandidateEvent[] = [];
-  for (const s of samples) {
-    const step = detector.processSample(s.t, s.vertical, s.vertical);
-    if (step) {
-      candidates.push({ t: step.peakT, peakValleyDiff: step.peakAccel - step.valleyAccel });
-    }
-  }
+// ─────────────────────────────────────────────────────────── visualisation
 
-  // Step 2: cluster doublets. At the chest each step produces a heel-strike
-  // peak and a smaller mid-stance/push-off peak ~150–250 ms later. Merge
-  // adjacent candidates whose peaks are within DOUBLET_MAX_GAP_MS — keep the
-  // larger sub-peak's time and P-V as the representative step event.
-  const clustered = clusterDoublets(candidates, TUG_STEP_CAL_DOUBLET_MAX_GAP_MS);
-
-  // Step 3: find the longest temporal burst (events within BURST_MAX_GAP_MS of each other)
-  const burst = findLongestBurst(clustered, TUG_STEP_CAL_BURST_MAX_GAP_MS);
-
-  // Step 3a: reject burst-wide outliers (P-V > RATIO × burst-median). Catches
-  // a residual hand-raise event that survived the tail trim, or any other
-  // anomalously-large peak unrelated to walking.
-  const burstMedian = medianOf(burst.map((c) => c.peakValleyDiff));
-  const filtered = burstMedian > 0
-    ? burst.filter((c) => c.peakValleyDiff <= TUG_STEP_CAL_OUTLIER_RATIO * burstMedian)
-    : burst;
-
-  // Step 3b: select the N largest peak-valley diffs from the filtered set,
-  // then sort them chronologically for rendering.
-  const sortedByMagnitude = [...filtered].sort((a, b) => b.peakValleyDiff - a.peakValleyDiff);
-  const selected = sortedByMagnitude.slice(0, expectedSteps).sort((a, b) => a.t - b.t);
-  const selectedDiffs = selected.map((c) => c.peakValleyDiff);
-
-  // Step 4: threshold = MULTIPLIER × min(selected). Vertical bounce at the
-  // sternum is a clean once-per-step signal, so the weakest observed step
-  // sets a safe floor — anything walking-like will clear it with margin.
-  const minDiff = selectedDiffs.length > 0 ? Math.min(...selectedDiffs) : 0;
-  const median = medianOf(selectedDiffs);
-  const threshold = TUG_STEP_CAL_THRESHOLD_MULTIPLIER * minDiff;
-
-  return {
-    candidates,
-    selected,
-    selectedDiffs,
-    median,
-    minDiff,
-    threshold,
-    burstStartT: burst.length > 0 ? burst[0].t : null,
-    burstEndT: burst.length > 0 ? burst[burst.length - 1].t : null,
-  };
-}
-
-/**
- * Render the vertical-accel trace as an inline SVG sparkline with vertical
- * tick marks at each detected step time. Lets the participant eyeball
- * whether the markers line up with their actual steps.
- */
-function buildSparkline(samples: VerticalSample[], markerTimes: number[]): HTMLElement {
+function buildSparkline(samples: VerticalSample[], pairs: TroughPair[]): HTMLElement {
   const W = 320;
   const H = 140;
   const PAD_X = 4;
@@ -421,15 +386,15 @@ function buildSparkline(samples: VerticalSample[], markerTimes: number[]): HTMLE
   svg.setAttribute('preserveAspectRatio', 'none');
   svg.setAttribute('class', 'tug-stepcal__spark-svg');
 
-  for (const t of markerTimes) {
-    const line = document.createElementNS(ns, 'line');
-    const x = xOf(t);
-    line.setAttribute('x1', String(x));
-    line.setAttribute('x2', String(x));
-    line.setAttribute('y1', String(PAD_Y));
-    line.setAttribute('y2', String(H - PAD_Y));
-    line.setAttribute('class', 'tug-stepcal__spark-marker');
-    svg.appendChild(line);
+  // Highlight detected W-pair regions in the background.
+  for (const p of pairs) {
+    const rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('x', String(xOf(p.t1)));
+    rect.setAttribute('y', String(PAD_Y));
+    rect.setAttribute('width', String(Math.max(2, xOf(p.t2) - xOf(p.t1))));
+    rect.setAttribute('height', String(H - 2 * PAD_Y));
+    rect.setAttribute('class', 'tug-stepcal__spark-pair');
+    svg.appendChild(rect);
   }
 
   const poly = document.createElementNS(ns, 'polyline');
@@ -439,98 +404,78 @@ function buildSparkline(samples: VerticalSample[], markerTimes: number[]): HTMLE
   poly.setAttribute('class', 'tug-stepcal__spark-line');
   svg.appendChild(poly);
 
-  for (const t of markerTimes) {
-    let nearest = samples[0];
-    let bestDt = Math.abs(samples[0].t - t);
-    for (const s of samples) {
-      const d = Math.abs(s.t - t);
-      if (d < bestDt) { bestDt = d; nearest = s; }
+  // Dots at each trough of each pair.
+  for (const p of pairs) {
+    for (const tT of [p.t1, p.t2]) {
+      let nearest = samples[0];
+      let bestDt = Math.abs(samples[0].t - tT);
+      for (const s of samples) {
+        const d = Math.abs(s.t - tT);
+        if (d < bestDt) { bestDt = d; nearest = s; }
+      }
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', String(xOf(nearest.t)));
+      dot.setAttribute('cy', String(yOf(nearest.vertical)));
+      dot.setAttribute('r', '3.5');
+      dot.setAttribute('class', 'tug-stepcal__spark-dot');
+      svg.appendChild(dot);
     }
-    const dot = document.createElementNS(ns, 'circle');
-    dot.setAttribute('cx', String(xOf(nearest.t)));
-    dot.setAttribute('cy', String(yOf(nearest.vertical)));
-    dot.setAttribute('r', '4');
-    dot.setAttribute('class', 'tug-stepcal__spark-dot');
-    svg.appendChild(dot);
   }
 
   wrap.appendChild(svg);
 
   const legend = document.createElement('div');
   legend.className = 'tug-stepcal__spark-legend';
-  legend.textContent = `${(dt / 1000).toFixed(1)} s of recording • ${markerTimes.length} detected steps`;
+  legend.textContent = `${(dt / 1000).toFixed(1)} s of recording • ${pairs.length} W-pairs detected`;
   wrap.appendChild(legend);
 
   return wrap;
 }
 
-/**
- * Merge adjacent candidates whose peaks are within maxGapMs of each other.
- * Each cluster collapses to a single event taking the time and P-V of its
- * largest member — that's the heel-strike spike of the doublet, the most
- * reliable proxy for the actual footfall.
- */
-function clusterDoublets(events: CandidateEvent[], maxGapMs: number): CandidateEvent[] {
-  if (events.length === 0) return [];
-  const sorted = [...events].sort((a, b) => a.t - b.t);
-  const out: CandidateEvent[] = [];
-  let current = sorted[0];
-  for (let i = 1; i < sorted.length; i++) {
-    const next = sorted[i];
-    if (next.t - current.t <= maxGapMs) {
-      // Same step: keep the larger of the two as the representative.
-      current = next.peakValleyDiff > current.peakValleyDiff ? next : current;
-    } else {
-      out.push(current);
-      current = next;
-    }
+function buildTemplatePreview(template: number[]): HTMLElement {
+  const W = 200;
+  const H = 80;
+  const PAD = 4;
+  const wrap = document.createElement('div');
+  wrap.className = 'tug-stepcal__template';
+
+  let vMin = Infinity;
+  let vMax = -Infinity;
+  for (const x of template) {
+    if (x < vMin) vMin = x;
+    if (x > vMax) vMax = x;
   }
-  out.push(current);
-  return out;
-}
+  const span = Math.max(0.01, vMax - vMin);
 
-/** Find the longest contiguous run of events with gaps <= maxGapMs. */
-function findLongestBurst(events: CandidateEvent[], maxGapMs: number): CandidateEvent[] {
-  if (events.length === 0) return [];
-  const sorted = [...events].sort((a, b) => a.t - b.t);
-  let bestStart = 0;
-  let bestLen = 1;
-  let curStart = 0;
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].t - sorted[i - 1].t <= maxGapMs) {
-      const curLen = i - curStart + 1;
-      if (curLen > bestLen) {
-        bestLen = curLen;
-        bestStart = curStart;
-      }
-    } else {
-      curStart = i;
-    }
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'tug-stepcal__template-svg');
+
+  const poly = document.createElementNS(ns, 'polyline');
+  const pts: string[] = [];
+  for (let i = 0; i < template.length; i++) {
+    const x = PAD + (i / (template.length - 1)) * (W - 2 * PAD);
+    const y = PAD + (1 - (template[i] - vMin) / span) * (H - 2 * PAD);
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
   }
-  return sorted.slice(bestStart, bestStart + bestLen);
+  poly.setAttribute('points', pts.join(' '));
+  poly.setAttribute('class', 'tug-stepcal__template-line');
+  svg.appendChild(poly);
+
+  wrap.appendChild(svg);
+  return wrap;
 }
 
-function medianOf(xs: number[]): number {
-  if (xs.length === 0) return 0;
-  const sorted = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
-}
-
-function round3(n: number): number {
-  return Math.round(n * 1000) / 1000;
-}
+// Keep `findTroughPairs` reachable for any external debug; suppress unused warn.
+void findTroughPairs;
 
 function elFromHTML(html: string): HTMLElement {
   const tmpl = document.createElement('template');
   tmpl.innerHTML = html.trim();
   return tmpl.content.firstElementChild as HTMLElement;
 }
-
-// Reference to silence unused-import warning for type re-export consumers
-void (null as unknown as DetectedStep);
 
 const style = document.createElement('style');
 style.textContent = `
@@ -553,12 +498,6 @@ style.textContent = `
     font-size: var(--font-size-base);
     line-height: var(--line-height-relaxed);
   }
-  .tug-stepcal__list {
-    padding-left: var(--space-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
   .tug-stepcal__note {
     background: var(--color-bg-secondary);
     padding: var(--space-3);
@@ -571,14 +510,6 @@ style.textContent = `
     font-weight: var(--font-weight-semibold);
     color: var(--color-primary);
     margin: var(--space-3) 0;
-  }
-  .tug-stepcal__counter {
-    font-size: 5rem;
-    font-weight: var(--font-weight-bold);
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-    color: var(--color-primary);
-    line-height: 1;
   }
   .tug-stepcal__go-flash {
     position: fixed;
@@ -612,11 +543,9 @@ style.textContent = `
     stroke-width: 1.5;
     vector-effect: non-scaling-stroke;
   }
-  .tug-stepcal__spark-marker {
-    stroke: var(--color-accent, #FDBF57);
-    stroke-width: 2;
-    opacity: 0.7;
-    vector-effect: non-scaling-stroke;
+  .tug-stepcal__spark-pair {
+    fill: var(--color-accent, #FDBF57);
+    opacity: 0.25;
   }
   .tug-stepcal__spark-dot {
     fill: var(--color-accent, #FDBF57);
@@ -626,6 +555,53 @@ style.textContent = `
   .tug-stepcal__spark-legend {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary, var(--color-primary));
+    text-align: center;
+  }
+  .tug-stepcal__template-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary, var(--color-primary));
+    margin-bottom: calc(var(--space-2) * -1);
+  }
+  .tug-stepcal__template {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-2);
+    display: flex;
+    justify-content: center;
+  }
+  .tug-stepcal__template-svg {
+    width: 60%;
+    height: 80px;
+    display: block;
+  }
+  .tug-stepcal__template-line {
+    fill: none;
+    stroke: var(--color-primary);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  .tug-stepcal__confidence {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+  }
+  .tug-stepcal__confidence-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(0,0,0,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .tug-stepcal__confidence-fill {
+    height: 100%;
+    background: var(--color-accent, #FDBF57);
+    transition: width 0.3s ease;
+  }
+  .tug-stepcal__confidence-text {
+    font-size: var(--font-size-sm);
     text-align: center;
   }
 `;

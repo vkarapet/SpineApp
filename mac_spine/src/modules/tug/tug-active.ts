@@ -43,8 +43,11 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   const localUuid = generateUUID();
   const sessionStartISO = new Date().toISOString();
 
-  const stepThreshold = profile.tug_step_calibration?.threshold_mps2 ?? TUG_CONFIG.stepInitialThreshold;
-  const sensorConfig = { ...TUG_CONFIG, stepInitialThreshold: stepThreshold };
+  if (!profile.tug_step_calibration) {
+    router.navigate('#/assessment/tug_v1/step_calibration', true);
+    return;
+  }
+  const sensorConfig = { ...TUG_CONFIG };
 
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',
@@ -196,7 +199,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
       });
       endAssessment(false, false, finalElapsedMs);
     },
-  }, sensorConfig);
+  }, sensorConfig, profile.tug_step_calibration);
 
   // Retrieve calibration gravity
   const calGravity = window.__tugCalibrationGravity;

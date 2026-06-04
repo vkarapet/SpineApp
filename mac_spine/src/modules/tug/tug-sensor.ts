@@ -5,8 +5,10 @@ import {
   magnitude,
   lowPassFilter,
   decomposeAcceleration,
-  StepDetector,
 } from './tug-signal-processing';
+import { TemplateStepDetector } from './tug-template';
+import { TUG_TEMPLATE_MIN_INTERVAL_MS } from '../../constants';
+import type { TugStepCalibration } from '../../types/db-schemas';
 
 export interface TugSensorState {
   phase: TugPhase;
@@ -28,7 +30,7 @@ export interface TugSensorCallbacks {
 export class TugSensorEngine {
   private gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
   private phase: TugPhase = 'idle';
-  private stepDetector: StepDetector;
+  private stepDetector: TemplateStepDetector;
   private callbacks: TugSensorCallbacks;
   private config: TugSensorConfig;
 
@@ -59,13 +61,13 @@ export class TugSensorEngine {
   private lastUIUpdate = 0;
   private lastAccelMag = 9.81;
 
-  constructor(callbacks: TugSensorCallbacks, config: TugSensorConfig) {
+  constructor(callbacks: TugSensorCallbacks, config: TugSensorConfig, calibration: TugStepCalibration) {
     this.callbacks = callbacks;
     this.config = config;
-    this.stepDetector = new StepDetector({
-      initialThreshold: config.stepInitialThreshold,
-      minIntervalMs: config.stepMinIntervalMs,
-      peakValleyMaxMs: config.stepPeakValleyMaxMs,
+    this.stepDetector = new TemplateStepDetector({
+      template: calibration.template,
+      correlationFloor: calibration.correlation_floor,
+      minIntervalMs: TUG_TEMPLATE_MIN_INTERVAL_MS,
     });
   }
 
@@ -118,8 +120,8 @@ export class TugSensorEngine {
     }
   }
 
-  private processWalkingOut(elapsed: number, detectionSignal: number, verticalAccel: number): void {
-    const step = this.stepDetector.processSample(elapsed, detectionSignal, verticalAccel);
+  private processWalkingOut(elapsed: number, _detectionSignal: number, verticalAccel: number): void {
+    const step = this.stepDetector.processSample(elapsed, verticalAccel);
 
     if (step) {
       this.walkSteps++;
