@@ -44,6 +44,9 @@ export class AudioManager {
    */
   playTick(): void {
     if (!this.enabled || !this.context) return;
+    if (this.context.state === 'suspended') {
+      this.context.resume().catch(() => { /* noop */ });
+    }
     try {
       const ctx = this.context;
       const now = ctx.currentTime;
@@ -68,6 +71,13 @@ export class AudioManager {
 
     const buffer = this.buffers.get(name);
     if (!buffer) return;
+
+    // Audio contexts auto-suspend after periods of inactivity in some
+    // browsers — resume before play so non-user-gesture firings (e.g.,
+    // sensor-driven auto-stop) still produce sound.
+    if (this.context.state === 'suspended') {
+      this.context.resume().catch(() => { /* noop */ });
+    }
 
     try {
       const source = this.context.createBufferSource();

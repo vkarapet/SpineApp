@@ -1,6 +1,7 @@
 import { clearContainer, createElement } from '../../utils/dom';
 import { createButton } from '../../components/button';
 import { audioManager } from '../../utils/audio';
+import { vibrate, supportsVibration } from '../../utils/device';
 import { getProfile, saveProfile, addAuditEntry } from '../../core/db';
 import { requestMotionPermission } from '../../utils/motion-permission';
 import {
@@ -241,6 +242,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         meanStride: res.meanStride,
       });
       audioManager.play('end');
+      if (supportsVibration()) vibrate(80);
       stage = 'batch-review';
       render();
     }
