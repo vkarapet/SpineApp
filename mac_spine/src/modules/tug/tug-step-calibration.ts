@@ -12,6 +12,8 @@ import {
   TUG_TEMPLATE_MIN_BATCHES,
   TUG_TEMPLATE_MAX_BATCHES,
   TUG_TEMPLATE_CONVERGENCE_DELTA,
+  TUG_TEMPLATE_TARGET_STEPS,
+  TUG_TEMPLATE_SOFT_ALLOW_STEPS,
   TUG_CAL_BASELINE_WINDOW_MS,
   TUG_CAL_STILLNESS_WINDOW_MS,
   TUG_CAL_WALK_ON_RATIO,
@@ -35,21 +37,21 @@ import { TUG_CONFIG } from './tug-types';
 import type { TugStepCalibration } from '../../types/db-schemas';
 import { router } from '../../main';
 
-type Stage = 'intro' | 'capture' | 'batch-review' | 'batch-rejected';
+type Stage = 'intro' | 'capture' | 'batch-review' | 'batch-empty';
 
 interface BatchSnapshot {
   samples: VerticalSample[];        // trimmed walking region of this batch
-  pairs: TroughPair[];              // detected W's
+  detectedPairs: TroughPair[];      // all W's found
+  acceptedPairs: TroughPair[];      // merged into template
+  rejectedPairs: TroughPair[];      // candidates dropped as outliers vs prior template
   delta: number | null;             // L2 change vs prior template (null on batch 1)
   totalSteps: number;
   correlationFloor: number;
   meanStride: number;
 }
 
-interface RejectedBatch {
+interface EmptyBatch {
   samples: VerticalSample[];
-  pairs: TroughPair[];
-  reason: string;
 }
 
 export async function renderTugStepCalibration(container: HTMLElement): Promise<void> {
@@ -76,7 +78,8 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
   let windowPool: number[][] = [];
   let stridePool: number[] = [];
   const batches: BatchSnapshot[] = [];
-  let rejectedBatch: RejectedBatch | null = null;
+  let emptyBatch: EmptyBatch | null = null;
+  let lastCorrelationFloor = 0;
 
   const wrapper = createElement('main', { className: 'tug-stepcal' });
   wrapper.setAttribute('role', 'main');
@@ -88,7 +91,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       case 'intro': renderIntro(); break;
       case 'capture': renderCaptureScreen(); break;
       case 'batch-review': renderBatchReview(); break;
-      case 'batch-rejected': renderBatchRejected(); break;
+      case 'batch-empty': renderBatchEmpty(); break;
     }
   }
 
@@ -201,10 +204,14 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       setTimeout(() => { goFlash.style.display = 'none'; }, 600);
     }
 
-    function finishBatch(manualStop: boolean): void {
+    function finishBatch(_manualStop: boolean): void {
       if (phase !== 'recording') return;
       phase = 'idle';
       cleanup();
+
+      // Always cue end-of-batch — even if nothing usable was captured.
+      audioManager.play('end');
+      if (supportsVibration()) vibrate(80);
 
       const baseStd = computeBaselineStd(baselineSamples);
       const trimmed = baseStd > 0
@@ -216,33 +223,29 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         })
         : samples;
 
-      const pairs = findTroughPairs(trimmed);
-      if (pairs.length !== TUG_STEP_CAL_EXPECTED_STEPS) {
-        rejectedBatch = {
-          samples: trimmed,
-          pairs,
-          reason: pairs.length === 0
-            ? 'No walking steps were detected.'
-            : `Detected ${pairs.length} steps instead of ${TUG_STEP_CAL_EXPECTED_STEPS}. ${manualStop ? '' : 'The walk may have ended early or extra motion was picked up.'}`,
-        };
-        stage = 'batch-rejected';
+      const prev = template.length > 0 ? template : null;
+      const res = processBatch(trimmed, windowPool, stridePool, prev, lastCorrelationFloor);
+
+      if (res.acceptedPairs.length === 0) {
+        // Nothing usable — don't count this attempt against batch totals.
+        emptyBatch = { samples: trimmed };
+        stage = 'batch-empty';
         render();
         return;
       }
 
-      const prev = template.length > 0 ? template : null;
-      const res = processBatch(trimmed, windowPool, stridePool, prev);
       template = res.template;
+      lastCorrelationFloor = res.correlationFloor;
       batches.push({
         samples: trimmed,
-        pairs: res.pairs,
+        detectedPairs: res.detectedPairs,
+        acceptedPairs: res.acceptedPairs,
+        rejectedPairs: res.rejectedPairs,
         delta: res.delta,
         totalSteps: res.totalSteps,
         correlationFloor: res.correlationFloor,
         meanStride: res.meanStride,
       });
-      audioManager.play('end');
-      if (supportsVibration()) vibrate(80);
       stage = 'batch-review';
       render();
     }
@@ -294,18 +297,18 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     wrapper.appendChild(stopBtn);
   }
 
-  function renderBatchRejected(): void {
-    if (!rejectedBatch) { stage = 'capture'; render(); return; }
-    wrapper.appendChild(createElement('h1', { textContent: 'Set discarded' }));
-    wrapper.appendChild(elFromHTML(`<p>${rejectedBatch.reason} This set was not added to your template.</p>`));
-    wrapper.appendChild(buildSparkline(rejectedBatch.samples, rejectedBatch.pairs));
+  function renderBatchEmpty(): void {
+    if (!emptyBatch) { stage = 'capture'; render(); return; }
+    wrapper.appendChild(createElement('h1', { textContent: 'No steps detected' }));
+    wrapper.appendChild(elFromHTML(`<p>We couldn't find any walking steps in that recording. Please try again.</p>`));
+    wrapper.appendChild(buildSparkline(emptyBatch.samples, []));
     wrapper.appendChild(createButton({
       text: `Try set ${batches.length + 1} again`,
       variant: 'primary',
       fullWidth: true,
-      onClick: () => { rejectedBatch = null; stage = 'capture'; render(); },
+      onClick: () => { emptyBatch = null; stage = 'capture'; render(); },
     }));
-    if (batches.length >= TUG_TEMPLATE_MIN_BATCHES) {
+    if (batches.length >= TUG_TEMPLATE_MIN_BATCHES && windowPool.length >= TUG_TEMPLATE_SOFT_ALLOW_STEPS) {
       wrapper.appendChild(createButton({
         text: 'Save with what we have',
         variant: 'secondary',
@@ -321,7 +324,8 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         windowPool = [];
         stridePool = [];
         batches.length = 0;
-        rejectedBatch = null;
+        emptyBatch = null;
+        lastCorrelationFloor = 0;
         stage = 'capture';
         render();
       },
@@ -348,9 +352,11 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
     const batchNum = batches.length;
     wrapper.appendChild(createElement('h1', { textContent: `Set ${batchNum} review` }));
 
-    // Convergence state
+    // Stopping gates
     const converged = last.delta !== null && last.delta <= TUG_TEMPLATE_CONVERGENCE_DELTA;
-    const canSave = batches.length >= TUG_TEMPLATE_MIN_BATCHES;
+    const totalAccepted = windowPool.length;
+    const reachedTarget = totalAccepted >= TUG_TEMPLATE_TARGET_STEPS && batches.length >= TUG_TEMPLATE_MIN_BATCHES;
+    const softAllow = totalAccepted >= TUG_TEMPLATE_SOFT_ALLOW_STEPS && batches.length >= TUG_TEMPLATE_MIN_BATCHES;
     const mustSave = batches.length >= TUG_TEMPLATE_MAX_BATCHES;
 
     // Confidence: 100% at delta=0, 0% at delta=CONVERGENCE_DELTA*2.
@@ -360,18 +366,23 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       confidencePct = Math.round((1 - norm) * 100);
     }
 
-    // Regression warning: did this batch make the template worse?
-    const prev = batches.length >= 2 ? batches[batches.length - 2] : null;
-    const regressed = prev !== null && prev.delta !== null && last.delta !== null && last.delta > prev.delta;
+    // Per-batch detection: accepted_pairs / expected
+    const detectionPct = Math.round(100 * last.acceptedPairs.length / TUG_STEP_CAL_EXPECTED_STEPS);
+    const totalProgressPct = Math.round(100 * Math.min(1, totalAccepted / TUG_TEMPLATE_TARGET_STEPS));
 
-    // Detected count this batch
+    // Detection rate trend across batches
+    const detectionHistory = batches.map((b) => Math.round(100 * b.acceptedPairs.length / TUG_STEP_CAL_EXPECTED_STEPS));
+
+    // Per-batch summary
+    const rejectedNote = last.rejectedPairs.length > 0
+      ? ` <span class="tug-stepcal__rejected">(${last.rejectedPairs.length} candidate${last.rejectedPairs.length === 1 ? '' : 's'} filtered out as artifacts)</span>`
+      : '';
     wrapper.appendChild(elFromHTML(`
-      <p>Set ${batchNum}: detected <strong>${last.pairs.length}</strong> steps (of ${TUG_STEP_CAL_EXPECTED_STEPS} expected).</p>
-      <p>Total walking samples collected: <strong>${last.totalSteps}</strong>.</p>
+      <p>Set ${batchNum}: captured <strong>${last.acceptedPairs.length}</strong> of ${TUG_STEP_CAL_EXPECTED_STEPS} expected steps${rejectedNote}.</p>
     `));
 
-    // Trace + markers
-    wrapper.appendChild(buildSparkline(last.samples, last.pairs));
+    // Trace + markers (accepted in gold, rejected greyed — we just pass both)
+    wrapper.appendChild(buildSparkline(last.samples, last.acceptedPairs));
 
     // Template preview
     if (template.length > 0) {
@@ -382,27 +393,35 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       wrapper.appendChild(buildTemplatePreview(template));
     }
 
-    // Confidence / status
+    // Progress toward target
+    wrapper.appendChild(elFromHTML(`
+      <div class="tug-stepcal__confidence">
+        <div class="tug-stepcal__confidence-bar"><div class="tug-stepcal__confidence-fill" style="width:${totalProgressPct}%"></div></div>
+        <div class="tug-stepcal__confidence-text">
+          Total steps collected: <strong>${totalAccepted} / ${TUG_TEMPLATE_TARGET_STEPS}</strong>
+        </div>
+      </div>
+    `));
+
+    // Confidence (template stability)
     if (confidencePct !== null) {
       wrapper.appendChild(elFromHTML(`
         <div class="tug-stepcal__confidence">
           <div class="tug-stepcal__confidence-bar"><div class="tug-stepcal__confidence-fill" style="width:${confidencePct}%"></div></div>
           <div class="tug-stepcal__confidence-text">
             Template stability: <strong>${confidencePct}%</strong>
-            ${converged ? ' &mdash; converged' : ' &mdash; not settled yet'}
+            ${converged ? ' &mdash; converged' : ''}
           </div>
         </div>
       `));
-      if (regressed) {
-        wrapper.appendChild(elFromHTML(`
-          <p class="tug-stepcal__note">This set made the template noisier than the previous one. Consider walking another set, or restart if it keeps regressing.</p>
-        `));
-      }
-    } else {
-      wrapper.appendChild(elFromHTML(`<p class="tug-stepcal__note">Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps to start measuring stability.</p>`));
     }
 
-    // Buttons
+    // Detection rate trend
+    wrapper.appendChild(elFromHTML(`
+      <p class="tug-stepcal__note">Detection rate: ${detectionHistory.map((p) => `${p}%`).join(' → ')} (latest set: ${detectionPct}%)</p>
+    `));
+
+    // Buttons — three-state stopping
     if (mustSave) {
       wrapper.appendChild(createButton({
         text: 'Save calibration',
@@ -410,7 +429,8 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         fullWidth: true,
         onClick: saveAndExit,
       }));
-    } else if (canSave && converged) {
+      wrapper.appendChild(elFromHTML(`<p class="tug-stepcal__note">Reached the maximum number of sets. Saving with the data collected so far — detection may be less reliable than ideal.</p>`));
+    } else if (reachedTarget && converged) {
       wrapper.appendChild(createButton({
         text: 'Save calibration',
         variant: 'primary',
@@ -423,6 +443,19 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         fullWidth: true,
         onClick: () => { stage = 'capture'; render(); },
       }));
+    } else if (softAllow) {
+      wrapper.appendChild(createButton({
+        text: `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps`,
+        variant: 'primary',
+        fullWidth: true,
+        onClick: () => { stage = 'capture'; render(); },
+      }));
+      wrapper.appendChild(createButton({
+        text: 'Save with what we have',
+        variant: 'secondary',
+        fullWidth: true,
+        onClick: saveAndExit,
+      }));
     } else {
       wrapper.appendChild(createButton({
         text: `Walk ${TUG_STEP_CAL_EXPECTED_STEPS} more steps`,
@@ -430,14 +463,6 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         fullWidth: true,
         onClick: () => { stage = 'capture'; render(); },
       }));
-      if (canSave) {
-        wrapper.appendChild(createButton({
-          text: 'Save anyway',
-          variant: 'secondary',
-          fullWidth: true,
-          onClick: saveAndExit,
-        }));
-      }
     }
 
     wrapper.appendChild(createButton({
@@ -448,6 +473,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         windowPool = [];
         stridePool = [];
         batches.length = 0;
+        lastCorrelationFloor = 0;
         stage = 'capture';
         render();
       },
@@ -457,6 +483,9 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
   async function saveAndExit(): Promise<void> {
     if (template.length === 0 || batches.length === 0) return;
     const last = batches[batches.length - 1];
+    const detectionHistory = batches.map(
+      (b) => Math.round(100 * b.acceptedPairs.length / TUG_STEP_CAL_EXPECTED_STEPS) / 100,
+    );
     const cal: TugStepCalibration = {
       template: template.map((x) => Math.round(x * 1e4) / 1e4),
       template_dt_ms: TUG_TEMPLATE_DT_MS,
@@ -465,6 +494,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       n_batches: batches.length,
       final_delta: last.delta,
       avg_stride_length_m: Math.round(last.meanStride * 1e3) / 1e3,
+      detection_rate_history: detectionHistory,
       calibrated_at: new Date().toISOString(),
       app_version: APP_VERSION,
     };
@@ -745,6 +775,10 @@ style.textContent = `
   .tug-stepcal__confidence-text {
     font-size: var(--font-size-sm);
     text-align: center;
+  }
+  .tug-stepcal__rejected {
+    color: var(--color-text-secondary, var(--color-primary));
+    font-size: var(--font-size-sm);
   }
 `;
 document.head.appendChild(style);

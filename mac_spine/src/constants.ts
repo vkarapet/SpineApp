@@ -50,8 +50,10 @@ export const TUG_TROUGH_PROMINENCE_RATIO = 0.18;       // min trough prominence 
 
 // Batch calibration convergence
 export const TUG_TEMPLATE_MIN_BATCHES = 2;
-export const TUG_TEMPLATE_MAX_BATCHES = 4;
+export const TUG_TEMPLATE_MAX_BATCHES = 6;
 export const TUG_TEMPLATE_CONVERGENCE_DELTA = 0.05;    // delta < 5 % between successive batches → converged
+export const TUG_TEMPLATE_TARGET_STEPS = 20;           // ideal minimum accepted W's to call calibration "complete"
+export const TUG_TEMPLATE_SOFT_ALLOW_STEPS = 15;       // below this, only "Walk 5 more" is offered; above, Save is allowed
 
 // Calibration auto-terminate (stillness detection)
 export const TUG_CAL_BASELINE_WINDOW_MS = 1000;        // last N ms of countdown used as noise baseline

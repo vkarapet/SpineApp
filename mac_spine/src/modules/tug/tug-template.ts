@@ -259,10 +259,12 @@ export function templateDelta(prev: number[], curr: number[]): number {
 
 export interface BatchResult {
   template: number[];                  // normalized mean template
-  pairs: TroughPair[];                 // pairs found this batch
-  windowsAdded: number;                // how many W windows extracted
+  detectedPairs: TroughPair[];         // all W-pairs found by trough-pair detection this batch
+  acceptedPairs: TroughPair[];         // subset merged into the template (filtered against prior)
+  rejectedPairs: TroughPair[];         // candidates dropped because corr < prevFloor
+  windowsAdded: number;                // accepted_pairs.length
   delta: number | null;                // L2 change vs previous mean (null on first batch)
-  correlationFloor: number;            // 0.85 × median(per-window corr against mean)
+  correlationFloor: number;            // 0.85 × median(per-window corr against new mean)
   totalSteps: number;                  // running total of W windows used
   meanStride: number;                  // running Weinberg stride length across all batches (m)
 }
@@ -277,23 +279,48 @@ export function processBatch(
   windowPool: number[][],
   stridePool: number[],
   prevTemplate: number[] | null,
+  prevFloor: number,
 ): BatchResult {
-  const pairs = findTroughPairs(samples);
-  let added = 0;
-  for (const p of pairs) {
+  const detectedPairs = findTroughPairs(samples);
+
+  // Extract + normalize all candidates.
+  type Candidate = { pair: TroughPair; window: number[] };
+  const candidates: Candidate[] = [];
+  for (const p of detectedPairs) {
     const w = extractWindow(samples, p.midT, TUG_TEMPLATE_LEN, TUG_TEMPLATE_DT_MS);
     if (!w) continue;
     const norm = normalize(w);
     if (!norm) continue;
-    windowPool.push(norm);
+    candidates.push({ pair: p, window: norm });
+  }
+
+  // Outlier filter: from batch 2 onward, drop candidates whose correlation
+  // against the running template falls below the prior batch's floor.
+  // The template itself is the participant's gait signature; any W that
+  // doesn't match it is treated as a non-step artifact.
+  const acceptedCandidates: Candidate[] = [];
+  const rejectedCandidates: Candidate[] = [];
+  if (prevTemplate && prevTemplate.length > 0 && prevFloor > 0) {
+    for (const c of candidates) {
+      const corr = correlate(c.window, prevTemplate);
+      (corr >= prevFloor ? acceptedCandidates : rejectedCandidates).push(c);
+    }
+  } else {
+    // Bootstrap batch: keep all.
+    acceptedCandidates.push(...candidates);
+  }
+
+  // Merge accepted into pools.
+  let added = 0;
+  for (const c of acceptedCandidates) {
+    windowPool.push(c.window);
     added += 1;
 
-    // Weinberg stride from raw vertical samples within ±half template span of the pair midpoint.
     const halfMs = ((TUG_TEMPLATE_LEN - 1) * TUG_TEMPLATE_DT_MS) / 2;
     let vMin = Infinity;
     let vMax = -Infinity;
     for (const s of samples) {
-      if (Math.abs(s.t - p.midT) > halfMs) continue;
+      if (Math.abs(s.t - c.pair.midT) > halfMs) continue;
       if (s.vertical < vMin) vMin = s.vertical;
       if (s.vertical > vMax) vMax = s.vertical;
     }
@@ -317,7 +344,17 @@ export function processBatch(
   const meanStride = stridePool.length > 0
     ? stridePool.reduce((a, b) => a + b, 0) / stridePool.length
     : 0;
-  return { template, pairs, windowsAdded: added, delta, correlationFloor: floor, totalSteps: windowPool.length, meanStride };
+  return {
+    template,
+    detectedPairs,
+    acceptedPairs: acceptedCandidates.map((c) => c.pair),
+    rejectedPairs: rejectedCandidates.map((c) => c.pair),
+    windowsAdded: added,
+    delta,
+    correlationFloor: floor,
+    totalSteps: windowPool.length,
+    meanStride,
+  };
 }
 
 // ─────────────────────────────────────────────── runtime template detector
