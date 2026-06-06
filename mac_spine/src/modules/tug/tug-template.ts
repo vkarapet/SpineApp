@@ -264,6 +264,7 @@ export interface BatchResult {
   delta: number | null;                // L2 change vs previous mean (null on first batch)
   correlationFloor: number;            // 0.85 × median(per-window corr against mean)
   totalSteps: number;                  // running total of W windows used
+  meanStride: number;                  // running Weinberg stride length across all batches (m)
 }
 
 /**
@@ -274,6 +275,7 @@ export interface BatchResult {
 export function processBatch(
   samples: VerticalSample[],
   windowPool: number[][],
+  stridePool: number[],
   prevTemplate: number[] | null,
 ): BatchResult {
   const pairs = findTroughPairs(samples);
@@ -285,6 +287,17 @@ export function processBatch(
     if (!norm) continue;
     windowPool.push(norm);
     added += 1;
+
+    // Weinberg stride from raw vertical samples within ±half template span of the pair midpoint.
+    const halfMs = ((TUG_TEMPLATE_LEN - 1) * TUG_TEMPLATE_DT_MS) / 2;
+    let vMin = Infinity;
+    let vMax = -Infinity;
+    for (const s of samples) {
+      if (Math.abs(s.t - p.midT) > halfMs) continue;
+      if (s.vertical < vMin) vMin = s.vertical;
+      if (s.vertical > vMax) vMax = s.vertical;
+    }
+    if (vMax > vMin) stridePool.push(weinbergStride(vMax, vMin));
   }
 
   const template = averageTemplates(windowPool) ?? [];
@@ -301,7 +314,10 @@ export function processBatch(
     floor = 0.85 * median;
   }
 
-  return { template, pairs, windowsAdded: added, delta, correlationFloor: floor, totalSteps: windowPool.length };
+  const meanStride = stridePool.length > 0
+    ? stridePool.reduce((a, b) => a + b, 0) / stridePool.length
+    : 0;
+  return { template, pairs, windowsAdded: added, delta, correlationFloor: floor, totalSteps: windowPool.length, meanStride };
 }
 
 // ─────────────────────────────────────────────── runtime template detector

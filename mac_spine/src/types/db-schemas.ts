@@ -13,6 +13,7 @@ export interface TugStepCalibration {
   n_steps_used: number;            // total W windows averaged
   n_batches: number;               // number of 5-step batches collected
   final_delta: number | null;      // template L2 change between last two batches; null on N=1
+  avg_stride_length_m: number;     // mean Weinberg stride length across calibration steps
   calibrated_at: string;
   app_version: string;
 }

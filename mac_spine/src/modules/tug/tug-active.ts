@@ -47,7 +47,14 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     router.navigate('#/assessment/tug_v1/step_calibration', true);
     return;
   }
-  const sensorConfig = { ...TUG_CONFIG };
+  // Audio cue at 3 m arrives after the participant has heard, reacted, and
+  // decelerated — by then they've covered another ~1.5 strides past the
+  // beep. Cue earlier so the actual turn happens near 3 m.
+  const stride = profile.tug_step_calibration.avg_stride_length_m ?? 0;
+  const cueDistanceM = stride > 0
+    ? Math.max(1.5, TUG_CONFIG.walkDistanceM - 1.5 * stride)
+    : TUG_CONFIG.walkDistanceM;
+  const sensorConfig = { ...TUG_CONFIG, walkDistanceM: cueDistanceM };
 
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',
