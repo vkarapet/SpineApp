@@ -267,6 +267,7 @@ export interface BatchResult {
   correlationFloor: number;            // 0.85 × median(per-window corr against new mean)
   totalSteps: number;                  // running total of W windows used
   meanStride: number;                  // running Weinberg stride length across all batches (m)
+  meanStepTimeMs: number;              // running mean inter-W interval across all batches (ms)
 }
 
 /**
@@ -278,6 +279,7 @@ export function processBatch(
   samples: VerticalSample[],
   windowPool: number[][],
   stridePool: number[],
+  stepTimePool: number[],
   prevTemplate: number[] | null,
   prevFloor: number,
 ): BatchResult {
@@ -327,6 +329,12 @@ export function processBatch(
     if (vMax > vMin) stridePool.push(weinbergStride(vMax, vMin));
   }
 
+  // Inter-W intervals within this batch (chronological), accepted pairs only.
+  const sortedAccepted = [...acceptedCandidates].sort((a, b) => a.pair.midT - b.pair.midT);
+  for (let i = 1; i < sortedAccepted.length; i++) {
+    stepTimePool.push(sortedAccepted[i].pair.midT - sortedAccepted[i - 1].pair.midT);
+  }
+
   const template = averageTemplates(windowPool) ?? [];
   const delta = prevTemplate && template.length > 0
     ? templateDelta(prevTemplate, template)
@@ -344,6 +352,9 @@ export function processBatch(
   const meanStride = stridePool.length > 0
     ? stridePool.reduce((a, b) => a + b, 0) / stridePool.length
     : 0;
+  const meanStepTimeMs = stepTimePool.length > 0
+    ? stepTimePool.reduce((a, b) => a + b, 0) / stepTimePool.length
+    : 0;
   return {
     template,
     detectedPairs,
@@ -354,6 +365,7 @@ export function processBatch(
     correlationFloor: floor,
     totalSteps: windowPool.length,
     meanStride,
+    meanStepTimeMs,
   };
 }
 

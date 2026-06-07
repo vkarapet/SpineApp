@@ -23,6 +23,11 @@ export const TUG_NORMAL_THRESHOLD_S = 10;
 export const TUG_HIGH_RISK_THRESHOLD_S = 13.5;
 export const TUG_MAX_DURATION_MS = 120_000;
 
+// Turnaround-cue timing — fire the 3 m beep early to compensate for
+// participant reaction + deceleration after hearing the cue.
+export const TUG_CUE_RESPONSE_TIME_S = 0.8;            // 300 ms reaction + 500 ms slowdown
+export const TUG_CUE_MIN_DISTANCE_M = 1.5;             // never cue closer than this
+
 // TUG Sensor — Weinberg stride constant
 export const TUG_WEINBERG_K = 0.45;
 

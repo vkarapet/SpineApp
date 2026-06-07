@@ -9,7 +9,13 @@ import { tugSessionSetup } from './tug-setup';
 import { TugSensorEngine } from './tug-sensor';
 import { TUG_PHASE_LABELS, TUG_CONFIG } from './tug-types';
 import type { TugPhase } from './tug-types';
-import { TUG_MAX_DURATION_MS, TUG_SENSOR_SAVE_INTERVAL_MS, APP_VERSION } from '../../constants';
+import {
+  TUG_MAX_DURATION_MS,
+  TUG_SENSOR_SAVE_INTERVAL_MS,
+  APP_VERSION,
+  TUG_CUE_RESPONSE_TIME_S,
+  TUG_CUE_MIN_DISTANCE_M,
+} from '../../constants';
 import type { RawTimerEvent, RawMotionEvent, RawEvent } from '../../types/assessment';
 import type { AssessmentResult, SessionMetadata, UserProfile } from '../../types/db-schemas';
 import { showConfirm } from '../../components/confirm-dialog';
@@ -47,12 +53,16 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     router.navigate('#/assessment/tug_v1/step_calibration', true);
     return;
   }
-  // Audio cue at 3 m arrives after the participant has heard, reacted, and
-  // decelerated — by then they've covered another ~1.5 strides past the
-  // beep. Cue earlier so the actual turn happens near 3 m.
+  // Audio cue is fired early to compensate for participant reaction +
+  // deceleration time. Distance overshoot = response_time × gait_speed,
+  // where gait_speed = stride_length / step_time (both from calibration).
+  // A fast walker overshoots more than a slow walker during the same
+  // response window, so the cue scales naturally with cadence.
   const stride = profile.tug_step_calibration.avg_stride_length_m ?? 0;
-  const cueDistanceM = stride > 0
-    ? Math.max(1.5, TUG_CONFIG.walkDistanceM - 1.5 * stride)
+  const stepTimeMs = profile.tug_step_calibration.avg_step_time_ms ?? 0;
+  const gaitSpeedMps = (stride > 0 && stepTimeMs > 0) ? stride / (stepTimeMs / 1000) : 0;
+  const cueDistanceM = gaitSpeedMps > 0
+    ? Math.max(TUG_CUE_MIN_DISTANCE_M, TUG_CONFIG.walkDistanceM - TUG_CUE_RESPONSE_TIME_S * gaitSpeedMps)
     : TUG_CONFIG.walkDistanceM;
   const sensorConfig = { ...TUG_CONFIG, walkDistanceM: cueDistanceM };
 

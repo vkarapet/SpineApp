@@ -48,6 +48,7 @@ interface BatchSnapshot {
   totalSteps: number;
   correlationFloor: number;
   meanStride: number;
+  meanStepTimeMs: number;
 }
 
 interface EmptyBatch {
@@ -77,6 +78,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
   let template: number[] = [];
   let windowPool: number[][] = [];
   let stridePool: number[] = [];
+  let stepTimePool: number[] = [];
   const batches: BatchSnapshot[] = [];
   let emptyBatch: EmptyBatch | null = null;
   let lastCorrelationFloor = 0;
@@ -224,7 +226,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         : samples;
 
       const prev = template.length > 0 ? template : null;
-      const res = processBatch(trimmed, windowPool, stridePool, prev, lastCorrelationFloor);
+      const res = processBatch(trimmed, windowPool, stridePool, stepTimePool, prev, lastCorrelationFloor);
 
       if (res.acceptedPairs.length === 0) {
         // Nothing usable — don't count this attempt against batch totals.
@@ -245,6 +247,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         totalSteps: res.totalSteps,
         correlationFloor: res.correlationFloor,
         meanStride: res.meanStride,
+        meanStepTimeMs: res.meanStepTimeMs,
       });
       stage = 'batch-review';
       render();
@@ -323,6 +326,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         template = [];
         windowPool = [];
         stridePool = [];
+        stepTimePool = [];
         batches.length = 0;
         emptyBatch = null;
         lastCorrelationFloor = 0;
@@ -472,6 +476,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         template = [];
         windowPool = [];
         stridePool = [];
+        stepTimePool = [];
         batches.length = 0;
         lastCorrelationFloor = 0;
         stage = 'capture';
@@ -494,6 +499,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
       n_batches: batches.length,
       final_delta: last.delta,
       avg_stride_length_m: Math.round(last.meanStride * 1e3) / 1e3,
+      avg_step_time_ms: Math.round(last.meanStepTimeMs),
       detection_rate_history: detectionHistory,
       calibrated_at: new Date().toISOString(),
       app_version: APP_VERSION,
@@ -513,6 +519,7 @@ export async function renderTugStepCalibration(container: HTMLElement): Promise<
         final_delta: cal.final_delta,
         template_dt_ms: cal.template_dt_ms,
         avg_stride_length_m: cal.avg_stride_length_m,
+        avg_step_time_ms: cal.avg_step_time_ms,
       },
     });
     router.navigate('#/assessment/tug_v1/instructions');
