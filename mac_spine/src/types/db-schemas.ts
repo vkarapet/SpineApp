@@ -51,6 +51,25 @@ export interface SessionMetadata {
   browser: string;
   app_version: string;
   walking_aid?: 'none' | 'cane' | 'walker' | 'other';
+
+  // TUG-specific trial mechanics
+  cue_distance_m?: number;
+  end_trigger?: 'stillness' | 'sitdown_timeout' | 'manual' | 'safety_timeout';
+
+  // TUG-specific calibration snapshot (copy of UserProfile.tug_step_calibration
+  // at trial start so each row knows which calibration produced it).
+  calibration_snapshot?: TugCalibrationSnapshot;
+}
+
+export interface TugCalibrationSnapshot {
+  calibrated_at: string;
+  app_version: string;
+  n_steps_used: number;
+  correlation_floor: number;
+  avg_stride_length_m: number;
+  avg_step_time_ms: number;
+  template: string;                // JSON-encoded number[] — stringified at snapshot time so the field map can send it as text
+  template_dt_ms: number;
 }
 
 export interface AssessmentResult {

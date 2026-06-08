@@ -67,6 +67,7 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     : TUG_CONFIG.walkDistanceM;
   const sensorConfig = { ...TUG_CONFIG, walkDistanceM: cueDistanceM };
 
+  const cal = profile.tug_step_calibration;
   const sessionMetadata: SessionMetadata = {
     hand_used: 'n/a',
     fatigue_rating: null,
@@ -78,6 +79,18 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     browser: getBrowserInfo(),
     app_version: APP_VERSION,
     walking_aid: tugSessionSetup.walkingAid,
+    cue_distance_m: Math.round(cueDistanceM * 1e3) / 1e3,
+    // end_trigger is set when the trial actually ends (endAssessment).
+    calibration_snapshot: {
+      calibrated_at: cal.calibrated_at,
+      app_version: cal.app_version,
+      n_steps_used: cal.n_steps_used,
+      correlation_floor: cal.correlation_floor,
+      avg_stride_length_m: cal.avg_stride_length_m,
+      avg_step_time_ms: cal.avg_step_time_ms,
+      template: JSON.stringify(cal.template),
+      template_dt_ms: cal.template_dt_ms,
+    },
   };
 
   // Pre-allocate event arrays
@@ -321,6 +334,21 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
     const phaseTransitions = engine.getPhaseTransitions();
     const metrics = computeTugSensorMetrics(allRawData, phaseTransitions, engine.getWalkOutData());
     const checksum = await computeChecksum(allRawData);
+
+    // Record end-trigger. Priority: explicit manual / safety_timeout from
+    // the active screen, otherwise the final phase transition's trigger
+    // ('stillness_detected' | 'sitdown_timeout').
+    let endTrigger: SessionMetadata['end_trigger'] = 'stillness';
+    if (manualStop) {
+      endTrigger = 'manual';
+    } else if (timedOut) {
+      endTrigger = 'safety_timeout';
+    } else {
+      const lastTransition = phaseTransitions[phaseTransitions.length - 1];
+      if (lastTransition?.trigger === 'sitdown_timeout') endTrigger = 'sitdown_timeout';
+      else endTrigger = 'stillness';
+    }
+    sessionMetadata.end_trigger = endTrigger;
 
     const isFlagged = timedOut || manualStop;
     let flagReason: string | null = null;
