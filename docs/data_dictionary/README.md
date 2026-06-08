@@ -205,6 +205,32 @@ overflow into column K due to unquoted commas.
 
 ---
 
+### 8. Conventions for derived / snapshotted fields
+
+Two patterns recur and are worth following consistently:
+
+**Pipe-joined lists in a single text cell.** When you want to record an
+ordered array (e.g. per-batch detection rates) in one REDCap field without
+introducing repeating instruments or ragged columns, serialise with `|`:
+
+```
+0.80|0.60|0.80|1.00
+```
+
+Use `text` field type with no validation. Document the separator and the
+meaning of each position in the Field Note. Example: `tug_cal_detection_rate_history`.
+
+**Snapshotted provenance fields.** When a session depends on a per-participant
+calibration or configuration that lives elsewhere (on `UserProfile`, etc.),
+snapshot the relevant calibration fields into the session's row at session
+time instead of referencing by ID. The row stays self-describing even if the
+participant later re-calibrates. Prefix snapshotted fields clearly
+(e.g. `tug_cal_*`) and include at minimum the source timestamp
+(e.g. `tug_cal_calibrated_at`) so the analyst can tell which calibration
+generated which set of trials.
+
+---
+
 ## Workflow: Updating the Dictionary
 
 1. **Edit the JSON source files first** (`grip_v1.json`, `tug_v1.json`).

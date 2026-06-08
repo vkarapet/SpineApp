@@ -1,9 +1,9 @@
 {
   "module": "tug_v1",
   "name": "Timed Up & Go",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "redcap_instrument": "tug_task",
-  "description": "Standard Timed Up & Go (TUG) test. Participant places phone in front trouser pocket. After a stillness countdown, the test begins; the participant rises and walks 3 m. The app plays an audio cue at 3 m, then waits for the sit-down impact spike to stop the timer (back-dated to the impact moment). Stand-up and turn/walk-back phases are not measured electronically — only the overall TUG time, the time to the first step (soft proxy for stand-up), and the clean walk-out gait window (first step to 3 m beep) are recorded.",
+  "description": "Standard Timed Up & Go (TUG) test. Participant holds the phone flat against the centre of the chest (sternum) with one hand. After a stillness countdown the test begins; the participant rises, walks ~3 m, turns, walks back, and sits. The app fires an audio beep at a stride-adjusted target distance (so that, after the participant's reaction + deceleration, they physically reach ~3 m before turning). The trial ends when the participant goes still for 1.5 s in the chair (no impact spike required — soft sitters are caught). Step detection at runtime uses a template-matching detector that correlates against a per-participant W-shape template learned during a separate Step Calibration step (recorded once per participant; provenance snapshotted into every TUG row).",
   "fields": [
     {
       "local_key": "local_uuid",
@@ -16,7 +16,7 @@
       "local_key": "timestamp_start",
       "redcap_field": "tug_timestamp",
       "type": "string (ISO 8601)",
-      "example": "2025-01-15T14:45:00.456Z",
+      "example": "2026-06-07T14:45:00.456Z",
       "description": "UTC timestamp of when the test began (when the first 'start' timer event fired)."
     },
     {
@@ -33,7 +33,7 @@
       "type": "number",
       "unit": "seconds",
       "example": 11.4,
-      "description": "Clinical TUG time: stand-up to sit-down impact, in seconds. Primary performance metric. Lower = faster. Clinical thresholds: <10s normal, 10-20s variable, >=13.5s fall-risk threshold.",
+      "description": "Clinical TUG time: start cue to detected sit-down stillness, in seconds. Primary performance metric. Lower = faster. Clinical thresholds: <10s normal, 10-20s variable, >=13.5s fall-risk threshold.",
       "primary_metric": true
     },
     {
@@ -50,7 +50,7 @@
       "type": "integer",
       "unit": "steps",
       "example": 5,
-      "description": "Step count during the first 3 m of walking (walk-out segment)."
+      "description": "Step count during the walk-out segment (first step to the cue beep)."
     },
     {
       "local_key": "computed_metrics.walk_out_distance_m",
@@ -58,7 +58,7 @@
       "type": "number",
       "unit": "metres",
       "example": 3.05,
-      "description": "Estimated distance during the walk-out segment (Weinberg stride). Should be close to 3.0 m."
+      "description": "Estimated distance during the walk-out segment (Weinberg stride). Note: the beep fires at a stride-adjusted distance (see tug_cue_distance_m) rather than exactly 3.0 m; this field reports the in-window distance to the beep."
     },
     {
       "local_key": "computed_metrics.walk_out_duration_ms",
@@ -66,7 +66,7 @@
       "type": "number",
       "unit": "milliseconds",
       "example": 3400,
-      "description": "Duration of the gait analysis window: first detected step to the 3 m beep. Used as the denominator for cadence and gait speed. Does NOT include the time before the first step."
+      "description": "Duration of the gait analysis window: first detected step to the cue beep. Denominator for cadence and gait speed."
     },
     {
       "local_key": "computed_metrics.walk_out_avg_stride_length_m",
@@ -90,7 +90,7 @@
       "type": "number",
       "unit": "steps per minute",
       "example": 105.4,
-      "description": "Cadence within the gait window: (steps - 1) * 60 / window_seconds. First step is treated as the window boundary and excluded from the in-window count."
+      "description": "Cadence within the gait window: (steps - 1) * 60 / window_seconds."
     },
     {
       "local_key": "computed_metrics.walk_out_avg_step_time_ms",
@@ -114,7 +114,31 @@
       "type": "number",
       "unit": "metres per second",
       "example": 0.90,
-      "description": "Gait speed within the gait window: in-window distance / window_seconds. In-window distance excludes the first stride (it traversed the time before firstStep). Clinical cutoff <0.8 m/s suggests mobility impairment."
+      "description": "Gait speed within the gait window: in-window distance / window_seconds. Clinical cutoff <0.8 m/s suggests mobility impairment."
+    },
+    {
+      "local_key": "session_metadata.phone_placement",
+      "redcap_field": "tug_phone_placement",
+      "type": "string (categorical)",
+      "values": ["sternum"],
+      "example": "sternum",
+      "description": "Phone placement during the test. Fixed to 'sternum' for v2.2 (template was learned at sternum and runtime detection depends on it). Recorded explicitly for cross-study comparability."
+    },
+    {
+      "local_key": "session_metadata.cue_distance_m",
+      "redcap_field": "tug_cue_distance_m",
+      "type": "number",
+      "unit": "metres",
+      "example": 2.25,
+      "description": "Stride-adjusted distance at which the audio beep fired. Computed as max(1.5, 3.0 - 0.8 * gait_speed) where gait_speed comes from the saved calibration. The participant's actual physical turn occurs ~0.8 s after the beep, expected to land near 3.0 m."
+    },
+    {
+      "local_key": "session_metadata.end_trigger",
+      "redcap_field": "tug_end_trigger",
+      "type": "string (categorical)",
+      "values": ["stillness", "sitdown_timeout", "manual", "safety_timeout"],
+      "example": "stillness",
+      "description": "How the trial ended. 'stillness' = sustained-stillness sit-down detector fired (normal). 'sitdown_timeout' = 30 s post-beep elapsed without stillness. 'manual' = participant tapped the emergency Stop button. 'safety_timeout' = whole-test cap of 2 minutes reached."
     },
     {
       "local_key": "session_metadata.fatigue_rating",
@@ -149,7 +173,74 @@
       "type": "string (categorical)",
       "values": ["none", "cane", "walker"],
       "example": "none",
-      "description": "Walking aid used during the TUG test. Selected by participant in setup screen."
+      "description": "Walking aid used during the TUG test."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.calibrated_at",
+      "redcap_field": "tug_cal_calibrated_at",
+      "type": "string (ISO 8601)",
+      "example": "2026-06-04T11:31:22.000Z",
+      "description": "Timestamp of the step calibration that produced the template used for this TUG run. Snapshotted into each TUG row so the analyst can join trials to the calibration that generated them, even if the calibration is later re-run."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.n_steps_used",
+      "redcap_field": "tug_cal_n_steps_used",
+      "type": "integer",
+      "example": 18,
+      "description": "Total accepted W-windows that contributed to the mean template during calibration."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.n_batches",
+      "redcap_field": "tug_cal_n_batches",
+      "type": "integer",
+      "example": 4,
+      "description": "Number of 5-step calibration batches walked (target: 4, range 2-6)."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.correlation_floor",
+      "redcap_field": "tug_cal_correlation_floor",
+      "type": "number",
+      "unit": "ratio",
+      "example": 0.726,
+      "description": "Runtime detection threshold: a sliding-window correlation against the calibrated template must exceed this value to count as a step. Equals 0.85 * median(per-window calibration correlations)."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.avg_stride_length_m",
+      "redcap_field": "tug_cal_avg_stride_length_m",
+      "type": "number",
+      "unit": "metres",
+      "example": 0.73,
+      "description": "Mean Weinberg stride length learned during calibration. One of the two inputs to the stride-adjusted cue distance."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.avg_step_time_ms",
+      "redcap_field": "tug_cal_avg_step_time_ms",
+      "type": "number",
+      "unit": "milliseconds",
+      "example": 778,
+      "description": "Mean inter-step interval observed during calibration. Combined with avg_stride_length_m to derive baseline gait speed used by the cue-distance formula."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.final_delta",
+      "redcap_field": "tug_cal_final_delta",
+      "type": "number | null",
+      "unit": "ratio",
+      "example": 0.034,
+      "description": "Template L2 change between the last two calibration batches (lower = more stable). Null if only one batch was collected (no stability comparison possible)."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.detection_rate_history",
+      "redcap_field": "tug_cal_detection_rate_history",
+      "type": "string",
+      "example": "0.80|0.60|0.80|1.00",
+      "description": "Per-batch detection rate (accepted W's / 5 expected) joined with '|'. Trend going up across batches suggests gait stabilising; flat or downward suggests inconsistent walking or template mismatch. Stored as text rather than calc so REDCap can hold it without ragged-column complications."
+    },
+    {
+      "local_key": "session_metadata.calibration_snapshot.app_version",
+      "redcap_field": "tug_cal_app_version",
+      "type": "string (semver)",
+      "example": "2.2.0",
+      "description": "App version at the time the calibration was created. Distinct from tug_app_version (the version that ran THIS test) — useful when a calibration outlives an app update."
     },
     {
       "local_key": "flagged",
@@ -162,7 +253,7 @@
       "local_key": "flag_reason",
       "redcap_field": "tug_flag_reason",
       "type": "string | null",
-      "example": "Phone fell out of pocket mid-test",
+      "example": "Phone shifted on chest mid-test",
       "description": "Free-text reason provided when session is flagged. Null if not flagged."
     },
     {
@@ -206,9 +297,23 @@
       "local_key": "session_metadata.app_version",
       "redcap_field": "tug_app_version",
       "type": "string (semver)",
-      "example": "2.0.0",
+      "example": "2.2.0",
       "description": "Version of the MAC Spine app that recorded the session."
     }
+  ],
+  "new_in_v2_2": [
+    "tug_phone_placement",
+    "tug_cue_distance_m",
+    "tug_end_trigger",
+    "tug_cal_calibrated_at",
+    "tug_cal_n_steps_used",
+    "tug_cal_n_batches",
+    "tug_cal_correlation_floor",
+    "tug_cal_avg_stride_length_m",
+    "tug_cal_avg_step_time_ms",
+    "tug_cal_final_delta",
+    "tug_cal_detection_rate_history",
+    "tug_cal_app_version"
   ],
   "removed_in_v2": [
     "tug_standup_duration",
@@ -223,10 +328,15 @@
     "tug_turn_sit_yaw",
     "tug_turn_sit_duration",
     "tug_sitdown_duration",
-    "tug_phases_completed",
-    "tug_phone_placement"
+    "tug_phases_completed"
   ],
   "redcap_linking_field": "record_id",
   "redcap_repeat_instrument": "tug_task",
-  "redcap_repeat_instance": "new (auto-incremented)"
+  "redcap_repeat_instance": "new (auto-incremented)",
+  "implementation_notes": {
+    "calibration_snapshot": "The calibration provenance fields are snapshotted from UserProfile.tug_step_calibration into session_metadata at TUG trial start. Snapshotting (rather than referencing by ID) means TUG rows remain self-describing even if the participant later re-calibrates. Requires adding a calibration_snapshot block to session_metadata and a corresponding fieldMap entry per field in src/modules/tug/index.ts.",
+    "end_trigger": "Trigger string comes from the TugSensorEngine phase-transition log: the final transition into the 'complete' phase carries the trigger ('stillness_detected', 'sitdown_timeout') or the active screen records 'manual' / 'safety_timeout' when those code paths fire. Active screen needs to extract this and write it to session_metadata.end_trigger.",
+    "cue_distance_m": "Available at trial start in tug-active.ts (variable cueDistanceM). Needs to be stashed in session_metadata at the same point. Currently computed but discarded after sensor config is built.",
+    "detection_rate_history": "Existing field on UserProfile.tug_step_calibration is number[] (e.g. [0.8, 0.6, 0.8, 1.0]). Serialise as pipe-joined string for REDCap text storage (e.g. '0.80|0.60|0.80|1.00') so it survives CSV round-trips without ragged-column hazards."
+  }
 }
