@@ -31,18 +31,14 @@ export const tugModule: AssessmentModule = {
     fieldMap: {
       local_uuid: 'local_uuid',
       timestamp_start: 'tug_timestamp',
-      'computed_metrics.duration_actual_ms': 'tug_duration',
       'computed_metrics.tug_time_s': 'tug_time',
-      'session_metadata.fatigue_rating': 'tug_fatigue',
-      'session_metadata.medication_taken': 'tug_medication',
       'session_metadata.walking_aid': 'tug_walking_aid',
       flagged: 'tug_flagged',
       flag_reason: 'tug_flag_reason',
       raw_data: 'tug_raw_json',
       checksum: 'tug_checksum',
-      'session_metadata.device_os': 'device_os',
       'session_metadata.app_version': 'app_version',
-      // Walk-out gait metrics (3 m segment)
+      // Walk-out gait metrics (analysis window: first step to cue beep)
       'computed_metrics.time_to_first_step_ms': 'tug_time_to_first_step',
       'computed_metrics.walk_out_steps': 'tug_walk_out_steps',
       'computed_metrics.walk_out_distance_m': 'tug_walk_out_distance',

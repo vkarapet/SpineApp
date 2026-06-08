@@ -20,20 +20,12 @@
       "description": "UTC timestamp of when the test began (when the first 'start' timer event fired)."
     },
     {
-      "local_key": "computed_metrics.duration_actual_ms",
-      "redcap_field": "tug_duration",
-      "type": "number",
-      "unit": "milliseconds",
-      "example": 11400,
-      "description": "Total duration of the sensor recording session, from first to last event."
-    },
-    {
       "local_key": "computed_metrics.tug_time_s",
       "redcap_field": "tug_time",
       "type": "number",
       "unit": "seconds",
       "example": 11.4,
-      "description": "Clinical TUG time: start cue to detected sit-down stillness, in seconds. Primary performance metric. Lower = faster. Clinical thresholds: <10s normal, 10-20s variable, >=13.5s fall-risk threshold.",
+      "description": "Primary clinical metric. Elapsed time from trial start ('start' timer event at t=0) to sit-down stillness detection ('stop' timer event), in seconds with one-decimal rounding. The tug_duration field (ms version of the same span) was dropped in v2.2 to remove ambiguity.",
       "primary_metric": true
     },
     {
@@ -133,33 +125,6 @@
       "description": "How the trial ended. 'stillness' = sustained-stillness sit-down detector fired (normal). 'sitdown_timeout' = 30 s post-beep elapsed without stillness. 'manual' = participant tapped the emergency Stop button. 'safety_timeout' = whole-test cap of 2 minutes reached."
     },
     {
-      "local_key": "session_metadata.fatigue_rating",
-      "redcap_field": "tug_fatigue",
-      "type": "integer | null",
-      "range": "1-5",
-      "values": {
-        "1": "Very well",
-        "2": "Better than usual",
-        "3": "Neutral",
-        "4": "More fatigued than usual",
-        "5": "Very fatigued"
-      },
-      "example": 2,
-      "description": "Self-reported fatigue level at the time of assessment. Null if not answered."
-    },
-    {
-      "local_key": "session_metadata.medication_taken",
-      "redcap_field": "tug_medication",
-      "type": "boolean | null",
-      "values": {
-        "true": "Yes - medication taken",
-        "false": "No - medication not taken",
-        "null": "Not answered"
-      },
-      "example": true,
-      "description": "Whether the participant had taken their medication on the day of assessment. May be null if skipped."
-    },
-    {
       "local_key": "session_metadata.walking_aid",
       "redcap_field": "tug_walking_aid",
       "type": "string (categorical)",
@@ -252,8 +217,28 @@
       "local_key": "raw_data",
       "redcap_field": "tug_raw_json",
       "type": "JSON string (array of RawMotionEvent | RawTimerEvent)",
-      "description": "Full raw sensor and timer event stream. Motion: { kind, t, ax, ay, az, gx, gy, gz }. Timer: { kind, t, event, source }.",
-      "example": "[{\"kind\":\"timer\",\"t\":0,\"event\":\"start\",\"source\":\"sensor\"}, ...]"
+      "description": "Full raw sensor + timer event stream from the trial, chronologically ordered. Two event kinds interleaved.",
+      "schema": {
+        "motion_event": {
+          "kind": "'motion'",
+          "t": "number (ms since trial start; performance.now() offset)",
+          "ax": "number (m/s^2, x-axis acceleration including gravity)",
+          "ay": "number (m/s^2, y-axis acceleration including gravity)",
+          "az": "number (m/s^2, z-axis acceleration including gravity)",
+          "gx": "number (deg/s, rotationRate.beta = pitch)",
+          "gy": "number (deg/s, rotationRate.gamma = roll)",
+          "gz": "number (deg/s, rotationRate.alpha = yaw)",
+          "rate": "~60 Hz (device-dependent)"
+        },
+        "timer_event": {
+          "kind": "'timer'",
+          "t": "number (ms since trial start; 'start' is always t=0)",
+          "event": "'start' | 'stop'",
+          "source": "'sensor' (auto-stopped by stillness detector) | 'manual' (Emergency Stop pressed)",
+          "count_per_trial": "exactly 2 (one start, one stop)"
+        }
+      },
+      "example": "[{\"kind\":\"timer\",\"t\":0,\"event\":\"start\",\"source\":\"sensor\"},{\"kind\":\"motion\",\"t\":16,\"ax\":0.12,\"ay\":-0.31,\"az\":9.78,\"gx\":1.4,\"gy\":-0.8,\"gz\":0.2}, ...]"
     },
     {
       "local_key": "checksum",
@@ -261,13 +246,6 @@
       "type": "string (SHA-256 hex)",
       "example": "9d2e4a1f...",
       "description": "SHA-256 checksum of the raw_data array for integrity verification."
-    },
-    {
-      "local_key": "session_metadata.device_os",
-      "redcap_field": "tug_device_os",
-      "type": "string",
-      "example": "Android 14",
-      "description": "Operating system and version of the device."
     },
     {
       "local_key": "session_metadata.app_version",
@@ -307,13 +285,21 @@
     "tug_phone_placement"
   ],
   "removed_in_v2_2": [
+    "tug_duration",
     "tug_screen_width",
-    "tug_screen_height"
+    "tug_screen_height",
+    "tug_fatigue",
+    "tug_medication",
+    "tug_device_os"
   ],
   "removed_rationale": {
     "tug_phone_placement": "Fixed to 'sternum' in v2.2 — no analytical value as a recorded field. Implied by the version itself.",
-    "tug_screen_width": "Touch-coordinate context is irrelevant for a sensor-only task; matches the rationale for not recording screen dims in any chest-mounted accelerometer measurement.",
-    "tug_screen_height": "Same as tug_screen_width."
+    "tug_screen_width": "Touch-coordinate context is irrelevant for a sensor-only task.",
+    "tug_screen_height": "Same as tug_screen_width.",
+    "tug_duration": "Identical information to tug_time — both are computed as stopEvent.t - startEvent.t, just in different units (ms vs s) with one-decimal rounding. Keeping both created researcher confusion about which to use. Kept tug_time as the clinically-named single source.",
+    "tug_fatigue": "Not actually collected by the current TUG setup screen (only walking_aid). session_metadata.fatigue_rating is hardcoded null in tug-active.ts; sending null for every row was misleading.",
+    "tug_medication": "Same as tug_fatigue — hardcoded null, not collected by the current setup.",
+    "tug_device_os": "Per project direction, OS string offers no module-specific analytical value. Cross-device debugging can be done via app_version + raw_data quirks if needed."
   },
   "redcap_linking_field": "record_id",
   "redcap_repeat_instrument": "tug_task",
