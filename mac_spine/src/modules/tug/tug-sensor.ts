@@ -46,9 +46,7 @@ export class TugSensorEngine {
   private walkLastStepT: number | null = null;
   private walkCueFired = false;
 
-  // Sitting down state
-  private sitdownSpikeSeen = false;
-  private sitdownSpikeTime = 0;
+  // Sitting down state — start of the sustained stillness window.
   private restStartTime = 0;
 
   private transitions: PhaseTransition[] = [];
@@ -149,10 +147,13 @@ export class TugSensorEngine {
   }
 
   private processSittingDown(elapsed: number, phaseElapsed: number): void {
-    if (this.checkSittingImpact(elapsed)) {
-      // Backdate to the impact spike — the actual sit-down moment.
-      this.transitionTo('complete', this.sitdownSpikeTime, 'sitting_detected');
-      this.callbacks.onComplete(this.sitdownSpikeTime);
+    if (this.checkStillness(elapsed)) {
+      // Backdate to the onset of the stillness window — that's when the
+      // sit-down completed (soft sitters don't produce an impact spike,
+      // so we just watch for the participant going quiet).
+      const endT = this.restStartTime;
+      this.transitionTo('complete', endT, 'stillness_detected');
+      this.callbacks.onComplete(endT);
       return;
     }
 
@@ -162,16 +163,9 @@ export class TugSensorEngine {
     }
   }
 
-  private checkSittingImpact(elapsed: number): boolean {
+  private checkStillness(elapsed: number): boolean {
     const gravMag = magnitude(this.gravity);
     const deviation = Math.abs(this.lastAccelMag - gravMag);
-
-    if (deviation > this.config.sitdownSpikeThreshold) {
-      this.sitdownSpikeSeen = true;
-      this.sitdownSpikeTime = elapsed;
-    }
-
-    if (!this.sitdownSpikeSeen) return false;
 
     if (deviation < this.config.sitdownRestAccelTolerance) {
       if (this.restStartTime === 0) this.restStartTime = elapsed;
@@ -181,7 +175,6 @@ export class TugSensorEngine {
     } else {
       this.restStartTime = 0;
     }
-
     return false;
   }
 
@@ -194,8 +187,6 @@ export class TugSensorEngine {
     this.phaseStartTime = performance.now();
 
     if (nextPhase === 'sitting_down') {
-      this.sitdownSpikeSeen = false;
-      this.sitdownSpikeTime = 0;
       this.restStartTime = 0;
     }
   }

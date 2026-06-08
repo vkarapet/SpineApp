@@ -5,8 +5,8 @@ export interface TugSessionSetup {
 export interface TugSensorConfig {
   gravityFilterAlpha: number;
   walkDistanceM: number;
-  // Sit down
-  sitdownSpikeThreshold: number;
+  // Sit down — pure stillness detection (no impact spike required so
+  // soft / slow sitters get caught too).
   sitdownRestAccelTolerance: number;
   sitdownRestDurationMs: number;
   sitdownMaxDurationMs: number;
@@ -16,7 +16,6 @@ export interface TugSensorConfig {
 export const TUG_CONFIG: TugSensorConfig = {
   gravityFilterAlpha: 0.1,
   walkDistanceM: 3.0,
-  sitdownSpikeThreshold: 3.0,
   sitdownRestAccelTolerance: 0.5,
   sitdownRestDurationMs: 1500,
   sitdownMaxDurationMs: 30000,
