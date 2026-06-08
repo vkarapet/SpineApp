@@ -271,9 +271,73 @@ export interface BatchResult {
 }
 
 /**
+ * Find candidate step events in a recording by sliding the learned template
+ * across the trace and picking local correlation peaks above the floor.
+ *
+ * Replaces trough-pair detection for batch 2+ of calibration and is the
+ * same matched-filter approach the runtime detector uses, just in
+ * batch (rather than streaming) form. Naturally catches soft / merged /
+ * asymmetric W-shapes that the strict trough-pair rules miss.
+ *
+ * For each accepted peak we also locate the two deepest local minima
+ * within the matched window so the visualisation can still shade the
+ * W-pair region (t1, t2) for continuity with bootstrap batches.
+ */
+export function findTemplateMatchedPairs(
+  samples: VerticalSample[],
+  template: number[],
+  correlationFloor: number,
+): TroughPair[] {
+  if (samples.length < TUG_TEMPLATE_LEN || template.length === 0 || correlationFloor <= 0) return [];
+
+  const variants = buildWarpVariants(template);
+  const halfMs = ((TUG_TEMPLATE_LEN - 1) * TUG_TEMPLATE_DT_MS) / 2;
+  const t0 = samples[0].t;
+  const tEnd = samples[samples.length - 1].t;
+
+  type CorrPoint = { t: number; corr: number };
+  const corrSeries: CorrPoint[] = [];
+  for (const s of samples) {
+    if (s.t - t0 < halfMs) continue;
+    if (tEnd - s.t < halfMs) continue;
+    const win = extractWindow(samples, s.t, TUG_TEMPLATE_LEN, TUG_TEMPLATE_DT_MS);
+    if (!win) continue;
+    const norm = normalize(win);
+    if (!norm) continue;
+    corrSeries.push({ t: s.t, corr: correlateWithWarp(norm, variants) });
+  }
+
+  const pairs: TroughPair[] = [];
+  let lastT = -Infinity;
+  for (let i = 1; i < corrSeries.length - 1; i++) {
+    const c = corrSeries[i];
+    if (c.corr < correlationFloor) continue;
+    if (c.corr <= corrSeries[i - 1].corr) continue;
+    if (c.corr < corrSeries[i + 1].corr) continue;
+    if (c.t - lastT < TUG_TEMPLATE_MIN_INTERVAL_MS) continue;
+    lastT = c.t;
+
+    const inWindow: VerticalSample[] = samples.filter((s) => Math.abs(s.t - c.t) <= halfMs);
+    const minima: VerticalSample[] = [];
+    for (let j = 1; j < inWindow.length - 1; j++) {
+      if (inWindow[j].vertical < inWindow[j - 1].vertical && inWindow[j].vertical < inWindow[j + 1].vertical) {
+        minima.push(inWindow[j]);
+      }
+    }
+    minima.sort((a, b) => a.vertical - b.vertical);
+    const twoDeepest = minima.slice(0, 2).sort((a, b) => a.t - b.t);
+    const t1 = twoDeepest[0]?.t ?? c.t - 100;
+    const t2 = twoDeepest[1]?.t ?? c.t + 100;
+    pairs.push({ t1, t2, midT: c.t });
+  }
+  return pairs;
+}
+
+/**
  * Run trough-pair detection on a fresh batch of samples, extract the W
  * windows, add them to the pool, recompute the mean template, and report
- * stability metrics.
+ * stability metrics. Batch 1 uses trough-pair detection to bootstrap;
+ * batch 2+ uses template-matching instead (more lenient on W morphology).
  */
 export function processBatch(
   samples: VerticalSample[],
@@ -283,7 +347,14 @@ export function processBatch(
   prevTemplate: number[] | null,
   prevFloor: number,
 ): BatchResult {
-  const detectedPairs = findTroughPairs(samples);
+  // Batch 1 bootstraps with trough-pair detection. Batch 2+ uses the
+  // learned template to slide-match — naturally lenient on W morphology
+  // because the template encodes whatever shape variant the participant
+  // actually walks with.
+  const useTemplateMatching = !!(prevTemplate && prevTemplate.length > 0 && prevFloor > 0);
+  const detectedPairs = useTemplateMatching
+    ? findTemplateMatchedPairs(samples, prevTemplate!, prevFloor)
+    : findTroughPairs(samples);
 
   // Extract + normalize all candidates.
   type Candidate = { pair: TroughPair; window: number[] };
@@ -296,21 +367,10 @@ export function processBatch(
     candidates.push({ pair: p, window: norm });
   }
 
-  // Outlier filter: from batch 2 onward, drop candidates whose correlation
-  // against the running template falls below the prior batch's floor.
-  // The template itself is the participant's gait signature; any W that
-  // doesn't match it is treated as a non-step artifact.
-  const acceptedCandidates: Candidate[] = [];
+  // For batch 2+ the template-matching pass already filtered by floor;
+  // no additional outlier filter needed. For batch 1 we keep all.
+  const acceptedCandidates: Candidate[] = candidates;
   const rejectedCandidates: Candidate[] = [];
-  if (prevTemplate && prevTemplate.length > 0 && prevFloor > 0) {
-    for (const c of candidates) {
-      const corr = correlate(c.window, prevTemplate);
-      (corr >= prevFloor ? acceptedCandidates : rejectedCandidates).push(c);
-    }
-  } else {
-    // Bootstrap batch: keep all.
-    acceptedCandidates.push(...candidates);
-  }
 
   // Merge accepted into pools.
   let added = 0;
