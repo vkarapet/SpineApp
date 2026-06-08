@@ -117,14 +117,6 @@
       "description": "Gait speed within the gait window: in-window distance / window_seconds. Clinical cutoff <0.8 m/s suggests mobility impairment."
     },
     {
-      "local_key": "session_metadata.phone_placement",
-      "redcap_field": "tug_phone_placement",
-      "type": "string (categorical)",
-      "values": ["sternum"],
-      "example": "sternum",
-      "description": "Phone placement during the test. Fixed to 'sternum' for v2.2 (template was learned at sternum and runtime detection depends on it). Recorded explicitly for cross-study comparability."
-    },
-    {
       "local_key": "session_metadata.cue_distance_m",
       "redcap_field": "tug_cue_distance_m",
       "type": "number",
@@ -278,22 +270,6 @@
       "description": "Operating system and version of the device."
     },
     {
-      "local_key": "session_metadata.screen_width_px",
-      "redcap_field": "tug_screen_width",
-      "type": "integer",
-      "unit": "pixels",
-      "example": 412,
-      "description": "Screen (viewport) width at time of assessment."
-    },
-    {
-      "local_key": "session_metadata.screen_height_px",
-      "redcap_field": "tug_screen_height",
-      "type": "integer",
-      "unit": "pixels",
-      "example": 915,
-      "description": "Screen (viewport) height at time of assessment."
-    },
-    {
       "local_key": "session_metadata.app_version",
       "redcap_field": "tug_app_version",
       "type": "string (semver)",
@@ -302,7 +278,6 @@
     }
   ],
   "new_in_v2_2": [
-    "tug_phone_placement",
     "tug_cue_distance_m",
     "tug_end_trigger",
     "tug_cal_calibrated_at",
@@ -328,8 +303,18 @@
     "tug_turn_sit_yaw",
     "tug_turn_sit_duration",
     "tug_sitdown_duration",
-    "tug_phases_completed"
+    "tug_phases_completed",
+    "tug_phone_placement"
   ],
+  "removed_in_v2_2": [
+    "tug_screen_width",
+    "tug_screen_height"
+  ],
+  "removed_rationale": {
+    "tug_phone_placement": "Fixed to 'sternum' in v2.2 — no analytical value as a recorded field. Implied by the version itself.",
+    "tug_screen_width": "Touch-coordinate context is irrelevant for a sensor-only task; matches the rationale for not recording screen dims in any chest-mounted accelerometer measurement.",
+    "tug_screen_height": "Same as tug_screen_width."
+  },
   "redcap_linking_field": "record_id",
   "redcap_repeat_instrument": "tug_task",
   "redcap_repeat_instance": "new (auto-incremented)",

@@ -41,8 +41,6 @@ export const tugModule: AssessmentModule = {
       raw_data: 'tug_raw_json',
       checksum: 'tug_checksum',
       'session_metadata.device_os': 'device_os',
-      'session_metadata.screen_width_px': 'screen_width',
-      'session_metadata.screen_height_px': 'screen_height',
       'session_metadata.app_version': 'app_version',
       // Walk-out gait metrics (3 m segment)
       'computed_metrics.time_to_first_step_ms': 'tug_time_to_first_step',
