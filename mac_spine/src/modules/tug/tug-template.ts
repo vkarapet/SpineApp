@@ -19,11 +19,8 @@ import {
   TUG_WEINBERG_K,
 } from '../../constants';
 import {
-  type Vec3,
   type DetectedStep,
   weinbergStride,
-  lowPassFilter,
-  decomposeAcceleration,
 } from './tug-signal-processing';
 
 export interface VerticalSample {
@@ -608,7 +605,7 @@ export function trimToWalkingRegion(
 
 // ─────────────────────────────────────── replay motion events for results
 
-interface MotionEventLike { t: number; ax: number; ay: number; az: number }
+interface MotionEventLike { t: number; v: number }
 
 /**
  * Render a vertical-accel sparkline with optional step-time markers.
@@ -731,29 +728,21 @@ export function ensureSparkStyles(): void {
 }
 
 /**
- * Replay raw motion events through gravity filter + vertical projection to
- * reconstruct the vertical-accel trace as seen by the runtime detector, then
- * run the TemplateStepDetector to recover detected step times. Used by the
- * results screen to render a post-hoc trace + step markers.
+ * Replay stored motion events through the TemplateStepDetector to recover
+ * step times for post-hoc visualisation. Since v2.2 motion events store
+ * the precomputed vertical projection directly (no more raw 3-axis +
+ * gravity filter), so this is a straight pass-through.
  */
 export function replayMotionForVisualization(
   events: MotionEventLike[],
   calibration: { template: number[]; correlation_floor: number },
-  gravityFilterAlpha: number,
   startT: number,
   endT: number,
 ): { samples: VerticalSample[]; stepTimes: number[] } {
   const samples: VerticalSample[] = [];
-  let gravity: Vec3 = { x: 0, y: 0, z: 9.81 };
-  let gravityInit = false;
-
   for (const ev of events) {
     if (ev.t < startT || ev.t > endT) continue;
-    const accelRaw: Vec3 = { x: ev.ax, y: ev.ay, z: ev.az };
-    if (!gravityInit) { gravity = accelRaw; gravityInit = true; }
-    gravity = lowPassFilter(accelRaw, gravity, gravityFilterAlpha);
-    const dec = decomposeAcceleration(accelRaw, gravity);
-    samples.push({ t: ev.t, vertical: dec.vertical });
+    samples.push({ t: ev.t, vertical: ev.v });
   }
 
   const detector = new TemplateStepDetector({

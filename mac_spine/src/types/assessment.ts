@@ -52,12 +52,14 @@ export interface GripTouchRecord {
 export interface RawMotionEvent {
   kind: 'motion';
   t: number;
-  ax: number;
-  ay: number;
-  az: number;
-  gx: number;
-  gy: number;
-  gz: number;
+  /**
+   * Vertical user-acceleration (m/s²) — projection of (rawAccel − gravity)
+   * onto the gravity unit vector, where gravity is a running low-pass of
+   * raw accelerometer at alpha = 0.1. This is the only acceleration
+   * channel the TUG step detector and Weinberg stride estimator use; the
+   * raw 3-axis accel and gyro values are not stored.
+   */
+  v: number;
 }
 
 export interface RawTimerEvent {

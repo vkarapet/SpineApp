@@ -8,6 +8,7 @@ import { computeTugSensorMetrics } from './tug-metrics';
 import { tugSessionSetup } from './tug-setup';
 import { TugSensorEngine } from './tug-sensor';
 import { TUG_PHASE_LABELS, TUG_CONFIG } from './tug-types';
+import { type Vec3, lowPassFilter, decomposeAcceleration } from './tug-signal-processing';
 import type { TugPhase } from './tug-types';
 import {
   TUG_MAX_DURATION_MS,
@@ -225,23 +226,32 @@ export async function renderTugActive(container: HTMLElement): Promise<void> {
   }
 
   // DeviceMotion handler
+  // Storage-only gravity filter, parallel to the engine's internal one.
+  // Lets us compute and persist the gravity-projected vertical accel —
+  // the only channel TUG analyses need — without exposing engine internals.
+  let storageGravity: Vec3 = { x: 0, y: 0, z: 9.81 };
+  let storageGravityInit = false;
+
   const motionHandler = (event: DeviceMotionEvent) => {
     if (!running) return;
     const elapsed = performance.now() - startTime;
 
-    // Record raw event
+    const accelRaw: Vec3 = {
+      x: event.accelerationIncludingGravity?.x ?? 0,
+      y: event.accelerationIncludingGravity?.y ?? 0,
+      z: event.accelerationIncludingGravity?.z ?? 0,
+    };
+    if (!storageGravityInit) { storageGravity = accelRaw; storageGravityInit = true; }
+    storageGravity = lowPassFilter(accelRaw, storageGravity, TUG_CONFIG.gravityFilterAlpha);
+    const dec = decomposeAcceleration(accelRaw, storageGravity);
+
     rawMotionEvents.push({
       kind: 'motion',
       t: elapsed,
-      ax: event.accelerationIncludingGravity?.x ?? 0,
-      ay: event.accelerationIncludingGravity?.y ?? 0,
-      az: event.accelerationIncludingGravity?.z ?? 0,
-      gx: event.rotationRate?.beta ?? 0,
-      gy: event.rotationRate?.gamma ?? 0,
-      gz: event.rotationRate?.alpha ?? 0,
+      v: dec.vertical,
     });
 
-    // Feed to engine
+    // Feed to engine (it maintains its own gravity tracking)
     engine.handleMotionEvent(event);
   };
 

@@ -16,7 +16,6 @@ import { computeAge } from '../../utils/age';
 import { lastTugResult } from './tug-active';
 import { router } from '../../main';
 import type { AssessmentResult } from '../../types/db-schemas';
-import { TUG_CONFIG } from './tug-types';
 import { replayMotionForVisualization, buildAccelSparkline, ensureSparkStyles } from './tug-template';
 import { isMotionEvent } from '../../types/assessment';
 
@@ -196,7 +195,6 @@ export async function renderTugResults(container: HTMLElement): Promise<void> {
       const { samples, stepTimes } = replayMotionForVisualization(
         motionEvents,
         profile.tug_step_calibration,
-        TUG_CONFIG.gravityFilterAlpha,
         startT,
         endT,
       );

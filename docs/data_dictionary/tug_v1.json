@@ -144,14 +144,7 @@
       "redcap_field": "tug_cal_n_steps_used",
       "type": "integer",
       "example": 18,
-      "description": "Total accepted W-windows that contributed to the mean template during calibration."
-    },
-    {
-      "local_key": "session_metadata.calibration_snapshot.n_batches",
-      "redcap_field": "tug_cal_n_batches",
-      "type": "integer",
-      "example": 4,
-      "description": "Number of 5-step calibration batches walked (target: 4, range 2-6)."
+      "description": "Total accepted W-windows averaged into the mean template during calibration. Sole calibration-quality field per row."
     },
     {
       "local_key": "session_metadata.calibration_snapshot.correlation_floor",
@@ -178,19 +171,19 @@
       "description": "Mean inter-step interval observed during calibration. Combined with avg_stride_length_m to derive baseline gait speed used by the cue-distance formula."
     },
     {
-      "local_key": "session_metadata.calibration_snapshot.final_delta",
-      "redcap_field": "tug_cal_final_delta",
-      "type": "number | null",
-      "unit": "ratio",
-      "example": 0.034,
-      "description": "Template L2 change between the last two calibration batches (lower = more stable). Null if only one batch was collected (no stability comparison possible)."
+      "local_key": "session_metadata.calibration_snapshot.template",
+      "redcap_field": "tug_cal_template",
+      "type": "JSON string (array of ~36 numbers)",
+      "example": "[-0.043,-0.062,-0.071,...,0.018]",
+      "description": "Normalised mean W-shape template (zero-mean, unit-norm) — the participant's gait signature learned during calibration. Combined with tug_cal_template_dt_ms and tug_cal_correlation_floor it lets analysts instantiate the exact runtime TemplateStepDetector against tug_raw_json in post-processing, reproducing the app's step events bit-for-bit."
     },
     {
-      "local_key": "session_metadata.calibration_snapshot.detection_rate_history",
-      "redcap_field": "tug_cal_detection_rate_history",
-      "type": "string",
-      "example": "0.80|0.60|0.80|1.00",
-      "description": "Per-batch detection rate (accepted W's / 5 expected) joined with '|'. Trend going up across batches suggests gait stabilising; flat or downward suggests inconsistent walking or template mismatch. Stored as text rather than calc so REDCap can hold it without ragged-column complications."
+      "local_key": "session_metadata.calibration_snapshot.template_dt_ms",
+      "redcap_field": "tug_cal_template_dt_ms",
+      "type": "integer",
+      "unit": "milliseconds",
+      "example": 17,
+      "description": "Sample spacing of the template (currently always 17 ms, ~60 Hz). Recorded explicitly so post-processing code does not have to hard-code the constant."
     },
     {
       "local_key": "session_metadata.calibration_snapshot.app_version",
@@ -222,12 +215,7 @@
         "motion_event": {
           "kind": "'motion'",
           "t": "number (ms since trial start; performance.now() offset)",
-          "ax": "number (m/s^2, x-axis acceleration including gravity)",
-          "ay": "number (m/s^2, y-axis acceleration including gravity)",
-          "az": "number (m/s^2, z-axis acceleration including gravity)",
-          "gx": "number (deg/s, rotationRate.beta = pitch)",
-          "gy": "number (deg/s, rotationRate.gamma = roll)",
-          "gz": "number (deg/s, rotationRate.alpha = yaw)",
+          "v": "number (m/s^2) — gravity-projected vertical user-acceleration, precomputed at capture time. Formula: dot(rawAccel - gravity, normalize(gravity)) where gravity is a running low-pass of raw accelerometer at alpha=0.1. This is the only acceleration channel that the runtime step detector and Weinberg stride estimator use, so raw 3-axis accel + gyro are not stored.",
           "rate": "~60 Hz (device-dependent)"
         },
         "timer_event": {
@@ -238,7 +226,8 @@
           "count_per_trial": "exactly 2 (one start, one stop)"
         }
       },
-      "example": "[{\"kind\":\"timer\",\"t\":0,\"event\":\"start\",\"source\":\"sensor\"},{\"kind\":\"motion\",\"t\":16,\"ax\":0.12,\"ay\":-0.31,\"az\":9.78,\"gx\":1.4,\"gy\":-0.8,\"gz\":0.2}, ...]"
+      "example": "[{\"kind\":\"timer\",\"t\":0,\"event\":\"start\",\"source\":\"sensor\"},{\"kind\":\"motion\",\"t\":16,\"v\":-0.12},{\"kind\":\"motion\",\"t\":33,\"v\":0.41}, ...]",
+      "note_v2_2": "Schema change in v2.2: raw motion events were slimmed from 8 fields (ax/ay/az/gx/gy/gz) to 3 (kind/t/v). Step detection and stride estimation only need the gravity-projected vertical scalar; raw 3-axis accel and rotation rate were unused after the v2 removal of turn detection. Cuts per-event JSON size by ~60%."
     },
     {
       "local_key": "checksum",
@@ -260,12 +249,11 @@
     "tug_end_trigger",
     "tug_cal_calibrated_at",
     "tug_cal_n_steps_used",
-    "tug_cal_n_batches",
     "tug_cal_correlation_floor",
     "tug_cal_avg_stride_length_m",
     "tug_cal_avg_step_time_ms",
-    "tug_cal_final_delta",
-    "tug_cal_detection_rate_history",
+    "tug_cal_template",
+    "tug_cal_template_dt_ms",
     "tug_cal_app_version"
   ],
   "removed_in_v2": [
@@ -308,6 +296,6 @@
     "calibration_snapshot": "The calibration provenance fields are snapshotted from UserProfile.tug_step_calibration into session_metadata at TUG trial start. Snapshotting (rather than referencing by ID) means TUG rows remain self-describing even if the participant later re-calibrates. Requires adding a calibration_snapshot block to session_metadata and a corresponding fieldMap entry per field in src/modules/tug/index.ts.",
     "end_trigger": "Trigger string comes from the TugSensorEngine phase-transition log: the final transition into the 'complete' phase carries the trigger ('stillness_detected', 'sitdown_timeout') or the active screen records 'manual' / 'safety_timeout' when those code paths fire. Active screen needs to extract this and write it to session_metadata.end_trigger.",
     "cue_distance_m": "Available at trial start in tug-active.ts (variable cueDistanceM). Needs to be stashed in session_metadata at the same point. Currently computed but discarded after sensor config is built.",
-    "detection_rate_history": "Existing field on UserProfile.tug_step_calibration is number[] (e.g. [0.8, 0.6, 0.8, 1.0]). Serialise as pipe-joined string for REDCap text storage (e.g. '0.80|0.60|0.80|1.00') so it survives CSV round-trips without ragged-column hazards."
+    "template": "Existing field on UserProfile.tug_step_calibration is number[] of length 36 (normalised, zero-mean unit-norm). Serialise as JSON text (compact, no whitespace) for REDCap text storage. Analysts decode with JSON.parse() and instantiate TemplateStepDetector to reproduce the runtime detector exactly."
   }
 }
