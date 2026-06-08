@@ -1,6 +1,7 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createHeader } from '../components/header';
 import { createFormField } from '../components/form-field';
+import { createDobPicker } from '../components/dob-picker';
 import { createButton } from '../components/button';
 import { getProfile } from '../core/db';
 import { updateProfile } from '../services/profile-service';
@@ -45,15 +46,11 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
     value: profile.name,
   });
 
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const dobField = createFormField({
+  const dobField = createDobPicker({
     id: 'edit-date-of-birth',
     label: 'Date of birth (optional)',
-    type: 'date',
     value: profile.date_of_birth ?? '',
   });
-  dobField.input.setAttribute('min', '1900-01-01');
-  dobField.input.setAttribute('max', todayISO);
 
   const saveBtn = createButton({
     text: 'Save Changes',

@@ -1,5 +1,6 @@
 import { clearContainer, createElement } from '../utils/dom';
 import { createFormField } from '../components/form-field';
+import { createDobPicker } from '../components/dob-picker';
 import { createButton } from '../components/button';
 import { validateParticipantId } from '../utils/validation';
 import { createProfile } from '../services/profile-service';
@@ -58,14 +59,10 @@ export function renderProfileSetup(container: HTMLElement): void {
     placeholder: 'Your name (local only)',
   });
 
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const dobField = createFormField({
+  const dobField = createDobPicker({
     id: 'date-of-birth',
     label: 'Date of birth (optional)',
-    type: 'date',
   });
-  dobField.input.setAttribute('min', '1900-01-01');
-  dobField.input.setAttribute('max', todayISO);
 
   form.appendChild(participantIdField.container);
   form.appendChild(nameField.container);
